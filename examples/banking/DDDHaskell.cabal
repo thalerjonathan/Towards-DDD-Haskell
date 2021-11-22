@@ -59,7 +59,7 @@ executable DDDHaskell
                     , Infrastructure.Cache.AppCache
                     , Infrastructure.DB.DbConfig
                     , Infrastructure.DB.BankingDb
-                    , Infrastructure.DB.MySQLPool
+                    , Infrastructure.DB.PgPool
                     , Infrastructure.Web.Banking 
                     , Infrastructure.Web.Server
                     , View.Rest.Api
@@ -74,6 +74,7 @@ executable DDDHaskell
   -- NOTE: to support GHC 9.0.1, set base >= 4.15.0.0
   build-depends:      base
                     , aeson
+                    , bytestring
                     , cache
                     , clock
                     , conduit
@@ -84,9 +85,8 @@ executable DDDHaskell
                     , lens
                     , monad-logger
                     , mtl
-                    , mysql
                     , persistent
-                    , persistent-mysql
+                    , persistent-postgresql
                     , persistent-template
                     , resource-pool
                     , servant-server

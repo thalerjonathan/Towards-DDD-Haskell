@@ -11,10 +11,10 @@ import qualified View.Rest.Api as Api
 import qualified View.Rest.Handlers as Handlers
 
 import Infrastructure.Cache.AppCache
-import Infrastructure.DB.MySQLPool
+import Infrastructure.DB.PgPool
 
 banking :: AppCache
-        -> MySqlPool
+        -> PgPool
         -> Application
 banking cache dbPool
     = serve Api.bankingApi server

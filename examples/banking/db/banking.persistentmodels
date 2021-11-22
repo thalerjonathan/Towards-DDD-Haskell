@@ -1,5 +1,7 @@
 -- https://github.com/yesodweb/persistent/blob/master/docs/Persistent-entity-syntax.md
 
+-- https://hackage.haskell.org/package/persistent-2.13.2.1/docs/Database-Persist-Quasi.html
+
 Customer sql=customer
     Id          sql=id
     name Text   sql=customer_name

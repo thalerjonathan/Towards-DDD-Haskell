@@ -16,7 +16,7 @@ import Control.Monad.IO.Class
 import qualified View.Rest.Api as Api
 
 import Infrastructure.Cache.AppCache 
-import Infrastructure.DB.MySQLPool
+import Infrastructure.DB.PgPool
 
 -- TODO https://www.parsonsmatt.org/2017/06/21/exceptional_servant_handling.html
 
@@ -25,40 +25,41 @@ import Infrastructure.DB.MySQLPool
 -- https://wiki.haskell.org/A_practical_Template_Haskell_Tutorial#:~:text=Template%20Haskell%20(TH)%20is%20the,the%20results%20of%20their%20execution.
 -- TODO: put Servant API definition directly here
 handleAllCustomers :: AppCache
-                   -> MySqlPool 
+                   -> PgPool 
                    -> Handler [Api.CustomerDetailsDTO]
 handleAllCustomers _cache _dbPool = do
+  
   liftIO $ print ("handleAllCustomers" :: String)
   return []
 
 handleCustomer :: AppCache
-               -> MySqlPool
+               -> PgPool
                -> Text
                -> Handler Api.CustomerDTO
 handleCustomer _cache _dbPool _customerId = undefined
 
 handleAccount :: AppCache
-              -> MySqlPool
+              -> PgPool
               -> Text
               -> Handler Api.AccountDTO
 handleAccount _cache _dbPool _accountIban = undefined
 
 handleDeposit :: AppCache
-              -> MySqlPool
+              -> PgPool
               -> Text 
               -> Double 
               -> Handler Api.CommandResponse
 handleDeposit _cache _dbPool _accountIban _amount  = undefined
 
 handleWithdraw :: AppCache
-               -> MySqlPool
+               -> PgPool
                -> Text 
                -> Double 
                -> Handler Api.CommandResponse
 handleWithdraw _cache _dbPool _iban _amount  = undefined
 
 handleTransfer :: AppCache
-               -> MySqlPool
+               -> PgPool
                -> Text 
                -> Text 
                -> Double 
