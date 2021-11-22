@@ -16,20 +16,62 @@ module Infrastructure.DB.BankingDb
   ( Entity (..)
   , Customer (..)
   , Account (..)
+  , TXLine (..)
   , CustomerId
   , AccountId
+  , TXLineId
+
+  , allCustomers
+  , customerById
+  , accountByIban
+  , accountsOfCustomer
+  , txLinesOfAccount
   ) where
 
-import           Database.Persist.Postgresql
-import           Database.Persist.Quasi
-import           Database.Persist.TH
-import           Data.Text
+import Database.Persist.Postgresql
+import Database.Persist.Quasi
+import Database.Persist.TH
+import Data.Text
+import Data.Time
 
--- import Data.Time
+import Infrastructure.DB.PgPool
 
 share [mkPersist sqlSettings]
     $(persistFileWith lowerCaseSettings "db/banking.persistentmodels")
 
+allCustomers :: PgPool -> IO [Entity Customer]
+allCustomers p = runSqlPool act (getPool p)
+  where
+    act = do selectList [] [] -- [LimitTo 10]
+
+customerById :: PgPool -> Text -> IO (Maybe (Entity Customer))
+customerById p domainId = runSqlPool act (getPool p)
+  where
+    act = do 
+      ret <- selectList [CustomerDomainId ==. domainId] [LimitTo 1]
+      if Prelude.null ret
+        then return Nothing
+        else return $ Just (Prelude.head ret)
+
+accountByIban :: PgPool -> Text -> IO (Maybe (Entity Account))
+accountByIban p iban = runSqlPool act (getPool p)
+  where
+    act = do 
+      ret <- selectList [AccountIban ==. iban] [LimitTo 1]
+      if Prelude.null ret
+        then return Nothing
+        else return $ Just (Prelude.head ret)
+
+accountsOfCustomer :: PgPool -> CustomerId -> IO [Entity Account]
+accountsOfCustomer p cid = runSqlPool act (getPool p)
+  where
+    act = do selectList [AccountOwner ==. cid] [] --[LimitTo 1]
+
+txLinesOfAccount :: PgPool -> AccountId -> IO [Entity TXLine]
+txLinesOfAccount p aid = runSqlPool act (getPool p)
+  where
+    act = do selectList [TXLineAccount ==. aid] [] --[LimitTo 1]
+      
 {-
 testPGQuery :: PgPool -> IO ()
 testPGQuery p = runSqlPool act (getPgPool p)

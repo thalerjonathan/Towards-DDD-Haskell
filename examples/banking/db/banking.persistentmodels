@@ -1,12 +1,24 @@
 -- https://github.com/yesodweb/persistent/blob/master/docs/Persistent-entity-syntax.md
-
 -- https://hackage.haskell.org/package/persistent-2.13.2.1/docs/Database-Persist-Quasi.html
 
 Customer sql=customer
-    Id          sql=id
-    name Text   sql=customer_name
+    Id              sql=customer_id
+    domainId Text   sql=customer_domain_id
+    name Text       sql=customer_name
     deriving Show
 
 Account sql=account
-    Id          sql=id
+    Id                  sql=account_id
+    owner CustomerId    sql=account_owner_id
+    iban Text           sql=account_iban
+    type Text           sql=account_type
     deriving Show
+
+TXLine sql=tx
+    Id                  sql=tx_id
+    account AccountId   sql=tx_account
+    iban Text           sql=tx_iban
+    amount Double       sql=tx_amount
+    name Text           sql=tx_name
+    reference Text      sql=tx_reference
+    time UTCTime        sql=tx_time

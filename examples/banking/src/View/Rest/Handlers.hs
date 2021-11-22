@@ -17,6 +17,7 @@ import qualified View.Rest.Api as Api
 
 import Infrastructure.Cache.AppCache 
 import Infrastructure.DB.PgPool
+import Infrastructure.DB.BankingDb as DB
 
 -- TODO https://www.parsonsmatt.org/2017/06/21/exceptional_servant_handling.html
 
@@ -27,16 +28,31 @@ import Infrastructure.DB.PgPool
 handleAllCustomers :: AppCache
                    -> PgPool 
                    -> Handler [Api.CustomerDetailsDTO]
-handleAllCustomers _cache _dbPool = do
-  
-  liftIO $ print ("handleAllCustomers" :: String)
-  return []
+handleAllCustomers _cache dbPool = do
+  cs <- liftIO $ DB.allCustomers dbPool
+  return $ Prelude.map (\(Entity _ c) -> Api.CustomerDetailsDTO {
+          Api.customerDetailsId = customerDomainId c
+        , Api.customerDetailsName = customerName c
+        }) cs
 
 handleCustomer :: AppCache
                -> PgPool
                -> Text
                -> Handler Api.CustomerDTO
-handleCustomer _cache _dbPool _customerId = undefined
+handleCustomer _cache dbPool domainId = do
+  mc <- liftIO $ DB.customerById dbPool domainId
+  case mc of 
+    Nothing -> throwError err404
+    (Just (Entity cid c)) -> do
+      as <- liftIO $ DB.accountsOfCustomer dbPool cid 
+      
+      return Api.CustomerDTO {
+        Api.customerDetails = Api.CustomerDetailsDTO {
+          Api.customerDetailsId = domainId
+        , Api.customerDetailsName = customerName c
+        }, 
+        Api.customerAccountDetails = [] -- TODO
+      }
 
 handleAccount :: AppCache
               -> PgPool

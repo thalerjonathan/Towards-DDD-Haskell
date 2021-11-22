@@ -1,8 +1,8 @@
 module Main where
 
-import Domain.Account
-import Data.UUID.V4 (nextRandom)
-import Domain.Customer (CustomerId(CustomerId))
+-- import Domain.Account
+-- import Data.UUID.V4 (nextRandom)
+-- import Domain.Customer (CustomerId(CustomerId))
 
 import Control.Monad.Logger
 import Control.Monad.Except
@@ -31,11 +31,11 @@ main = do
       dbPool <- runStdoutLoggingT $ DbPool.initPool dbBankingCfg
       cache  <- mkAppCache
       
-      uuid <- nextRandom
+      -- uuid <- nextRandom
   
-      let cid = CustomerId uuid
-          i   = Iban "AT12 12345 01234567890"
-          a0  = account cid i
+      -- let cid = CustomerId uuid
+      --     i   = Iban "AT12 12345 01234567890"
+      --     a0  = account cid i
 
       -- (a1, (ret, es)) <- execCommand a0 (Deposit 100)
       -- putStrLn $ "Account emitted DomainEvents: " ++ show es
@@ -45,15 +45,15 @@ main = do
       -- putStrLn $ "Account emitted DomainEvents: " ++ show es'
       -- putStrLn $ "Account returned: " ++ show ret'
 
-      let cmds = 
-            [ Deposit 100
-            , Withdraw 2000
-            , TransferTo i 1000 "Jonathan" "Rent" 
-            , ReceiveFrom i 1000 "Jonathan" "Rent" ]
+      -- let cmds = 
+      --       [ Deposit 100
+      --       , Withdraw 2000
+      --       , TransferTo i 1000 "Jonathan" "Rent" 
+      --       , ReceiveFrom i 1000 "Jonathan" "Rent" ]
 
-      (rets, es) <- execCommands a0 cmds
-      putStrLn $ "Account emitted DomainEvents: " ++ show es
-      putStrLn $ "Account returned: " ++ show rets
+      -- (rets, es) <- execCommands a0 cmds
+      -- putStrLn $ "Account emitted DomainEvents: " ++ show es
+      -- putStrLn $ "Account returned: " ++ show rets
 
       Server.startServer (Banking.banking cache dbPool)
 

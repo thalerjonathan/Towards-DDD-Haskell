@@ -1,7 +1,5 @@
 -- DROP DATABASE banking;
-
 -- CREATE DATABASE banking WITH TEMPLATE = template0 ENCODING = 'UTF8' LOCALE = 'en_US.UTF-8';
-
 -- \connect banking;
 
 ------------------------------------
