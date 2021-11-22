@@ -1,2 +1,2 @@
 # phoenix
-Java Spring Boot-inspired framework for writing monoliths and microserive backends in Haskell with DB mapping, caching, mail, messaging, REST, DDD, TDD, BDD, CQRS/ES support out of the box
+A Haskell framework inspired by Java Spring Boot for writing Monoliths and Microserivce backends with DB mapping and Unit of Work, Caching, Mail, Messaging, REST, DDD, TDD, BDD, CQRS/ES support out of the box.

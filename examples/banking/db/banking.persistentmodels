@@ -1,0 +1,10 @@
+-- https://github.com/yesodweb/persistent/blob/master/docs/Persistent-entity-syntax.md
+
+Customer sql=customer
+    Id          sql=id
+    name Text   sql=customer_name
+    deriving Show
+
+Account sql=account
+    Id          sql=id
+    deriving Show
