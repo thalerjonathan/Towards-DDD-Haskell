@@ -10,6 +10,7 @@ Customer sql=customer
 Account sql=account
     Id                  sql=account_id
     owner CustomerId    sql=account_owner_id
+    balance Double      sql=account_balance
     iban Text           sql=account_iban
     type Text           sql=account_type
     deriving Show

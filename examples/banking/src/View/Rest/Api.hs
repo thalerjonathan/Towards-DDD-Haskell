@@ -27,7 +27,7 @@ data CustomerDTO = CustomerDTO
 
 data AccountDetailsDTO = AccountDetailsDTO 
   { accountDetailIban    :: Text
-  , accountDetailBalance :: Text
+  , accountDetailBalance :: Double
   , accountDetailType    :: Text
   } deriving (Eq, Show, Generic, Typeable)
 

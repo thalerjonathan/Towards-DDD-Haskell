@@ -10,10 +10,10 @@ module View.Rest.Handlers
 
 import Servant
 import Data.Swagger
-import Data.Text
+import qualified Data.Text as T
 import Control.Monad.IO.Class
 
-import qualified View.Rest.Api as Api
+import View.Rest.Api
 
 import Infrastructure.Cache.AppCache 
 import Infrastructure.DB.PgPool
@@ -27,61 +27,70 @@ import Infrastructure.DB.BankingDb as DB
 -- TODO: put Servant API definition directly here
 handleAllCustomers :: AppCache
                    -> PgPool 
-                   -> Handler [Api.CustomerDetailsDTO]
+                   -> Handler [CustomerDetailsDTO]
 handleAllCustomers _cache dbPool = do
   cs <- liftIO $ DB.allCustomers dbPool
-  return $ Prelude.map (\(Entity _ c) -> Api.CustomerDetailsDTO {
-          Api.customerDetailsId = customerDomainId c
-        , Api.customerDetailsName = customerName c
-        }) cs
+  return $ map customerEntityToDetailsDTO cs
 
 handleCustomer :: AppCache
                -> PgPool
-               -> Text
-               -> Handler Api.CustomerDTO
+               -> T.Text
+               -> Handler CustomerDTO
 handleCustomer _cache dbPool domainId = do
   mc <- liftIO $ DB.customerById dbPool domainId
   case mc of 
     Nothing -> throwError err404
-    (Just (Entity cid c)) -> do
+    (Just c@(Entity cid _)) -> do
       as <- liftIO $ DB.accountsOfCustomer dbPool cid 
-      
-      return Api.CustomerDTO {
-        Api.customerDetails = Api.CustomerDetailsDTO {
-          Api.customerDetailsId = domainId
-        , Api.customerDetailsName = customerName c
-        }, 
-        Api.customerAccountDetails = [] -- TODO
-      }
+      return $ customerEntityToDTO c as
+
+customerEntityToDetailsDTO :: Entity Customer -> CustomerDetailsDTO
+customerEntityToDetailsDTO (Entity _ c) = CustomerDetailsDTO 
+  { customerDetailsId = customerDomainId c
+  , customerDetailsName = customerName c
+  }
+
+customerEntityToDTO :: Entity Customer -> [Entity Account] -> CustomerDTO
+customerEntityToDTO c as = CustomerDTO 
+  { customerDetails = customerEntityToDetailsDTO c
+  , customerAccountDetails = map accountEntityToDetailsDTO as
+  }
+
+accountEntityToDetailsDTO :: Entity Account -> AccountDetailsDTO
+accountEntityToDetailsDTO (Entity _ a) = AccountDetailsDTO 
+  { accountDetailIban = accountIban a
+  , accountDetailBalance = accountBalance a
+  , accountDetailType = accountType a
+  }
 
 handleAccount :: AppCache
               -> PgPool
-              -> Text
-              -> Handler Api.AccountDTO
+              -> T.Text
+              -> Handler AccountDTO
 handleAccount _cache _dbPool _accountIban = undefined
 
 handleDeposit :: AppCache
               -> PgPool
-              -> Text 
+              -> T.Text 
               -> Double 
-              -> Handler Api.CommandResponse
+              -> Handler CommandResponse
 handleDeposit _cache _dbPool _accountIban _amount  = undefined
 
 handleWithdraw :: AppCache
                -> PgPool
-               -> Text 
+               -> T.Text 
                -> Double 
-               -> Handler Api.CommandResponse
+               -> Handler CommandResponse
 handleWithdraw _cache _dbPool _iban _amount  = undefined
 
 handleTransfer :: AppCache
                -> PgPool
-               -> Text 
-               -> Text 
+               -> T.Text 
+               -> T.Text 
                -> Double 
-               -> Text 
-               -> Handler Api.CommandResponse
+               -> T.Text 
+               -> Handler CommandResponse
 handleTransfer _cache _dbPool _fromIban _toIban _amount _reference = undefined
 
 handleSwagger :: Handler Swagger
-handleSwagger = return Api.bankingSwagger
+handleSwagger = return bankingSwagger

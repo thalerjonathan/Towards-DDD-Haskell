@@ -88,6 +88,7 @@ executable DDDHaskell
                     , persistent
                     , persistent-postgresql
                     , persistent-template
+                    , postgresql-simple
                     , resource-pool
                     , servant-server
                     , servant-swagger
