@@ -26,6 +26,8 @@ module Infrastructure.DB.BankingDb
   , accountByIban
   , accountsOfCustomer
   , txLinesOfAccount
+  , updateAccountBalance
+  , insertTXLine
   ) where
 
 import Database.Persist.Postgresql
@@ -42,7 +44,7 @@ share [mkPersist sqlSettings]
 allCustomers :: PgPool -> IO [Entity Customer]
 allCustomers p = runSqlPool act (getPool p)
   where
-    act = do selectList [] [] -- [LimitTo 10]
+    act = selectList [] [] -- [LimitTo 10]
 
 customerById :: PgPool -> Text -> IO (Maybe (Entity Customer))
 customerById p domainId = runSqlPool act (getPool p)
@@ -65,13 +67,23 @@ accountByIban p iban = runSqlPool act (getPool p)
 accountsOfCustomer :: PgPool -> CustomerId -> IO [Entity Account]
 accountsOfCustomer p cid = runSqlPool act (getPool p)
   where
-    act = do selectList [AccountOwner ==. cid] [] --[LimitTo 1]
+    act = selectList [AccountOwner ==. cid] [] --[LimitTo 1]
 
 txLinesOfAccount :: PgPool -> AccountId -> IO [Entity TXLine]
 txLinesOfAccount p aid = runSqlPool act (getPool p)
   where
-    act = do selectList [TXLineAccount ==. aid] [] --[LimitTo 1]
-      
+    act = selectList [TXLineAccount ==. aid] [] --[LimitTo 1]
+
+updateAccountBalance :: PgPool -> AccountId -> Double -> IO ()
+updateAccountBalance p aid b = runSqlPool act (getPool p)
+  where
+    act = update aid [AccountBalance =. b]
+
+insertTXLine :: PgPool -> TXLine -> IO (Key TXLine)
+insertTXLine p tx = runSqlPool act (getPool p)
+  where
+    act = insert tx
+
 {-
 testPGQuery :: PgPool -> IO ()
 testPGQuery p = runSqlPool act (getPgPool p)

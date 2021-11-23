@@ -12,6 +12,7 @@ import Servant
 import Data.Swagger
 import qualified Data.Text as T
 import Control.Monad.IO.Class
+import Data.Time.Clock
 
 import View.Rest.Api
 
@@ -61,11 +62,20 @@ handleDeposit :: AppCache
               -> T.Text 
               -> Double 
               -> Handler CommandResponse
-handleDeposit _cache dbPool iban _amount = do
+handleDeposit _cache dbPool iban amount = do
   ma <- liftIO $ DB.accountByIban dbPool iban
   case ma of 
     Nothing -> throwError err404
-    (Just _a@(Entity _aid _)) -> do
+    (Just (Entity aid a)) -> do
+      -- TODO: check Account Type! only allowed for Giro!
+
+      now <- liftIO getCurrentTime
+      let newBalance = amount + accountBalance a 
+          newTxLine  = TXLine aid iban amount "Deposit" "Deposit" now
+
+      txId <- liftIO $ DB.insertTXLine dbPool newTxLine
+      liftIO $ print txId
+      liftIO $ DB.updateAccountBalance dbPool aid newBalance
       return $ CommandResponse True Nothing
 
 handleWithdraw :: AppCache
@@ -73,12 +83,24 @@ handleWithdraw :: AppCache
                -> T.Text 
                -> Double 
                -> Handler CommandResponse
-handleWithdraw _cache dbPool iban _amount = do
+handleWithdraw _cache dbPool iban amount = do
   ma <- liftIO $ DB.accountByIban dbPool iban
   case ma of 
     Nothing -> throwError err404
-    (Just _a@(Entity _aid _)) -> do
-      return $ CommandResponse True Nothing
+    (Just (Entity aid a)) -> do
+      -- TODO: check Account Type! only allowed for Giro!
+      let newBalance = accountBalance a - amount
+      if newBalance < -1000
+        then return $ CommandResponse False (Just "Cannot overdraw Giro account by more than -1000.0!")
+        else do
+          now <- liftIO getCurrentTime
+          let newTxLine  = TXLine aid iban (-amount) "Deposit" "Deposit" now
+
+          txId <- liftIO $ DB.insertTXLine dbPool newTxLine
+          liftIO $ print txId
+
+          liftIO $ DB.updateAccountBalance dbPool aid newBalance
+          return $ CommandResponse True Nothing
 
 handleTransfer :: AppCache
                -> PgPool
@@ -87,15 +109,31 @@ handleTransfer :: AppCache
                -> Double 
                -> T.Text 
                -> Handler CommandResponse
-handleTransfer _cache dbPool fromIban toIban _amount _reference = do
+handleTransfer _cache dbPool fromIban toIban amount reference = do
   mFrom <- liftIO $ DB.accountByIban dbPool fromIban
   case mFrom of 
     Nothing -> throwError err404
-    (Just _from@(Entity _fromAid _)) -> do
+    (Just (Entity fromAid fromAccount)) -> do
       mTo <- liftIO $ DB.accountByIban dbPool toIban
       case mTo of 
         Nothing -> throwError err404
-        (Just _to@(Entity _toAid _)) -> do
+        (Just (Entity toAid toAccount)) -> do
+          now <- liftIO getCurrentTime
+
+          -- TODO: fetch user for name in TXLine
+          let nameStr = "Transfer"
+
+          -- TODO: if accounts belong to different customers, then check if giro and below 5000
+          
+          let newFromTxLine  = TXLine fromAid toIban (-amount) nameStr reference now
+              newToTxLine    = TXLine toAid fromIban amount nameStr reference now
+
+          _ <- liftIO $ DB.insertTXLine dbPool newFromTxLine
+          _ <- liftIO $ DB.insertTXLine dbPool newToTxLine
+          
+          liftIO $ DB.updateAccountBalance dbPool fromAid (accountBalance fromAccount - amount)
+          liftIO $ DB.updateAccountBalance dbPool toAid (accountBalance toAccount - amount)
+
           return $ CommandResponse True Nothing
 
 handleSwagger :: Handler Swagger

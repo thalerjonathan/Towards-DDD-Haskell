@@ -79,9 +79,9 @@ instance ToSchema CommandResponse where
 type GetAllCustomers  = "rest" :> "customer" :> "all" :> Get '[JSON] [CustomerDetailsDTO]
 type GetCustomer      = "rest" :> "customer" :> Capture ":id" Text :> Get '[JSON] CustomerDTO
 type GetAccount       = "rest" :> "account" :> Capture ":iban" Text :> Get '[JSON] AccountDTO
-type PutDeposit       = "rest" :> "account" :> Capture ":iban" Text :> "deposit" :> Capture ":amount" Double :> Put '[JSON] CommandResponse
-type PutWithdraw      = "rest" :> "account" :> Capture ":iban" Text :> "withdraw" :> Capture ":amount" Double :> Put '[JSON] CommandResponse
-type PutTransfer      = "rest" :> "account" :> Capture ":fromIban" Text :> "transfer" :> Capture ":toIban" Text :> Capture ":amount" Double :> Capture ":reference" Text :> Put '[JSON] CommandResponse
+type PutDeposit       = "rest" :> "account" :> Capture ":iban" Text :> "deposit" :> Capture ":amount" Double :> Post '[JSON] CommandResponse
+type PutWithdraw      = "rest" :> "account" :> Capture ":iban" Text :> "withdraw" :> Capture ":amount" Double :> Post '[JSON] CommandResponse
+type PutTransfer      = "rest" :> "account" :> Capture ":fromIban" Text :> "transfer" :> Capture ":toIban" Text :> Capture ":amount" Double :> Capture ":reference" Text :> Post '[JSON] CommandResponse
 
 type BankingRestApi 
   = GetAllCustomers 
