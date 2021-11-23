@@ -40,7 +40,7 @@ data TXLineDTO = TXLineDTO
   { txLineIban      :: Text
   , txLineName      :: Text
   , txLineReference :: Text
-  , txLineAmount    :: Text
+  , txLineAmount    :: Double
   , txLineTime      :: UTCTime
   } deriving (Eq, Show, Generic, Typeable)
 

@@ -44,44 +44,41 @@ handleCustomer _cache dbPool domainId = do
       as <- liftIO $ DB.accountsOfCustomer dbPool cid 
       return $ customerEntityToDTO c as
 
-customerEntityToDetailsDTO :: Entity Customer -> CustomerDetailsDTO
-customerEntityToDetailsDTO (Entity _ c) = CustomerDetailsDTO 
-  { customerDetailsId = customerDomainId c
-  , customerDetailsName = customerName c
-  }
-
-customerEntityToDTO :: Entity Customer -> [Entity Account] -> CustomerDTO
-customerEntityToDTO c as = CustomerDTO 
-  { customerDetails = customerEntityToDetailsDTO c
-  , customerAccountDetails = map accountEntityToDetailsDTO as
-  }
-
-accountEntityToDetailsDTO :: Entity Account -> AccountDetailsDTO
-accountEntityToDetailsDTO (Entity _ a) = AccountDetailsDTO 
-  { accountDetailIban = accountIban a
-  , accountDetailBalance = accountBalance a
-  , accountDetailType = accountType a
-  }
-
 handleAccount :: AppCache
               -> PgPool
               -> T.Text
               -> Handler AccountDTO
-handleAccount _cache _dbPool _accountIban = undefined
+handleAccount _cache dbPool iban = do
+  ma <- liftIO $ DB.accountByIban dbPool iban
+  case ma of 
+    Nothing -> throwError err404
+    (Just a@(Entity aid _)) -> do
+      txs <- liftIO $ DB.txLinesOfAccount dbPool aid
+      return $ accountEntityToDTO a txs
 
 handleDeposit :: AppCache
               -> PgPool
               -> T.Text 
               -> Double 
               -> Handler CommandResponse
-handleDeposit _cache _dbPool _accountIban _amount  = undefined
+handleDeposit _cache dbPool iban _amount = do
+  ma <- liftIO $ DB.accountByIban dbPool iban
+  case ma of 
+    Nothing -> throwError err404
+    (Just _a@(Entity _aid _)) -> do
+      return $ CommandResponse True Nothing
 
 handleWithdraw :: AppCache
                -> PgPool
                -> T.Text 
                -> Double 
                -> Handler CommandResponse
-handleWithdraw _cache _dbPool _iban _amount  = undefined
+handleWithdraw _cache dbPool iban _amount = do
+  ma <- liftIO $ DB.accountByIban dbPool iban
+  case ma of 
+    Nothing -> throwError err404
+    (Just _a@(Entity _aid _)) -> do
+      return $ CommandResponse True Nothing
 
 handleTransfer :: AppCache
                -> PgPool
@@ -90,7 +87,50 @@ handleTransfer :: AppCache
                -> Double 
                -> T.Text 
                -> Handler CommandResponse
-handleTransfer _cache _dbPool _fromIban _toIban _amount _reference = undefined
+handleTransfer _cache dbPool fromIban toIban _amount _reference = do
+  mFrom <- liftIO $ DB.accountByIban dbPool fromIban
+  case mFrom of 
+    Nothing -> throwError err404
+    (Just _from@(Entity _fromAid _)) -> do
+      mTo <- liftIO $ DB.accountByIban dbPool toIban
+      case mTo of 
+        Nothing -> throwError err404
+        (Just _to@(Entity _toAid _)) -> do
+          return $ CommandResponse True Nothing
 
 handleSwagger :: Handler Swagger
 handleSwagger = return bankingSwagger
+
+accountEntityToDTO :: Entity Account -> [Entity TXLine] -> AccountDTO 
+accountEntityToDTO a txs = AccountDTO 
+  { accountDetails = accountEntityToDetailsDTO a
+  , accountTXLines = map txLineToDTO txs
+  }
+
+txLineToDTO :: Entity TXLine -> TXLineDTO
+txLineToDTO (Entity _ t) = TXLineDTO
+  { txLineIban      = tXLineIban t
+  , txLineName      = tXLineName t
+  , txLineReference = tXLineReference t
+  , txLineAmount    = tXLineAmount t
+  , txLineTime      = tXLineTime t
+  }
+
+customerEntityToDetailsDTO :: Entity Customer -> CustomerDetailsDTO
+customerEntityToDetailsDTO (Entity _ c) = CustomerDetailsDTO 
+  { customerDetailsId   = customerDomainId c
+  , customerDetailsName = customerName c
+  }
+
+customerEntityToDTO :: Entity Customer -> [Entity Account] -> CustomerDTO
+customerEntityToDTO c as = CustomerDTO 
+  { customerDetails        = customerEntityToDetailsDTO c
+  , customerAccountDetails = map accountEntityToDetailsDTO as
+  }
+
+accountEntityToDetailsDTO :: Entity Account -> AccountDetailsDTO
+accountEntityToDetailsDTO (Entity _ a) = AccountDetailsDTO 
+  { accountDetailIban    = accountIban a
+  , accountDetailBalance = accountBalance a
+  , accountDetailType    = accountType a
+  }

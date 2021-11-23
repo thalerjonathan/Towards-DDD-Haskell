@@ -15,9 +15,8 @@ import Data.Pool(Pool)
 import Conduit
 import Control.Monad.Logger
 import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString as B
-
 import Infrastructure.DB.DbConfig
+import Data.String
 
 newtype PgPool = P (Pool SqlBackend)
 
@@ -31,7 +30,7 @@ initPool :: (MonadUnliftIO m, MonadLogger m) => DbConfig -> m PgPool
 initPool cfg = P <$> createPostgresqlPoolModified connAct connStr poolConnections
   where
     setSchemaQuery :: Query
-    setSchemaQuery = C.pack $ ("SET SCHEMA 'banking';" ++ (dbSchema cfg))
+    setSchemaQuery = fromString $ "SET SCHEMA '" ++ (dbSchema cfg) ++ "';"
 
     connAct conn = do
       ret <- execute_ conn setSchemaQuery
