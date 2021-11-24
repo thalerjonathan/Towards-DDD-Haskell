@@ -1,59 +1,42 @@
 module BDD.Parsing.Step 
-  ( GherkinStep (..)
-  , parseGherkinStep
+  ( parseStepType
   ) where
   
 import Data.Void
 import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
 
+import BDD.Data.Step
+
 type Parser = Parsec Void String
 
-data GherkinStep 
-  = Given Step
-  | When Step
-  | Then Step
-  deriving Show
-
-data Step 
-  = Text String Step 
-  | Param StepParam Step 
-  | StepEnd
-  deriving Show
-
-data StepParam 
-  = Word 
-  | Int 
-  | Double 
-  deriving Show
-
-parseGherkinStep :: Parser GherkinStep
-parseGherkinStep = parseGivenStep <|> parseWhenStep <|> parseThenStep
+parseStepType :: Parser StepType
+parseStepType = parseGivenStep <|> parseWhenStep <|> parseThenStep
   where
-    parseGivenStep :: Parser GherkinStep
+    parseGivenStep :: Parser StepType
     parseGivenStep = parseGherkinStepOf "Given" Given
 
-    parseWhenStep :: Parser GherkinStep
+    parseWhenStep :: Parser StepType
     parseWhenStep = parseGherkinStepOf "When" When
 
-    parseThenStep :: Parser GherkinStep
+    parseThenStep :: Parser StepType
     parseThenStep = parseGherkinStepOf "Then" Then
 
-    parseGherkinStepOf :: String -> (Step -> GherkinStep) -> Parser GherkinStep
+    parseGherkinStepOf :: String -> (StepDefinition -> StepType) -> Parser StepType
     parseGherkinStepOf stepIdentifier f = do
       _ <- string stepIdentifier
-      e <- parseStep
+      e <- parseStepDefinition
       return $ f e
 
-    parseStep :: Parser Step
-    parseStep 
+    parseStepDefinition :: Parser StepDefinition
+    parseStepDefinition 
       = (do
         t   <- parseStepText
-        --ret <- parseStep
+        --ret <- parseStepDefinition
         return $ Text t StepEnd)
       <|> (do
         p   <- parseStepParam
-        --ret <- parseStep
+        --ret <- parseStepDefinition
         return $ Param p StepEnd) 
       <|>
         (return StepEnd)

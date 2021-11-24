@@ -1,41 +1,17 @@
-module BDD.Parsing.Feature
-  ( Feature (..)
-  , parseFeature
+module BDD.Parsing.Gherkin
+  ( parseGherkin
   ) where
   
 import Data.Void
 import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
 
+import BDD.Data.Gherkin
+
 type Parser = Parsec Void String
 
-data Feature
-  = Feature String String [Scenario]
-  deriving Show
-
-data Scenario 
-  = Scenario String Given
-  deriving Show
-
-data Step = Step String And
-  deriving Show
-
-data And 
-  = And String And 
-  | NoAnd
-  deriving Show
-
-data Given = Given Step When
-  deriving Show
-
-data When = When Step Then
-  deriving Show
-
-data Then = Then Step
-  deriving Show
-
-parseFeature :: Parser Feature
-parseFeature = do
+parseGherkin :: Parser Feature
+parseGherkin = do
     title <- parseFeatureTitle
     (desc, ss) <- parseDescAndScenarios
     return $ Feature title desc ss
@@ -64,9 +40,9 @@ parseScenario = do
     
     return 
       $ Scenario title
-        $ Given g 
-          $ When w
-            $ Then t
+        $ G g 
+          $ W w
+            $ T t
   where
     parseScenarioTitle :: Parser String
     parseScenarioTitle = do

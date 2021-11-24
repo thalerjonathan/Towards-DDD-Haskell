@@ -21,6 +21,9 @@ module Infrastructure.DB.BankingDb
   , AccountId
   , TXLineId
 
+  , insertCustomer
+  , insertAccount
+
   , allCustomers
   , customerById
   , accountByIban
@@ -40,6 +43,17 @@ import Infrastructure.DB.PgPool
 
 share [mkPersist sqlSettings]
     $(persistFileWith lowerCaseSettings "db/banking.persistentmodels")
+
+
+insertCustomer :: PgPool -> Customer -> IO (Key Customer)
+insertCustomer p cust = runSqlPool act (getPool p)
+  where
+    act = insert cust
+
+insertAccount :: PgPool -> Account -> IO (Key Account)
+insertAccount p a = runSqlPool act (getPool p)
+  where
+    act = insert a
 
 allCustomers :: PgPool -> IO [Entity Customer]
 allCustomers p = runSqlPool act (getPool p)

@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings          #-}
 module Application.Banking
   ( Exception (..)
+  , createCustomer
+  , createAccount
   , getAllCustomers
   , getCustomer
   , getAccount
@@ -11,6 +13,8 @@ module Application.Banking
 
 import qualified Data.Text as T
 import Data.Time.Clock
+import Data.UUID.V4 (nextRandom)
+import Data.UUID
 
 import View.Rest.Api
 
@@ -25,6 +29,33 @@ data Exception
   = CustomerNotFound
   | AccountNotFound
   | InvalidAccountOperation T.Text
+
+createCustomer :: AppCache
+               -> PgPool
+               -> T.Text
+               -> IO T.Text
+createCustomer _cache dbPool name = do
+  custDomainId <- toText <$> nextRandom
+
+  let cust = Customer custDomainId name
+  _cid <- DB.insertCustomer dbPool cust
+  return custDomainId
+
+createAccount :: AppCache
+              -> PgPool
+              -> T.Text
+              -> T.Text
+              -> Double
+              -> T.Text
+              -> IO (Maybe Exception)
+createAccount _cache dbPool owner iban balance t = do
+  mc <- DB.customerById dbPool owner
+  case mc of
+    Nothing -> return $ Just CustomerNotFound
+    (Just (Entity cid _)) -> do
+      let acc = Account cid balance iban t
+      _aid <- DB.insertAccount dbPool acc
+      return Nothing
 
 getAllCustomers :: AppCache
                 -> PgPool 
