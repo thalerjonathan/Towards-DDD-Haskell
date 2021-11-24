@@ -52,7 +52,8 @@ executable Banking
   main-is:             Main.hs
 
   -- Modules included in this executable, other than Main.
-  other-modules:      Domain.Account
+  other-modules:      Application.Banking
+                    , Domain.Account
                     , Domain.Customer
                     , Domain.AccountRepository
                     , Domain.CustomerRepository
@@ -120,14 +121,14 @@ executable Banking
   default-language:    Haskell2010
 
 test-suite Banking-test
-  type: exitcode-stdio-1.0
+  type:               exitcode-stdio-1.0
 
-  main-is: Spec.hs
+  main-is:            Main.hs
 
-  --other-modules:
-  --    Paths_vvvref
-
-  hs-source-dirs: test
+  other-modules:      BDD.Parsing.Feature
+                    , BDD.Parsing.Step
+  
+  hs-source-dirs:     test
 
   ghc-options:        -O2 
                       -Wall 
@@ -146,4 +147,4 @@ test-suite Banking-test
                     , megaparsec
                     , text
 
-  default-language: Haskell2010
+  default-language:   Haskell2010

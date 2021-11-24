@@ -1,5 +1,9 @@
-module BDD.StepParsing where
+module BDD.Parsing.Step 
+  ( GherkinStep (..)
+  , parseGherkinStep
+  ) where
   
+import Data.Void
 import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
 
