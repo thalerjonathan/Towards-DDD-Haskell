@@ -2,47 +2,20 @@
 {-# LANGUAGE TypeOperators      #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module View.Rest.Api where
 
 import Control.Lens
 import Data.Aeson
-import GHC.Generics
-import Data.Typeable (Typeable)
 import Servant
 import Servant.Swagger
 import Data.Swagger
+import Data.Typeable (Typeable)
+import GHC.Generics
 
 import Data.Text
-import Data.Time.Clock
 
-data CustomerDetailsDTO = CustomerDetailsDTO
-  { customerDetailsId   :: Text
-  , customerDetailsName :: Text
-  } deriving (Eq, Show, Generic, Typeable)
-
-data CustomerDTO = CustomerDTO
-  { customerDetails        :: CustomerDetailsDTO
-  , customerAccountDetails :: [AccountDetailsDTO]
-  } deriving (Eq, Show, Generic, Typeable)
-
-data AccountDetailsDTO = AccountDetailsDTO 
-  { accountDetailIban    :: Text
-  , accountDetailBalance :: Double
-  , accountDetailType    :: Text
-  } deriving (Eq, Show, Generic, Typeable)
-
-data AccountDTO = AccountDTO 
-  { accountDetails :: AccountDetailsDTO
-  , accountTXLines :: [TXLineDTO]
-  } deriving (Eq, Show, Generic, Typeable)
-
-data TXLineDTO = TXLineDTO 
-  { txLineIban      :: Text
-  , txLineName      :: Text
-  , txLineReference :: Text
-  , txLineAmount    :: Double
-  , txLineTime      :: UTCTime
-  } deriving (Eq, Show, Generic, Typeable)
+import Application.DTO
 
 data CommandResponse = CommandResponse
   { ok    :: Bool

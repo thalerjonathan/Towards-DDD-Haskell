@@ -53,6 +53,7 @@ executable Banking
 
   -- Modules included in this executable, other than Main.
   other-modules:      Application.Banking
+                    , Application.DTO
                     , Domain.Account
                     , Domain.Customer
                     , Domain.AccountRepository
@@ -127,12 +128,13 @@ test-suite Banking-test
 
   -- clean up modules... server and handlers certainly not necessary...
   other-modules:      Application.Banking
+                    , Application.DTO
                     , Infrastructure.Cache.AppCache
                     , Infrastructure.DB.BankingDb
                     , Infrastructure.DB.DbConfig
                     , Infrastructure.DB.PgPool
-                    , View.Rest.Handlers 
-                    , View.Rest.Api
+                    , BDD.Runner
+                    , BDD.Steps.AccountSteps
                     , BDD.Data.Gherkin
                     , BDD.Data.Step
                     , BDD.Parsing.Gherkin
@@ -155,14 +157,12 @@ test-suite Banking-test
                       -Wredundant-constraints
 
   build-depends:      base
-                    , aeson
                     , bytestring
                     , cache
                     , conduit
                     , clock
                     , configurator
                     , either
-                    , lens
                     , megaparsec
                     , monad-logger
                     , mtl
@@ -171,9 +171,6 @@ test-suite Banking-test
                     , persistent-template
                     , postgresql-simple
                     , resource-pool
-                    , servant-server
-                    , servant-swagger
-                    , swagger2
                     , text
                     , time
                     , unordered-containers

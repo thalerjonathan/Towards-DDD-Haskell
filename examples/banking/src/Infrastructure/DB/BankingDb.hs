@@ -44,11 +44,16 @@ import Infrastructure.DB.PgPool
 share [mkPersist sqlSettings]
     $(persistFileWith lowerCaseSettings "db/banking.persistentmodels")
 
+beginTX :: IO ()
+beginTX = undefined
 
 insertCustomer :: PgPool -> Customer -> IO (Key Customer)
 insertCustomer p cust = runSqlPool act (getPool p)
   where
-    act = insert cust
+    act = do
+      b <- ask
+      _
+      insert cust
 
 insertAccount :: PgPool -> Account -> IO (Key Account)
 insertAccount p a = runSqlPool act (getPool p)

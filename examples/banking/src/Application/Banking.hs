@@ -16,7 +16,7 @@ import Data.Time.Clock
 import Data.UUID.V4 (nextRandom)
 import Data.UUID
 
-import View.Rest.Api
+import Application.DTO
 
 import Infrastructure.Cache.AppCache 
 import Infrastructure.DB.PgPool

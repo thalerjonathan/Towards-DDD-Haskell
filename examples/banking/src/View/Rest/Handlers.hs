@@ -14,6 +14,7 @@ import qualified Data.Text as T
 import Control.Monad.IO.Class
 
 import View.Rest.Api
+import Application.DTO
 
 import Infrastructure.Cache.AppCache 
 import Application.Banking
