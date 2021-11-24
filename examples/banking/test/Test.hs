@@ -18,6 +18,8 @@ import Infrastructure.Cache.AppCache
 import Infrastructure.DB.PgPool
 import qualified Infrastructure.DB.DbConfig as DbCfg
 
+import System.IO.Unsafe
+
 type AppConfig = DbCfg.DbConfig
 
 main :: IO ()
@@ -41,11 +43,11 @@ main = do
                   "When Transferring 200.0 from Iban 'AT12 12345 01234567890' to Iban 'AT98 98765 09876543210'\n" ++
                   "Then I expect the error 'Cannot transfer from Savings account!'\n" ++
                   "And There should be a balance of 1000.0 in the account with Iban 'AT12 12345 01234567890'\n" ++
-                  "And There should be a balance of 500.0 in the account with Iban 'AT98 98765 09876543210'"
+                  "And There should be a balance of 500.0 in the account with Iban 'AT98 98765 09876543210'\n"
 
   --s <- readFile "test/resources/features/Depositing.feature"
   --print s
-  let ret = parse parseGherkin "" _scenario2
+  let ret = parse parseGherkin "" _scenario1
   case ret of
     (Left e) -> print e
     (Right f) -> do
@@ -56,34 +58,70 @@ main = do
           dbPool <- runStdoutLoggingT $ initPool dbBankingCfg
           cache  <- mkAppCache
 
-          let stepsScenario1 =
-                      [ (Given (Text "my Giro account has a balance of" (Param Double StepEnd)), 
+          let _stepsScenario1 =
+                      [ (Given 
+                          (Text "my Giro account has a balance of" 
+                            (Param Double StepEnd)), 
                           givenGiroAccountBalance cache dbPool 1234.56)
-                      , (When (Text "I deposit" (Param Double (Text "into my account" StepEnd))), 
+                      , (When 
+                          (Text "I deposit" 
+                            (Param Double 
+                              (Text "into my account" StepEnd))), 
                           whenDepositBalance cache dbPool 567.89)
-                      , (Then (Text "I should have a balance of" (Param Double (Text "in my account" StepEnd))), 
+                      , (Then 
+                          (Text "I should have a balance of" 
+                            (Param Double 
+                              (Text "in my account" StepEnd))), 
                           thenExpectNewBalance cache dbPool 1802.45)
                       ]
 
-"Given a Savings account with Iban 'AT12 12345 01234567890' and a balance of 1000.0\n" ++
-                  "And a Giro account with Iban 'AT98 98765 09876543210' and a balance of 500.0\n" ++
-                  "When Transferring 200.0 from Iban 'AT12 12345 01234567890' to Iban 'AT98 98765 09876543210'\n" ++
-                  "Then I expect the error 'Cannot transfer from Savings account!'\n" ++
-                  "And There should be a balance of 1000.0 in the account with Iban 'AT12 12345 01234567890'\n" ++
-                  "And There should be a balance of 500.0 in the account with Iban 'AT98 98765 09876543210'"
-                  
-          let stepsScenario2 =
-                      [ (Given (Text "my Giro account has a balance of" (Param Double StepEnd)), 
+          let _stepsScenario2 =
+                      [ (Given 
+                          (Text "a Savings account with Iban" 
+                            (Param Word 
+                              (Text "and a balance of" 
+                                (Param Double StepEnd)))), 
                           givenGiroAccountBalance cache dbPool 1234.56)
-                      , (When (Text "I deposit" (Param Double (Text "into my account" StepEnd))), 
-                          whenDepositBalance cache dbPool 567.89)
-                      , (Then (Text "I should have a balance of" (Param Double (Text "in my account" StepEnd))), 
-                          thenExpectNewBalance cache dbPool 1802.45)
+
+                      , (Given 
+                          (Text "a Giro account with Iban" 
+                            (Param Word 
+                              (Text "and a balance of" 
+                                (Param Double StepEnd)))), 
+                          givenGiroAccountBalance cache dbPool 1234.56)
+
+                      , (When 
+                          (Text "Transferring" 
+                            (Param Double 
+                              (Text "from Iban" 
+                                (Param Word
+                                  (Text "to Iban"
+                                    (Param Word StepEnd)))))), 
+                          givenGiroAccountBalance cache dbPool 1234.56)
+
+                      , (Then 
+                          (Text "I expect the error" 
+                            (Param Word StepEnd)), 
+                          givenGiroAccountBalance cache dbPool 1234.56)
+
+                      , (Then 
+                          (Text "There should be a balance of" 
+                            (Param Double 
+                              (Text "in the account with Iban"
+                                (Param Word StepEnd)))), 
+                          givenGiroAccountBalance cache dbPool 1234.56)
+
+                      , (Then 
+                          (Text "There should be a balance of" 
+                            (Param Double 
+                              (Text "in the account with Iban"
+                                (Param Word StepEnd)))), 
+                          givenGiroAccountBalance cache dbPool 1234.56)
                       ]
 
           let beforeScenario = putStrLn "Before Scenario"
           let afterScenario = putStrLn "After Scenario"
-          runFeature f beforeScenario afterScenario steps
+          runFeature f beforeScenario afterScenario _stepsScenario1
 
 runFeature :: Feature 
            -> IO ()
@@ -104,28 +142,74 @@ runFeature f beforeScenario afterScenario steps = do
 
 runScenario :: [(StepType, IO ())] -> Scenario -> IO ()
 runScenario steps (Scenario _ (G givenStep (W whenStep (T thenStep)))) = do
-    print givenStep
+    putStrLn $ "Given: " ++ show givenStep
+    putStrLn $ "When: " ++ show whenStep
+    putStrLn $ "Then: " ++ show thenStep
     
+    putStrLn ""
+
     mapM_ (\(t, _) -> print t) steps
 
-    matchStepAction steps givenStep "Given"
-    matchStepAction steps whenStep "When"
-    matchStepAction steps thenStep "Then"
+    putStrLn ""
+
+    givenRet <- execStepActionsFor steps givenStep "Given"
+    if not givenRet 
+      then return ()
+      else do
+        whenRet <- execStepActionsFor steps whenStep "When"
+        if not whenRet
+          then return ()
+          else do
+            _thenRet <- execStepActionsFor steps thenStep "Then"
+            return ()
 
     return ()
 
 data StepActionParam
-  = PW String
-  | PI Int
-  | PD Double
+  = ParamWord String
+  | ParamInt Int
+  | ParamDouble Double
   deriving Show
 
-matchStepAction :: [(StepType, IO ())] -> Step -> String -> IO ()
-matchStepAction steps (Step str _a) st = do
+execStepActionsFor :: [(StepType, IO ())] -> Step -> String -> IO Bool
+execStepActionsFor steps (Step stepStr stepAnd) st = do
     let stepDefs = map (\(s, act) -> (stepDefinition s, act)) $ filter (\(s, _) -> isStepType st s) steps
-    mapM_ (\def -> parseTest (parseStep def []) str) stepDefs
 
+    case findFirstParse stepDefs stepStr of
+      Nothing  -> do
+        print $ "Error: could not find matching action for " ++ st ++ ": " ++ stepStr
+        return False
+      (Just (params, _action)) -> do
+        print $ "Found matching " ++ st ++ " action for " ++ show stepStr ++ ", parsed params: " ++ show params
+        -- TODO: execute action
+        execStepActionsForAnd stepDefs stepAnd
+     
+    -- mapM_ (\def -> parseTest (parseStep def []) str) stepDefs
+    
   where
+    execStepActionsForAnd :: [(StepDefinition, IO ())] -> And -> IO Bool
+    execStepActionsForAnd _ NoAnd = return True
+    execStepActionsForAnd stepDefs (And andStr andAnd) = do
+      -- mapM_ (\def -> parseTest (parseStep def []) andStr) stepDefs
+      case findFirstParse stepDefs andStr of
+        Nothing -> do
+          print $ "Error: could not find matching action for " ++ st ++ " And:" ++ andStr
+          return False
+        (Just (params, _action)) -> do
+          print $ "Found matching " ++ st ++ " And action for " ++ show andStr ++ ", parsed params: " ++ show params
+          -- TODO: execute action
+          execStepActionsForAnd stepDefs andAnd
+
+    findFirstParse :: [(StepDefinition, IO ())] -> String -> Maybe ([StepActionParam], IO ())
+    findFirstParse (sd:sds) parseStr = 
+        case parse (parseStep sd []) "" parseStr of 
+          (Left _err)  -> unsafePerformIO (do
+            --putStrLn ""
+            --print _err
+            return $ findFirstParse sds parseStr)
+          (Right p) -> Just p
+    findFirstParse _ _ = Nothing 
+
     isStepType :: String -> StepType -> Bool
     isStepType "Given" (Given _) = True
     isStepType "When" (When _)   = True
@@ -137,30 +221,30 @@ matchStepAction steps (Step str _a) st = do
     stepDefinition (When def)  = def
     stepDefinition (Then def)  = def
 
-    parseStep :: (StepDefinition, IO ()) -> [StepActionParam] -> Parser ([StepActionParam]) 
-    parseStep ((Text stepStr cont), act) acc = do
+    parseStep :: (StepDefinition, IO ()) -> [StepActionParam] -> Parser ([StepActionParam], IO ()) 
+    parseStep ((Text s cont), act) acc = do
       hspace
-      _ <- string stepStr
+      _ <- string s
       hspace
       parseStep (cont, act) acc
 
     parseStep ((Param Word cont), act) acc = do
       _ <- char '\''
-      w <- some alphaNumChar
+      w <- some (alphaNumChar <|> spaceChar <|> char '!')
       _ <- char '\''
-      parseStep (cont, act) (acc ++ [PW w])
+      parseStep (cont, act) (acc ++ [ParamWord w])
 
     parseStep ((Param Int cont), act) acc = do
       i <- some digitChar
-      parseStep (cont, act) (acc ++ [PI $ read i])
+      parseStep (cont, act) (acc ++ [ParamInt $ read i])
 
     parseStep ((Param Double cont), act) acc = do
       p <- some digitChar
       _ <- char '.'
       c <- some digitChar
-      parseStep (cont, act) (acc ++ [PD $ read (p ++ ['.'] ++ c)])
+      parseStep (cont, act) (acc ++ [ParamDouble $ read (p ++ ['.'] ++ c)])
 
-    parseStep (StepEnd, _act) acc = return acc -- (acc, act)
+    parseStep (StepEnd, act) acc = return (acc, act)
 
 type Parser = Parsec Void String
 
