@@ -8,82 +8,118 @@ import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
 
 main :: IO ()
-main = parseTest parseGherkinStep "Given my Giro account has a balance of {double} euro"
+main = do
+  let _scenario1 = "Scenario: Deposit money into a Giro account\n" ++
+                   "Given my Giro account has a balance of 1234.56\n" ++
+                   "When I deposit 567.89 into my account\n" ++ 
+                   "Then I should have a balance of 1802.45 in my account\n"
+
+  let _scenario2 = "Feature: Transfering money between accounts\n" ++
+                   "In order to manage my money more efficiently\n" ++
+                   "As a bank client\n" ++
+                   "I want to transfer money between accounts whenever I need to.\n" ++
+                  "Scenario: Transfer money from a Savings account to another Giro account of different customers\n" ++ 
+                  "Given a Savings account with Iban 'AT12 12345 01234567890' and a balance of 1000.0\n" ++
+                  "And a Giro account with Iban 'AT98 98765 09876543210' and a balance of 500.0\n" ++
+                  "When Transferring 200.0 from Iban 'AT12 12345 01234567890' to Iban 'AT98 98765 09876543210'\n" ++
+                  "Then I expect the error 'Cannot transfer from Savings account!'\n" ++
+                  "And There should be a balance of 1000.0 in the account with Iban 'AT12 12345 01234567890'\n" ++
+                  "And There should be a balance of 500.0 in the account with Iban 'AT98 98765 09876543210'"
+
+  --s <- readFile "test/resources/features/Depositing.feature"
+  --print s
+  parseTest parseFeature _scenario2
 
 type Parser = Parsec Void String
 
-data GherkinStep 
-  = Given Step
-  | When Step
-  | Then Step
+data Feature
+  = Feature String String [Scenario]
   deriving Show
 
-data Step 
-  = Text String Step 
-  | Param StepParam Step 
-  | StepEnd
+data Scenario 
+  = Scenario String Given
   deriving Show
 
-data StepParam 
-  = Word 
-  | Int 
-  | Double 
+data Step = Step String And
   deriving Show
 
-parseGherkinStep :: Parser GherkinStep
-parseGherkinStep = parseGivenStep <|> parseWhenStep <|> parseThenStep
+data And 
+  = And String And 
+  | NoAnd
+  deriving Show
+
+data Given = Given Step When
+  deriving Show
+
+data When = When Step Then
+  deriving Show
+
+data Then = Then Step
+  deriving Show
+
+parseFeature :: Parser Feature
+parseFeature = do
+    title <- parseFeatureTitle
+    (desc, ss) <- parseDescAndScenarios
+    return $ Feature title desc ss
   where
-    parseGivenStep :: Parser GherkinStep
-    parseGivenStep = parseGherkinStepOf "Given" Given
+    parseDescAndScenarios :: Parser (String, [Scenario])
+    parseDescAndScenarios = do
+      ret <- eitherP (some parseScenario) parseLine
+      case ret of
+        (Left ss) -> return ("", ss)
+        (Right str) -> do
+          (desc, ss) <- parseDescAndScenarios
+          return (str ++ " " ++ desc, ss)
 
-    parseWhenStep :: Parser GherkinStep
-    parseWhenStep = parseGherkinStepOf "When" When
+    parseFeatureTitle :: Parser String
+    parseFeatureTitle = do
+      _ <- string "Feature:"
+      str <- parseLine
+      return str
 
-    parseThenStep :: Parser GherkinStep
-    parseThenStep = parseGherkinStepOf "Then" Then
+parseScenario :: Parser Scenario
+parseScenario = do
+    title <- parseScenarioTitle
+    g <- parseAllSteps "Given"
+    w <- parseAllSteps "When"
+    t <- parseAllSteps "Then"
+    
+    return 
+      $ Scenario title
+        $ Given g 
+          $ When w
+            $ Then t
+  where
+    parseScenarioTitle :: Parser String
+    parseScenarioTitle = do
+      _ <- string "Scenario:"
+      str <- parseLine
+      return str
 
-    parseGherkinStepOf :: String -> (Step -> GherkinStep) -> Parser GherkinStep
-    parseGherkinStepOf stepIdentifier f = do
-      _ <- string stepIdentifier
-      e <- parseStep
-      return $ f e
+    parseAllSteps :: String -> Parser Step
+    parseAllSteps step = do
+      s  <- parseStep step
+      ss <- many $ parseStep "And"
+      let as = foldr (\str a -> And str a) NoAnd ss
+      return $ Step s as
 
-    parseStep :: Parser Step
-    parseStep 
-      = (do
-        t   <- parseStepText
-        --ret <- parseStep
-        return $ Text t StepEnd)
-      <|> (do
-        p   <- parseStepParam
-        --ret <- parseStep
-        return $ Param p StepEnd) 
-      <|>
-        (return StepEnd)
 
-    parseStepText :: Parser String
-    parseStepText = many (alphaNumChar <|> spaceChar)
+    parseStep :: String -> Parser String
+    parseStep step = do
+      _ <- string step
+      hspace
+      str <- many $ printChar
+      space1 <|> eof
+      return str
 
-    parseStepParam :: Parser StepParam
-    parseStepParam = do
-        _ <- char '{'
-        ret <- parseDouble <|> parseInt <|> parseWord
-        _ <- char '}'
-        return ret
-      where
-        parseDouble :: Parser StepParam
-        parseDouble = parseStepParamOf "double" Double
-
-        parseInt :: Parser StepParam
-        parseInt = parseStepParamOf "int" Int
-
-        parseWord :: Parser StepParam
-        parseWord = parseStepParamOf "word" Word
-
-        parseStepParamOf :: String -> StepParam -> Parser StepParam
-        parseStepParamOf paramIdentifier p = do
-          _ <- string paramIdentifier
-          return p
+parseLine :: Parser String
+parseLine = do
+  hspace
+  str <- many $ printChar
+  hspace
+  _ <- newline
+  return str
 
 {-
 parseGiven :: Parser String
