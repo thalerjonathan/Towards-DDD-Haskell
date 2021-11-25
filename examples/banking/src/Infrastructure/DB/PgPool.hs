@@ -7,11 +7,12 @@ module Infrastructure.DB.PgPool
   ( PgPool
   , getPool
   , initPool
+  , runWithConnection
   ) where
 
 import Database.PostgreSQL.Simple
 import Database.Persist.Postgresql
-import Data.Pool(Pool)
+import Data.Pool(Pool, withResource)
 import Conduit
 import Control.Monad.Logger
 import qualified Data.ByteString.Char8 as C
@@ -23,19 +24,23 @@ newtype PgPool = P (Pool SqlBackend)
 poolConnections :: Int
 poolConnections = 5
 
+runWithConnection :: PgPool -> (SqlBackend -> IO a) -> IO a
+runWithConnection (P p) act = withResource p act
+
 getPool :: PgPool -> Pool SqlBackend
 getPool (P p) = p
 
-initPool :: (MonadUnliftIO m, MonadLogger m) => DbConfig -> m PgPool
+initPool :: (MonadUnliftIO m, MonadLoggerIO m) => DbConfig -> m PgPool
 initPool cfg = P <$> createPostgresqlPoolModified connAct connStr poolConnections
   where
+    -- NOTE: need to enclose in BEGIN / COMMIT to avoid 'WARNING: there is no transaction in progress'
     setSchemaQuery :: Query
-    setSchemaQuery = fromString $ "SET SCHEMA '" ++ (dbSchema cfg) ++ "';"
+    setSchemaQuery = fromString $ "BEGIN; SET SCHEMA '" ++ (dbSchema cfg) ++ "'; COMMIT;"
 
     connAct conn = do
+      putStrLn "Before Set schema"
       ret <- execute_ conn setSchemaQuery
-      print ret
-      return ()
+      putStrLn $ "After Set schema, returned " ++ show ret
   
     connStr = C.pack $ 
       "host="      ++ dbHost cfg ++ 

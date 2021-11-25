@@ -31,7 +31,7 @@ handleAllCustomers :: AppCache
                    -> PgPool 
                    -> Handler [CustomerDetailsDTO]
 handleAllCustomers cache p = 
-  liftIO $ DB.runTransaction p $ \conn -> do
+  liftIO $ DB.runWithTX p $ \conn -> do
     getAllCustomers cache conn
 
 handleCustomer :: AppCache
@@ -39,7 +39,7 @@ handleCustomer :: AppCache
                -> T.Text
                -> Handler CustomerDTO
 handleCustomer cache p customerId = do
-  ret <- liftIO $ DB.runTransaction p $ \conn -> getCustomer cache conn customerId
+  ret <- liftIO $ DB.runWithTX p $ \conn -> getCustomer cache conn customerId
   case ret of 
     (Left _) -> throwError err404
     (Right cust) -> return cust
@@ -49,7 +49,7 @@ handleAccount :: AppCache
               -> T.Text
               -> Handler AccountDTO
 handleAccount cache p iban = do
-  ret <- liftIO $ DB.runTransaction p $ \conn -> getAccount cache conn iban
+  ret <- liftIO $ DB.runWithTX p $ \conn -> getAccount cache conn iban
   case ret of 
     (Left _) -> throwError err404
     (Right a) -> return a
@@ -60,7 +60,7 @@ handleDeposit :: AppCache
               -> Double 
               -> Handler CommandResponse
 handleDeposit cache p iban amount = do
-  ret <- liftIO $ DB.runTransaction p $ \conn -> deposit cache conn iban amount
+  ret <- liftIO $ DB.runWithTX p $ \conn -> deposit cache conn iban amount
   case ret of 
     (Just (InvalidAccountOperation str)) -> return $ CommandResponse False (Just str)
     (Just _) -> throwError err404
@@ -72,7 +72,7 @@ handleWithdraw :: AppCache
                -> Double 
                -> Handler CommandResponse
 handleWithdraw cache p iban amount = do
-  ret <- liftIO $ DB.runTransaction p $ \conn -> withdraw cache conn iban amount
+  ret <- liftIO $ DB.runWithTX p $ \conn -> withdraw cache conn iban amount
   case ret of 
     (Just (InvalidAccountOperation str)) -> return $ CommandResponse False (Just str)
     (Just _) -> throwError err404
@@ -86,7 +86,7 @@ handleTransfer :: AppCache
                -> T.Text 
                -> Handler CommandResponse
 handleTransfer cache p fromIban toIban amount reference = do
-  ret <- liftIO $ DB.runTransaction p $ \conn -> transfer cache conn fromIban toIban amount reference
+  ret <- liftIO $ DB.runWithTX p $ \conn -> transfer cache conn fromIban toIban amount reference
   case ret of 
     (Just (InvalidAccountOperation str)) -> return $ CommandResponse False (Just str)
     (Just _) -> throwError err404

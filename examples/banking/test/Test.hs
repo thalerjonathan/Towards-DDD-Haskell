@@ -47,7 +47,7 @@ main = do
   let ret = parse parseGherkin "" _scenario1
   case ret of
     (Left e) -> print e
-    (Right f) -> do
+    (Right feat) -> do
       eCfgs <- runExceptT loadConfigs
       case eCfgs of
         (Left err) -> putStrLn $ "Failed loading configs: \n  " ++ err ++ "\n\nExit!"
@@ -110,21 +110,20 @@ main = do
           --                 givenGiroAccountBalance cache dbPool 1234.56)
           --             ]
 
-          -- TODO: start transaction in before and rollback transaction in after
-          let aroundScenario = 
-                              (\scenarioAction -> do
-                                putStrLn "Before Scenario"
-                                
-                                _ <- DB.runTransaction dbPool $ \conn -> do
-                                  _ <- scenarioAction conn
-                                  liftIO $ runReaderT (transactionUndo) (conn)
-                                  return ()
+          runFeature 
+            feat
+            (\scenarioAction -> do
+              putStrLn "Before Scenario"
+              
+              runWithConnection dbPool $ \conn -> do 
+                putStrLn "BEGIN TX"
+                beginTX conn
+                _ <- scenarioAction conn
+                putStrLn "ROLLBACK TX"
+                liftIO $ runReaderT transactionUndo conn
 
-                                putStrLn "After Scenario"
-                              )
-
-          runFeature f aroundScenario _stepsScenario1
-
+              putStrLn "After Scenario"
+            ) _stepsScenario1
 
 dbBankingCfgFile :: String
 dbBankingCfgFile = "db.banking.conf"

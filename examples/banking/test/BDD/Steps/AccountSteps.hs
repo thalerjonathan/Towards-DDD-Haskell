@@ -18,8 +18,10 @@ givenGiroAccountBalance :: AppCache
                         -> StepAction SqlBackend
 givenGiroAccountBalance cache conn [ParamDouble balance]  = do
   let iban = "AT99 99999 9999999999"
+  putStrLn "givenGiroAccountBalance begin"
   owner <- createCustomer cache conn "Jonathan"
   _ <- createAccount cache conn owner iban balance "GIRO"
+  putStrLn "givenGiroAccountBalance end"
   return ()
 givenGiroAccountBalance _ _ _ = Prelude.error "Invalid params in givenGiroAccountBalance"
 
