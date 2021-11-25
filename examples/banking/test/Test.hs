@@ -6,13 +6,16 @@ import BDD.Parsing.Gherkin
 import BDD.Steps.AccountSteps
 import BDD.Runner
 
+import Control.Monad.Reader
 import Control.Monad.Logger
 import Control.Monad.Except
 import Data.Either.Combinators
 
+import Database.Persist.Sql
 import Infrastructure.Cache.AppCache
 import Infrastructure.DB.PgPool
 import qualified Infrastructure.DB.DbConfig as DbCfg
+import Infrastructure.DB.BankingDb as DB
 
 type AppConfig = DbCfg.DbConfig
 
@@ -54,13 +57,13 @@ main = do
 
           let _stepsScenario1 =
                       [ (givenGiroAccountBalanceStep, 
-                         givenGiroAccountBalance cache dbPool)
+                         givenGiroAccountBalance cache)
                       , 
                         (whenDepositBalanceStep,
-                         whenDepositBalance cache dbPool)
+                         whenDepositBalance cache)
                       , 
                         ( thenExpectNewBalanceStep,
-                          thenExpectNewBalance cache dbPool)
+                          thenExpectNewBalance cache)
                       ]
 
           -- let _stepsScenario2 =
@@ -108,9 +111,19 @@ main = do
           --             ]
 
           -- TODO: start transaction in before and rollback transaction in after
-          let beforeScenario = putStrLn "Before Scenario"
-          let afterScenario = putStrLn "After Scenario"
-          runFeature f beforeScenario afterScenario _stepsScenario1
+          let aroundScenario = 
+                              (\scenarioAction -> do
+                                putStrLn "Before Scenario"
+                                
+                                _ <- DB.runTransaction dbPool $ \conn -> do
+                                  _ <- scenarioAction conn
+                                  liftIO $ runReaderT (transactionUndo) (conn)
+                                  return ()
+
+                                putStrLn "After Scenario"
+                              )
+
+          runFeature f aroundScenario _stepsScenario1
 
 
 dbBankingCfgFile :: String

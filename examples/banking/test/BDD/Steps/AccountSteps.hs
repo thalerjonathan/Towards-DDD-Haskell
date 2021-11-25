@@ -3,10 +3,11 @@ module BDD.Steps.AccountSteps where
 import BDD.Runner
 import BDD.Data.Step
 
+import Database.Persist.Postgresql
+
 import Application.DTO
 import Application.Banking
 import Infrastructure.Cache.AppCache
-import Infrastructure.DB.PgPool
 
 -- Given my Giro account has a balance of {double}
 givenGiroAccountBalanceStep :: StepType
@@ -14,12 +15,11 @@ givenGiroAccountBalanceStep = Given
                                 (Text "my Giro account has a balance of" 
                                   (Param Double StepEnd)) 
 givenGiroAccountBalance :: AppCache
-                        -> PgPool
-                        -> StepAction
-givenGiroAccountBalance cache pool [ParamDouble balance]  = do
+                        -> StepAction SqlBackend
+givenGiroAccountBalance cache conn [ParamDouble balance]  = do
   let iban = "AT99 99999 9999999999"
-  owner <- createCustomer cache pool "Jonathan"
-  _ <- createAccount cache pool owner iban balance "GIRO"
+  owner <- createCustomer cache conn "Jonathan"
+  _ <- createAccount cache conn owner iban balance "GIRO"
   return ()
 givenGiroAccountBalance _ _ _ = Prelude.error "Invalid params in givenGiroAccountBalance"
 
@@ -30,11 +30,10 @@ whenDepositBalanceStep = When
                             (Param Double 
                               (Text "into my account" StepEnd)))
 whenDepositBalance :: AppCache
-                   -> PgPool
-                   -> StepAction
-whenDepositBalance cache pool [ParamDouble balance] = do
+                   -> StepAction SqlBackend
+whenDepositBalance cache conn [ParamDouble balance] = do
   let iban = "AT99 99999 9999999999"
-  _ <- deposit cache pool iban balance
+  _ <- deposit cache conn iban balance
   return ()
 whenDepositBalance _ _ _ = Prelude.error "Invalid params in whenDepositBalance"
 
@@ -45,11 +44,10 @@ thenExpectNewBalanceStep = Then
                               (Param Double 
                                 (Text "in my account" StepEnd)))
 thenExpectNewBalance :: AppCache
-                     -> PgPool
-                     -> StepAction
-thenExpectNewBalance cache pool [ParamDouble expectedBalance] = do
+                     -> StepAction SqlBackend
+thenExpectNewBalance cache conn [ParamDouble expectedBalance] = do
   let iban = "AT99 99999 9999999999"
-  ret <- getAccount cache pool iban
+  ret <- getAccount cache conn iban
   case ret of
     (Left _) -> Prelude.error "Account Not Found!"
     (Right a) -> do

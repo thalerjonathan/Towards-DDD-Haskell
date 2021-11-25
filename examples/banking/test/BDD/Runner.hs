@@ -15,27 +15,20 @@ data StepActionParam
   | ParamDouble Double
   deriving Show
 
-type StepAction = [StepActionParam] -> IO ()
+type StepAction s = s -> [StepActionParam] -> IO ()
 
 runFeature :: Feature 
+           -> ((s -> IO ()) -> IO ())
+           -> [(StepType, StepAction s)] 
            -> IO ()
-           -> IO ()
-           -> [(StepType, StepAction)] 
-           -> IO ()
-runFeature f beforeScenario afterScenario steps = do
-  -- TODO: run each scenario in separate transaction and roll back at the end to avoid persistent changes to DB. Implement through BeforeScenario
-
-  let (Feature _ _ ss) = f
-
+runFeature (Feature _ _ ss) aroundScenario steps = do
   mapM_ (\s -> do 
-    beforeScenario
-    runScenario steps s
-    afterScenario) ss
+    aroundScenario (\state -> do
+      runScenario steps s state)
+    ) ss
 
-  return ()
-
-runScenario :: [(StepType, StepAction)] -> Scenario -> IO ()
-runScenario steps (Scenario _ (G givenStep (W whenStep (T thenStep)))) = do
+runScenario :: [(StepType, StepAction s)] -> Scenario -> s -> IO ()
+runScenario steps (Scenario _ (G givenStep (W whenStep (T thenStep)))) state = do
     putStrLn $ "Given: " ++ show givenStep
     putStrLn $ "When: " ++ show whenStep
     putStrLn $ "Then: " ++ show thenStep
@@ -46,21 +39,21 @@ runScenario steps (Scenario _ (G givenStep (W whenStep (T thenStep)))) = do
 
     putStrLn ""
 
-    givenRet <- execStepActionsFor steps givenStep "Given"
+    givenRet <- execStepActionsFor steps givenStep "Given" state
     if not givenRet 
       then return ()
       else do
-        whenRet <- execStepActionsFor steps whenStep "When"
+        whenRet <- execStepActionsFor steps whenStep "When" state
         if not whenRet
           then return ()
           else do
-            _thenRet <- execStepActionsFor steps thenStep "Then"
+            _thenRet <- execStepActionsFor steps thenStep "Then" state
             return ()
 
     return ()
 
-execStepActionsFor :: [(StepType, StepAction)] -> Step -> String -> IO Bool
-execStepActionsFor steps (Step stepStr stepAnd) st = do
+execStepActionsFor :: [(StepType, StepAction s)] -> Step -> String -> s -> IO Bool
+execStepActionsFor steps (Step stepStr stepAnd) st state = do
     let stepDefs = map (\(s, act) -> (stepDefinition s, act)) $ filter (\(s, _) -> isStepType st s) steps
 
     case findFirstParse stepDefs stepStr of
@@ -69,69 +62,65 @@ execStepActionsFor steps (Step stepStr stepAnd) st = do
         return False
       (Just (params, action)) -> do
         print $ "Found matching " ++ st ++ " action for " ++ show stepStr ++ ", parsed params: " ++ show params
-        action params
-        execStepActionsForAnd stepDefs stepAnd
-     
-    -- mapM_ (\def -> parseTest (parseStep def []) str) stepDefs
-    
-  where
-    execStepActionsForAnd :: [(StepDefinition, StepAction)] -> And -> IO Bool
-    execStepActionsForAnd _ NoAnd = return True
-    execStepActionsForAnd stepDefs (And andStr andAnd) = do
-      -- mapM_ (\def -> parseTest (parseStep def []) andStr) stepDefs
-      case findFirstParse stepDefs andStr of
-        Nothing -> do
-          print $ "Error: could not find matching action for " ++ st ++ " And:" ++ andStr
-          return False
-        (Just (params, action)) -> do
-          print $ "Found matching " ++ st ++ " And action for " ++ show andStr ++ ", parsed params: " ++ show params
-          action params
-          execStepActionsForAnd stepDefs andAnd
+        action state params
+        execStepActionsForAnd stepDefs stepAnd st state
 
-    findFirstParse :: [(StepDefinition, StepAction)] -> String -> Maybe ([StepActionParam], StepAction)
-    findFirstParse (sd:sds) parseStr = 
-        case parse (parseStep sd []) "" parseStr of 
-          (Left _err)  -> unsafePerformIO (do
-            --putStrLn ""
-            --print _err
-            return $ findFirstParse sds parseStr)
-          (Right p) -> Just p
-    findFirstParse _ _ = Nothing 
+execStepActionsForAnd :: [(StepDefinition, StepAction s)] -> And -> String -> s -> IO Bool
+execStepActionsForAnd _ NoAnd _ _ = return True
+execStepActionsForAnd stepDefs (And andStr andAnd) st state = do
+  case findFirstParse stepDefs andStr of
+    Nothing -> do
+      print $ "Error: could not find matching action for " ++ st ++ " And:" ++ andStr
+      return False
+    (Just (params, action)) -> do
+      print $ "Found matching " ++ st ++ " And action for " ++ show andStr ++ ", parsed params: " ++ show params
+      action state params
+      execStepActionsForAnd stepDefs andAnd st state
 
-    isStepType :: String -> StepType -> Bool
-    isStepType "Given" (Given _) = True
-    isStepType "When" (When _)   = True
-    isStepType "Then" (Then _)   = True
-    isStepType _ _               = False
+findFirstParse :: [(StepDefinition, StepAction s)] -> String -> Maybe ([StepActionParam], StepAction s)
+findFirstParse (sd:sds) parseStr = 
+    case parse (parseStep sd []) "" parseStr of 
+      (Left _err)  -> unsafePerformIO (do
+        --putStrLn ""
+        --print _err
+        return $ findFirstParse sds parseStr)
+      (Right p) -> Just p
+findFirstParse _ _ = Nothing 
 
-    stepDefinition :: StepType -> StepDefinition
-    stepDefinition (Given def) = def
-    stepDefinition (When def)  = def
-    stepDefinition (Then def)  = def
+isStepType :: String -> StepType -> Bool
+isStepType "Given" (Given _) = True
+isStepType "When" (When _)   = True
+isStepType "Then" (Then _)   = True
+isStepType _ _               = False
 
-    parseStep :: (StepDefinition, StepAction) -> [StepActionParam] -> Parser ([StepActionParam], StepAction) 
-    parseStep ((Text s cont), act) acc = do
-      hspace
-      _ <- string s
-      hspace
-      parseStep (cont, act) acc
+stepDefinition :: StepType -> StepDefinition
+stepDefinition (Given def) = def
+stepDefinition (When def)  = def
+stepDefinition (Then def)  = def
 
-    parseStep ((Param Word cont), act) acc = do
-      _ <- char '\''
-      w <- some (alphaNumChar <|> spaceChar <|> char '!')
-      _ <- char '\''
-      parseStep (cont, act) (acc ++ [ParamWord w])
+parseStep :: (StepDefinition, StepAction s) -> [StepActionParam] -> Parser ([StepActionParam], StepAction s) 
+parseStep ((Text s cont), act) acc = do
+  hspace
+  _ <- string s
+  hspace
+  parseStep (cont, act) acc
 
-    parseStep ((Param Int cont), act) acc = do
-      i <- some digitChar
-      parseStep (cont, act) (acc ++ [ParamInt $ read i])
+parseStep ((Param Word cont), act) acc = do
+  _ <- char '\''
+  w <- some (alphaNumChar <|> spaceChar <|> char '!')
+  _ <- char '\''
+  parseStep (cont, act) (acc ++ [ParamWord w])
 
-    parseStep ((Param Double cont), act) acc = do
-      p <- some digitChar
-      _ <- char '.'
-      c <- some digitChar
-      parseStep (cont, act) (acc ++ [ParamDouble $ read (p ++ ['.'] ++ c)])
+parseStep ((Param Int cont), act) acc = do
+  i <- some digitChar
+  parseStep (cont, act) (acc ++ [ParamInt $ read i])
 
-    parseStep (StepEnd, act) acc = return (acc, act)
+parseStep ((Param Double cont), act) acc = do
+  p <- some digitChar
+  _ <- char '.'
+  c <- some digitChar
+  parseStep (cont, act) (acc ++ [ParamDouble $ read (p ++ ['.'] ++ c)])
+
+parseStep (StepEnd, act) acc = return (acc, act)
 
 type Parser = Parsec Void String

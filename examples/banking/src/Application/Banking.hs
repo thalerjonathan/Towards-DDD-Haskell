@@ -18,8 +18,8 @@ import Data.UUID
 
 import Application.DTO
 
+import Database.Persist.Postgresql
 import Infrastructure.Cache.AppCache 
-import Infrastructure.DB.PgPool
 import Infrastructure.DB.BankingDb as DB
 
 -- TODO: transaction boundaries!
@@ -31,70 +31,70 @@ data Exception
   | InvalidAccountOperation T.Text
 
 createCustomer :: AppCache
-               -> PgPool
+               -> SqlBackend
                -> T.Text
                -> IO T.Text
-createCustomer _cache dbPool name = do
+createCustomer _cache conn name = do
   custDomainId <- toText <$> nextRandom
 
   let cust = Customer custDomainId name
-  _cid <- DB.insertCustomer dbPool cust
+  _cid <- DB.insertCustomer conn cust
   return custDomainId
 
 createAccount :: AppCache
-              -> PgPool
+              -> SqlBackend
               -> T.Text
               -> T.Text
               -> Double
               -> T.Text
               -> IO (Maybe Exception)
-createAccount _cache dbPool owner iban balance t = do
-  mc <- DB.customerById dbPool owner
+createAccount _cache conn owner iban balance t = do
+  mc <- DB.customerById conn owner
   case mc of
     Nothing -> return $ Just CustomerNotFound
     (Just (Entity cid _)) -> do
       let acc = Account cid balance iban t
-      _aid <- DB.insertAccount dbPool acc
+      _aid <- DB.insertAccount conn acc
       return Nothing
 
 getAllCustomers :: AppCache
-                -> PgPool 
+                -> SqlBackend 
                 -> IO [CustomerDetailsDTO]
-getAllCustomers _cache dbPool = do
-  cs <- DB.allCustomers dbPool
+getAllCustomers _cache conn = do
+  cs <- DB.allCustomers conn
   return $ map customerEntityToDetailsDTO cs
 
 getCustomer :: AppCache
-            -> PgPool
+            -> SqlBackend
             -> T.Text
             -> IO (Either Exception CustomerDTO)
-getCustomer _cache dbPool cIdStr = do
-  mc <- DB.customerById dbPool cIdStr
+getCustomer _cache conn cIdStr = do
+  mc <- DB.customerById conn cIdStr
   case mc of 
     Nothing -> return $ Left CustomerNotFound
     (Just c@(Entity cid _)) -> do
-      as <- DB.accountsOfCustomer dbPool cid 
+      as <- DB.accountsOfCustomer conn cid 
       return $ Right $ customerEntityToDTO c as
 
 getAccount :: AppCache
-           -> PgPool
+           -> SqlBackend
            -> T.Text
            -> IO (Either Exception AccountDTO)
-getAccount _cache dbPool iban = do
-  ma <- DB.accountByIban dbPool iban
+getAccount _cache conn iban = do
+  ma <- DB.accountByIban conn iban
   case ma of 
     Nothing -> return $ Left AccountNotFound
     (Just a@(Entity aid _)) -> do
-      txs <- DB.txLinesOfAccount dbPool aid
+      txs <- DB.txLinesOfAccount conn aid
       return $ Right $ accountEntityToDTO a txs
 
 deposit :: AppCache
-        -> PgPool
+        -> SqlBackend
         -> T.Text 
         -> Double 
         -> IO (Maybe Exception)
-deposit _cache dbPool iban amount = do
-  ma <- DB.accountByIban dbPool iban
+deposit _cache conn iban amount = do
+  ma <- DB.accountByIban conn iban
   case ma of 
     Nothing -> return $ Just AccountNotFound
     (Just (Entity aid a)) -> do
@@ -104,18 +104,18 @@ deposit _cache dbPool iban amount = do
       let newBalance = amount + accountBalance a 
           newTxLine  = TXLine aid iban amount "Deposit" "Deposit" now
 
-      txId <- DB.insertTXLine dbPool newTxLine
+      txId <- DB.insertTXLine conn newTxLine
       print txId
-      DB.updateAccountBalance dbPool aid newBalance
+      DB.updateAccountBalance conn aid newBalance
       return Nothing
 
 withdraw :: AppCache
-         -> PgPool
+         -> SqlBackend
          -> T.Text 
          -> Double 
          -> IO (Maybe Exception)
-withdraw _cache dbPool iban amount = do
-  ma <- DB.accountByIban dbPool iban
+withdraw _cache conn iban amount = do
+  ma <- DB.accountByIban conn iban
   case ma of 
     Nothing -> return $ Just AccountNotFound
     (Just (Entity aid a)) -> do
@@ -127,26 +127,26 @@ withdraw _cache dbPool iban amount = do
           now <- getCurrentTime
           let newTxLine  = TXLine aid iban (-amount) "Deposit" "Deposit" now
 
-          txId <- DB.insertTXLine dbPool newTxLine
+          txId <- DB.insertTXLine conn newTxLine
           print txId
 
-          DB.updateAccountBalance dbPool aid newBalance
+          DB.updateAccountBalance conn aid newBalance
 
           return Nothing
 
 transfer :: AppCache 
-         -> PgPool
+         -> SqlBackend
          -> T.Text 
          -> T.Text 
          -> Double 
          -> T.Text 
          -> IO (Maybe Exception)
-transfer _cache dbPool fromIban toIban amount reference = do
-  mFrom <- DB.accountByIban dbPool fromIban
+transfer _cache conn fromIban toIban amount reference = do
+  mFrom <- DB.accountByIban conn fromIban
   case mFrom of 
     Nothing -> return $ Just AccountNotFound
     (Just (Entity fromAid fromAccount)) -> do
-      mTo <- DB.accountByIban dbPool toIban
+      mTo <- DB.accountByIban conn toIban
       case mTo of 
         Nothing -> return $ Just AccountNotFound
         (Just (Entity toAid toAccount)) -> do
@@ -160,11 +160,11 @@ transfer _cache dbPool fromIban toIban amount reference = do
           let newFromTxLine  = TXLine fromAid toIban (-amount) nameStr reference now
               newToTxLine    = TXLine toAid fromIban amount nameStr reference now
 
-          _ <- DB.insertTXLine dbPool newFromTxLine
-          _ <- DB.insertTXLine dbPool newToTxLine
+          _ <- DB.insertTXLine conn newFromTxLine
+          _ <- DB.insertTXLine conn newToTxLine
           
-          DB.updateAccountBalance dbPool fromAid (accountBalance fromAccount - amount)
-          DB.updateAccountBalance dbPool toAid (accountBalance toAccount - amount)
+          DB.updateAccountBalance conn fromAid (accountBalance fromAccount - amount)
+          DB.updateAccountBalance conn toAid (accountBalance toAccount - amount)
 
           return Nothing
 

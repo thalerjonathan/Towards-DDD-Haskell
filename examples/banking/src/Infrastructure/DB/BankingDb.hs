@@ -21,6 +21,8 @@ module Infrastructure.DB.BankingDb
   , AccountId
   , TXLineId
 
+  , runTransaction
+
   , insertCustomer
   , insertAccount
 
@@ -33,34 +35,39 @@ module Infrastructure.DB.BankingDb
   , insertTXLine
   ) where
 
-import Database.Persist.Postgresql
+import Database.Persist.Sql
 import Database.Persist.Quasi
 import Database.Persist.TH
 import Data.Text
 import Data.Time
-
+import Control.Monad.Reader
 import Infrastructure.DB.PgPool
 
 share [mkPersist sqlSettings]
     $(persistFileWith lowerCaseSettings "db/banking.persistentmodels")
 
-insertCustomer :: PgPool -> Customer -> IO (Key Customer)
-insertCustomer p cust = runSqlPool act (getPool p)
+runTransaction :: PgPool -> (SqlBackend -> IO a) -> IO a
+runTransaction p act = runSqlPool (do
+  conn <- ask
+  liftIO $ act conn) (getPool p)
+
+insertCustomer :: SqlBackend -> Customer -> IO (Key Customer)
+insertCustomer conn cust = runSqlConn act conn
   where
     act = insert cust
 
-insertAccount :: PgPool -> Account -> IO (Key Account)
-insertAccount p a = runSqlPool act (getPool p)
+insertAccount :: SqlBackend -> Account -> IO (Key Account)
+insertAccount conn a = runSqlConn act conn
   where
     act = insert a
 
-allCustomers :: PgPool -> IO [Entity Customer]
-allCustomers p = runSqlPool act (getPool p)
+allCustomers :: SqlBackend -> IO [Entity Customer]
+allCustomers conn = runSqlConn act conn
   where
     act = selectList [] [] -- [LimitTo 10]
 
-customerById :: PgPool -> Text -> IO (Maybe (Entity Customer))
-customerById p domainId = runSqlPool act (getPool p)
+customerById :: SqlBackend -> Text -> IO (Maybe (Entity Customer))
+customerById conn domainId = runSqlConn act conn
   where
     act = do 
       ret <- selectList [CustomerDomainId ==. domainId] [LimitTo 1]
@@ -68,8 +75,8 @@ customerById p domainId = runSqlPool act (getPool p)
         then return Nothing
         else return $ Just (Prelude.head ret)
 
-accountByIban :: PgPool -> Text -> IO (Maybe (Entity Account))
-accountByIban p iban = runSqlPool act (getPool p)
+accountByIban :: SqlBackend -> Text -> IO (Maybe (Entity Account))
+accountByIban conn iban = runSqlConn act conn
   where
     act = do 
       ret <- selectList [AccountIban ==. iban] [LimitTo 1]
@@ -77,41 +84,41 @@ accountByIban p iban = runSqlPool act (getPool p)
         then return Nothing
         else return $ Just (Prelude.head ret)
 
-accountsOfCustomer :: PgPool -> CustomerId -> IO [Entity Account]
-accountsOfCustomer p cid = runSqlPool act (getPool p)
+accountsOfCustomer :: SqlBackend -> CustomerId -> IO [Entity Account]
+accountsOfCustomer conn cid = runSqlConn act conn
   where
     act = selectList [AccountOwner ==. cid] [] --[LimitTo 1]
 
-txLinesOfAccount :: PgPool -> AccountId -> IO [Entity TXLine]
-txLinesOfAccount p aid = runSqlPool act (getPool p)
+txLinesOfAccount :: SqlBackend -> AccountId -> IO [Entity TXLine]
+txLinesOfAccount conn aid = runSqlConn act conn
   where
     act = selectList [TXLineAccount ==. aid] [] --[LimitTo 1]
 
-updateAccountBalance :: PgPool -> AccountId -> Double -> IO ()
-updateAccountBalance p aid b = runSqlPool act (getPool p)
+updateAccountBalance :: SqlBackend -> AccountId -> Double -> IO ()
+updateAccountBalance conn aid b = runSqlConn act conn
   where
     act = update aid [AccountBalance =. b]
 
-insertTXLine :: PgPool -> TXLine -> IO (Key TXLine)
-insertTXLine p tx = runSqlPool act (getPool p)
+insertTXLine :: SqlBackend -> TXLine -> IO (Key TXLine)
+insertTXLine conn tx = runSqlConn act conn
   where
     act = insert tx
 
 {-
 testPGQuery :: PgPool -> IO ()
-testPGQuery p = runSqlPool act (getPgPool p)
+testPGQuery p = runSqlConn act (getPgPool p)
   where
     act = do
       rs <- selectList [] [LimitTo 10]
       mapM_ (\r -> liftIO $ print (r :: Entity VVVUser)) rs
 
 allVVVUsers :: PgPool -> IO [Entity VVVUser]
-allVVVUsers p = runSqlPool act (getPgPool p)
+allVVVUsers p = runSqlConn act (getPgPool p)
   where
     act = do selectList [] [LimitTo 10]
 
 vvvUserByName :: PgPool -> Text -> IO (Maybe (Entity VVVUser))
-vvvUserByName p name = runSqlPool act (getPgPool p)
+vvvUserByName p name = runSqlConn act (getPgPool p)
   where
     act = do 
       ret <- selectList [VVVUserName ==. name] [LimitTo 1]
@@ -123,7 +130,7 @@ createVVVUser :: PgPool -> Text -> Text -> Text -> IO (Entity VVVUser)
 createVVVUser p name email password = do
     let u = VVVUser 1 name email password False Nothing False Nothing Nothing
     let act = insert u
-    key <- runSqlPool act (getPgPool p)
+    key <- runSqlConn act (getPgPool p)
     return $ Entity key u
 
 vvvUserNameFromEntity :: Entity VVVUser -> Text
