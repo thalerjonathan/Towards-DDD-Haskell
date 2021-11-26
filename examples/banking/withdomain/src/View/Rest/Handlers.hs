@@ -1,3 +1,5 @@
+{-# LANGUAGE QuasiQuotes     #-}
+{-# LANGUAGE TemplateHaskell #-}
 module View.Rest.Handlers 
   ( handleAllCustomers
   , handleCustomer
@@ -20,17 +22,25 @@ import Infrastructure.Cache.AppCache
 import Application.Banking
 import Infrastructure.DB.Pool as Pool
 
+import View.Rest.Generator
+
 -- TODO https://www.parsonsmatt.org/2017/06/21/exceptional_servant_handling.html
 
 -- TODO: use template haskell to annotate functions with REST endpoints just like in Spring
 -- and generate the REST API and all code for handling it automatically
 -- https://wiki.haskell.org/A_practical_Template_Haskell_Tutorial#:~:text=Template%20Haskell%20(TH)%20is%20the,the%20results%20of%20their%20execution.
 -- TODO: put Servant API definition directly here
+
+[rest|
+type HandleAllCustomers  = "rest" :> "customer" :> "all" :> Get '[JSON] [CustomerDetailsDTO]
+|]
 handleAllCustomers :: AppCache
                    -> DbPool 
                    -> Handler [CustomerDetailsDTO]
 handleAllCustomers cache p = 
   liftIO $ Pool.runWithTX p (getAllCustomers cache)
+
+genServer ['handleAllCustomers]
 
 handleCustomer :: AppCache
                -> DbPool

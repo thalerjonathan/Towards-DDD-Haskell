@@ -1,3 +1,5 @@
+{-# LANGUAGE QuasiQuotes     #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Steps.AccountSteps where
 
 import Test.Cucumber.Runner
@@ -5,13 +7,19 @@ import Test.Cucumber.Data.Step
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.State (get, put)
 
+import Test.Cucumber.Generator.StepDefinition ( given )
+
 type AccountStepsData = Maybe Double
+
+givenGiroAccountBalanceStepGenerated :: StepType
+givenGiroAccountBalanceStepGenerated = [given|my Giro account has a balance of {double}|]
 
 -- Given my Giro account has a balance of {double}
 givenGiroAccountBalanceStep :: StepType
 givenGiroAccountBalanceStep = Given 
                                 (Text "my Giro account has a balance of" 
-                                  (Param Double StepEnd)) 
+                                  (Param Double StepEnd))
+
 givenGiroAccountBalance :: StepAction AccountStepsData
 givenGiroAccountBalance [ParamDouble initialBalance]  = do
   liftIO $ putStrLn "givenGiroAccountBalance begin"

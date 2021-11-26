@@ -66,6 +66,7 @@ executable Banking
                     , Infrastructure.Web.Server
                     , View.Rest.Api
                     , View.Rest.Handlers 
+                    , View.Rest.Generator
 
   -- LANGUAGE extensions used by modules in this package.
   default-extensions:   OverloadedStrings
@@ -96,6 +97,7 @@ executable Banking
                     , servant-swagger
                     , swagger2
                     , text
+                    , template-haskell
                     , time
                     , unordered-containers
                     , uuid
