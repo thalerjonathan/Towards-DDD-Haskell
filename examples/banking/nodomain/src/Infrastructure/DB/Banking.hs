@@ -30,6 +30,7 @@ module Infrastructure.DB.Banking
 
   , allCustomers
   , customerById
+  , customerByCustomerId
   , accountByIban
   , accountsOfCustomer
   , txLinesOfAccount
@@ -79,6 +80,9 @@ customerById domainId = executeActionWithoutTX act
       if Prelude.null ret
         then return Nothing
         else return $ Just (Prelude.head ret)
+
+customerByCustomerId :: CustomerId -> SqlBackend -> IO (Maybe Customer)
+customerByCustomerId cid = executeActionWithoutTX (get cid)
 
 accountByIban :: Text -> SqlBackend -> IO (Maybe (Entity Account))
 accountByIban iban = executeActionWithoutTX act

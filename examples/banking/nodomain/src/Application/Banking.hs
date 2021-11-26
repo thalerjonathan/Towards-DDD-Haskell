@@ -161,27 +161,43 @@ transfer _cache fromIban toIban amount reference conn = do
                 then return $ Just $ InvalidAccountOperation "Transfer cannot happen with Savings account of different customers!"
                 else if amount > 5000 
                   then return $ Just $ InvalidAccountOperation "Transfer between different customers cannot exceed 5000€!"
-                  else do 
-                    -- TODO: transfer is ok
-                    return Nothing
+                  else performTransfer fromAid fromAccount toAid toAccount amount reference conn
             -- same owner, anything goes, no restrictions
             else do
-              now <- getCurrentTime
+              performTransfer fromAid fromAccount toAid toAccount amount reference conn
 
-              -- TODO: fetch customers
-              let fromName = "Transfer"
-                  toName = "Transfer"
+performTransfer :: AccountId
+                -> Account
+                -> AccountId
+                -> Account
+                -> Double
+                -> T.Text
+                -> SqlBackend
+                -> IO (Maybe Exception)
+performTransfer fromAid fromAccount toAid toAccount amount reference conn = do
+  mfc <- DB.customerByCustomerId (accountOwner fromAccount) conn
+  case mfc of 
+    Nothing -> return $ Just CustomerNotFound
+    (Just fromCustomer) -> do
+      mtc <- DB.customerByCustomerId (accountOwner toAccount) conn
+      case mtc of 
+        Nothing -> return $ Just CustomerNotFound
+        (Just toCustomer) -> do
+          let fromName = customerName fromCustomer
+              toName   = customerName toCustomer
 
-              let newFromTxLine  = TXLine fromAid toIban (-amount) toName reference now
-                  newToTxLine    = TXLine toAid fromIban amount fromName reference now
+          now <- getCurrentTime
 
-              _ <- DB.insertTXLine newFromTxLine conn
-              _ <- DB.insertTXLine newToTxLine conn
-              
-              DB.updateAccountBalance fromAid (accountBalance fromAccount - amount) conn
-              DB.updateAccountBalance toAid (accountBalance toAccount - amount) conn
+          let newFromTxLine  = TXLine fromAid (accountIban toAccount) (-amount) toName reference now
+              newToTxLine    = TXLine toAid (accountIban fromAccount) amount fromName reference now
 
-              return Nothing
+          _ <- DB.insertTXLine newFromTxLine conn
+          _ <- DB.insertTXLine newToTxLine conn
+          
+          DB.updateAccountBalance fromAid (accountBalance fromAccount - amount) conn
+          DB.updateAccountBalance toAid (accountBalance toAccount - amount) conn
+
+          return Nothing
 
 isSavings :: Account -> Bool
 isSavings a = DB.Savings == accountType a
