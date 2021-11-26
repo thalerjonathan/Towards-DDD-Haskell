@@ -20,41 +20,41 @@ import Application.DTO
 
 import Database.Persist.Postgresql
 import Infrastructure.Cache.AppCache 
-import Infrastructure.DB.BankingDb as DB
+import Infrastructure.DB.Banking as DB
 
--- TODO: transaction boundaries!
 -- TODO: use cache (invalidate upon writes!)
 
 data Exception
   = CustomerNotFound
   | AccountNotFound
   | InvalidAccountOperation T.Text
+  deriving Show
 
 createCustomer :: AppCache
-               -> SqlBackend
                -> T.Text
+               -> SqlBackend
                -> IO T.Text
-createCustomer _cache conn name = do
+createCustomer _cache name conn = do
   custDomainId <- toText <$> nextRandom
 
   let cust = Customer custDomainId name
-  _cid <- DB.insertCustomer conn cust
+  _cid <- DB.insertCustomer cust conn
   return custDomainId
 
 createAccount :: AppCache
-              -> SqlBackend
               -> T.Text
               -> T.Text
               -> Double
               -> T.Text
+              -> SqlBackend
               -> IO (Maybe Exception)
-createAccount _cache conn owner iban balance t = do
-  mc <- DB.customerById conn owner
+createAccount _cache owner iban balance t conn = do
+  mc <- DB.customerById owner conn
   case mc of
     Nothing -> return $ Just CustomerNotFound
     (Just (Entity cid _)) -> do
       let acc = Account cid balance iban t
-      _aid <- DB.insertAccount conn acc
+      _aid <- DB.insertAccount acc conn
       return Nothing
 
 getAllCustomers :: AppCache
@@ -65,36 +65,36 @@ getAllCustomers _cache conn = do
   return $ map customerEntityToDetailsDTO cs
 
 getCustomer :: AppCache
-            -> SqlBackend
             -> T.Text
+            -> SqlBackend
             -> IO (Either Exception CustomerDTO)
-getCustomer _cache conn cIdStr = do
-  mc <- DB.customerById conn cIdStr
+getCustomer _cache cIdStr conn = do
+  mc <- DB.customerById cIdStr conn
   case mc of 
     Nothing -> return $ Left CustomerNotFound
     (Just c@(Entity cid _)) -> do
-      as <- DB.accountsOfCustomer conn cid 
+      as <- DB.accountsOfCustomer cid conn
       return $ Right $ customerEntityToDTO c as
 
 getAccount :: AppCache
-           -> SqlBackend
            -> T.Text
+           -> SqlBackend
            -> IO (Either Exception AccountDTO)
-getAccount _cache conn iban = do
-  ma <- DB.accountByIban conn iban
+getAccount _cache iban conn = do
+  ma <- DB.accountByIban iban conn
   case ma of 
     Nothing -> return $ Left AccountNotFound
     (Just a@(Entity aid _)) -> do
-      txs <- DB.txLinesOfAccount conn aid
+      txs <- DB.txLinesOfAccount aid conn
       return $ Right $ accountEntityToDTO a txs
 
 deposit :: AppCache
-        -> SqlBackend
         -> T.Text 
         -> Double 
+        -> SqlBackend
         -> IO (Maybe Exception)
-deposit _cache conn iban amount = do
-  ma <- DB.accountByIban conn iban
+deposit _cache iban amount conn = do
+  ma <- DB.accountByIban iban conn
   case ma of 
     Nothing -> return $ Just AccountNotFound
     (Just (Entity aid a)) -> do
@@ -104,18 +104,18 @@ deposit _cache conn iban amount = do
       let newBalance = amount + accountBalance a 
           newTxLine  = TXLine aid iban amount "Deposit" "Deposit" now
 
-      txId <- DB.insertTXLine conn newTxLine
+      txId <- DB.insertTXLine newTxLine conn
       print txId
-      DB.updateAccountBalance conn aid newBalance
+      DB.updateAccountBalance aid newBalance conn
       return Nothing
 
 withdraw :: AppCache
-         -> SqlBackend
          -> T.Text 
          -> Double 
+         -> SqlBackend
          -> IO (Maybe Exception)
-withdraw _cache conn iban amount = do
-  ma <- DB.accountByIban conn iban
+withdraw _cache iban amount conn = do
+  ma <- DB.accountByIban iban conn
   case ma of 
     Nothing -> return $ Just AccountNotFound
     (Just (Entity aid a)) -> do
@@ -127,26 +127,26 @@ withdraw _cache conn iban amount = do
           now <- getCurrentTime
           let newTxLine  = TXLine aid iban (-amount) "Deposit" "Deposit" now
 
-          txId <- DB.insertTXLine conn newTxLine
+          txId <- DB.insertTXLine newTxLine conn
           print txId
 
-          DB.updateAccountBalance conn aid newBalance
+          DB.updateAccountBalance aid newBalance conn
 
           return Nothing
 
 transfer :: AppCache 
-         -> SqlBackend
          -> T.Text 
          -> T.Text 
          -> Double 
          -> T.Text 
+         -> SqlBackend
          -> IO (Maybe Exception)
-transfer _cache conn fromIban toIban amount reference = do
-  mFrom <- DB.accountByIban conn fromIban
+transfer _cache fromIban toIban amount reference conn = do
+  mFrom <- DB.accountByIban fromIban conn
   case mFrom of 
     Nothing -> return $ Just AccountNotFound
     (Just (Entity fromAid fromAccount)) -> do
-      mTo <- DB.accountByIban conn toIban
+      mTo <- DB.accountByIban toIban conn
       case mTo of 
         Nothing -> return $ Just AccountNotFound
         (Just (Entity toAid toAccount)) -> do
@@ -160,11 +160,11 @@ transfer _cache conn fromIban toIban amount reference = do
           let newFromTxLine  = TXLine fromAid toIban (-amount) nameStr reference now
               newToTxLine    = TXLine toAid fromIban amount nameStr reference now
 
-          _ <- DB.insertTXLine conn newFromTxLine
-          _ <- DB.insertTXLine conn newToTxLine
+          _ <- DB.insertTXLine newFromTxLine conn
+          _ <- DB.insertTXLine newToTxLine conn
           
-          DB.updateAccountBalance conn fromAid (accountBalance fromAccount - amount)
-          DB.updateAccountBalance conn toAid (accountBalance toAccount - amount)
+          DB.updateAccountBalance fromAid (accountBalance fromAccount - amount) conn
+          DB.updateAccountBalance toAid (accountBalance toAccount - amount) conn
 
           return Nothing
 

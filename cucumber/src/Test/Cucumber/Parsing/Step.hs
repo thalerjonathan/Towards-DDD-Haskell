@@ -1,4 +1,4 @@
-module Test.BDD.Parsing.Step 
+module Test.Cucumber.Parsing.Step 
   ( parseStepType
   ) where
   
@@ -6,7 +6,7 @@ import Data.Void
 import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
 
-import Test.BDD.Data.Step
+import Test.Cucumber.Data.Step
 
 type Parser = Parsec Void String
 

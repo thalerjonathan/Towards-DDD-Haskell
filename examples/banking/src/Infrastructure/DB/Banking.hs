@@ -11,8 +11,7 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE FlexibleInstances          #-}
-
-module Infrastructure.DB.BankingDb 
+module Infrastructure.DB.Banking 
   ( Entity (..)
   , Customer (..)
   , Account (..)
@@ -20,10 +19,7 @@ module Infrastructure.DB.BankingDb
   , CustomerId
   , AccountId
   , TXLineId
-
-  , runNoTX
-  , runWithTX
-
+  
   , beginTX
   , rollbackTX
   , commitTX
@@ -46,44 +42,30 @@ import Database.Persist.TH
 import Data.Text
 import Data.Time
 import Control.Monad.Reader
-import Infrastructure.DB.PgPool
 
 share [mkPersist sqlSettings]
     $(persistFileWith lowerCaseSettings "db/banking.persistentmodels")
 
-runNoTX :: PgPool -> (SqlBackend -> IO a) -> IO a
-runNoTX p act = runSqlPoolNoTransaction (do
-  conn <- ask
-  liftIO $ act conn) (getPool p) Nothing -- (Just ReadUncommitted)
-
-runWithTX :: PgPool -> (SqlBackend -> IO a) -> IO a
-runWithTX p act = runSqlPool (do
-  conn <- ask
-  liftIO $ act conn) (getPool p)
-
 beginTX :: SqlBackend -> IO ()
-beginTX conn = executeActionWithoutTX (rawExecute "BEGIN" []) conn
+beginTX = executeActionWithoutTX (rawExecute "BEGIN" [])
 
 rollbackTX :: SqlBackend -> IO ()
-rollbackTX conn = executeActionWithoutTX (rawExecute "ROLLBACK" []) conn
+rollbackTX = executeActionWithoutTX (rawExecute "ROLLBACK" [])
 
 commitTX :: SqlBackend -> IO ()
-commitTX conn = executeActionWithoutTX (rawExecute "COMMIT" []) conn
+commitTX = executeActionWithoutTX (rawExecute "COMMIT" [])
 
-executeActionWithoutTX :: ReaderT SqlBackend IO a -> SqlBackend -> IO a
-executeActionWithoutTX act = liftIO . runReaderT act
+insertCustomer :: Customer -> SqlBackend -> IO (Key Customer)
+insertCustomer cust = executeActionWithoutTX (insert cust)
 
-insertCustomer :: SqlBackend -> Customer -> IO (Key Customer)
-insertCustomer conn cust = executeActionWithoutTX (insert cust) conn
-
-insertAccount :: SqlBackend -> Account -> IO (Key Account)
-insertAccount conn a = executeActionWithoutTX (insert a) conn
+insertAccount :: Account -> SqlBackend -> IO (Key Account)
+insertAccount a = executeActionWithoutTX (insert a)
 
 allCustomers :: SqlBackend -> IO [Entity Customer]
-allCustomers conn = executeActionWithoutTX (selectList [] []) conn
+allCustomers = executeActionWithoutTX (selectList [] [])
 
-customerById :: SqlBackend -> Text -> IO (Maybe (Entity Customer))
-customerById conn domainId = executeActionWithoutTX act conn
+customerById :: Text -> SqlBackend -> IO (Maybe (Entity Customer))
+customerById domainId = executeActionWithoutTX act
   where
     act = do 
       ret <- selectList [CustomerDomainId ==. domainId] [LimitTo 1]
@@ -91,8 +73,8 @@ customerById conn domainId = executeActionWithoutTX act conn
         then return Nothing
         else return $ Just (Prelude.head ret)
 
-accountByIban :: SqlBackend -> Text -> IO (Maybe (Entity Account))
-accountByIban conn iban = executeActionWithoutTX act conn
+accountByIban :: Text -> SqlBackend -> IO (Maybe (Entity Account))
+accountByIban iban = executeActionWithoutTX act
   where
     act = do 
       ret <- selectList [AccountIban ==. iban] [LimitTo 1]
@@ -100,22 +82,25 @@ accountByIban conn iban = executeActionWithoutTX act conn
         then return Nothing
         else return $ Just (Prelude.head ret)
 
-accountsOfCustomer :: SqlBackend -> CustomerId -> IO [Entity Account]
-accountsOfCustomer conn cid = executeActionWithoutTX act conn
+accountsOfCustomer :: CustomerId -> SqlBackend -> IO [Entity Account]
+accountsOfCustomer cid = executeActionWithoutTX act
   where
     act = selectList [AccountOwner ==. cid] [] --[LimitTo 1]
 
-txLinesOfAccount :: SqlBackend -> AccountId -> IO [Entity TXLine]
-txLinesOfAccount conn aid = executeActionWithoutTX act conn
+txLinesOfAccount :: AccountId -> SqlBackend -> IO [Entity TXLine]
+txLinesOfAccount aid = executeActionWithoutTX act
   where
     act = selectList [TXLineAccount ==. aid] [] --[LimitTo 1]
 
-updateAccountBalance :: SqlBackend -> AccountId -> Double -> IO ()
-updateAccountBalance conn aid b = executeActionWithoutTX act conn
+updateAccountBalance :: AccountId -> Double -> SqlBackend -> IO ()
+updateAccountBalance aid b = executeActionWithoutTX act
   where
     act = update aid [AccountBalance =. b]
 
-insertTXLine :: SqlBackend -> TXLine -> IO (Key TXLine)
-insertTXLine conn tx = executeActionWithoutTX act conn
+insertTXLine :: TXLine -> SqlBackend -> IO (Key TXLine)
+insertTXLine tx = executeActionWithoutTX act
   where
     act = insert tx
+
+executeActionWithoutTX :: ReaderT SqlBackend IO a -> SqlBackend -> IO a
+executeActionWithoutTX act = liftIO . runReaderT act

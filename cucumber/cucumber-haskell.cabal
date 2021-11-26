@@ -5,7 +5,7 @@ cabal-version:       2.4
 -- http://haskell.org/cabal/users-guide/
 
 -- The name of the package.
-name:                Cucumber-Haskell
+name:                cucumber-haskell
 
 -- The package version.  See the Haskell package versioning policy (PVP)
 -- for standards guiding when and how versions should be incremented.
@@ -52,12 +52,12 @@ extra-source-files:  CHANGELOG.md, README.md
 
 library
   -- Modules exported by the library.
-  exposed-modules:     Test.BDD.Data.Gherkin
-                     , Test.BDD.Data.Step
-                     , Test.BDD.Parsing.Gherkin
-                     , Test.BDD.Parsing.Step
-                     , Test.BDD.Runner
-                     , Test.BDD.Cucumber
+  exposed-modules:     Test.Cucumber.Data.Gherkin
+                     , Test.Cucumber.Data.Step
+                     , Test.Cucumber.Parsing.Gherkin
+                     , Test.Cucumber.Parsing.Step
+                     , Test.Cucumber.Runner
+                     , Test.Cucumber
 
   -- Modules included in this library but not exported.
   -- other-modules:
@@ -69,9 +69,20 @@ library
   -- Other library packages from which modules are imported.
   build-depends:       base
                      , megaparsec
+                     , mtl
 
   -- Directories containing source files.
   hs-source-dirs:      src
+
+  ghc-options:        -O2 
+                      -Wall 
+                      -Werror 
+                      -Wcompat
+                      -Widentities
+                      -Wincomplete-record-updates
+                      -Wincomplete-uni-patterns
+                      -Wpartial-fields
+                      -Wredundant-constraints
 
   -- Base language which the package is written in.
   default-language:    Haskell2010
@@ -84,12 +95,13 @@ test-suite Cucumber-Haskell-test
   -- The interface type and version of the test suite.
   type:                exitcode-stdio-1.0
 
-  other-modules:       Test.BDD.Data.Gherkin
-                     , Test.BDD.Data.Step
-                     , Test.BDD.Parsing.Gherkin
-                     , Test.BDD.Parsing.Step
-                     , Test.BDD.Runner
-                     , Test.BDD.Cucumber
+  other-modules:       Test.Cucumber.Data.Gherkin
+                     , Test.Cucumber.Data.Step
+                     , Test.Cucumber.Parsing.Gherkin
+                     , Test.Cucumber.Parsing.Step
+                     , Test.Cucumber.Runner
+                     , Test.Cucumber
+                     , Steps.AccountSteps
 
   -- The directory where the test specifications are found.
   hs-source-dirs:       test
@@ -101,5 +113,15 @@ test-suite Cucumber-Haskell-test
   -- Test dependencies.
   build-depends:       base
                      , megaparsec
+                     , mtl
 
+  ghc-options:        -O2 
+                      -Wall 
+                      -Werror 
+                      -Wcompat
+                      -Widentities
+                      -Wincomplete-record-updates
+                      -Wincomplete-uni-patterns
+                      -Wpartial-fields
+                      -Wredundant-constraints
 

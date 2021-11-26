@@ -1,4 +1,4 @@
-module BDD.Data.Gherkin where
+module Test.Cucumber.Data.Gherkin where
 
 data Feature
   = Feature String String [Scenario]

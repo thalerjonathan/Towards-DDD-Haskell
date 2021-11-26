@@ -59,9 +59,9 @@ executable Banking
                     , Domain.AccountRepository
                     , Domain.CustomerRepository
                     , Infrastructure.Cache.AppCache
-                    , Infrastructure.DB.DbConfig
-                    , Infrastructure.DB.BankingDb
-                    , Infrastructure.DB.PgPool
+                    , Infrastructure.DB.Config
+                    , Infrastructure.DB.Banking
+                    , Infrastructure.DB.Pool
                     , Infrastructure.Web.Banking 
                     , Infrastructure.Web.Server
                     , View.Rest.Api
@@ -130,15 +130,10 @@ test-suite Banking-test
   other-modules:      Application.Banking
                     , Application.DTO
                     , Infrastructure.Cache.AppCache
-                    , Infrastructure.DB.BankingDb
-                    , Infrastructure.DB.DbConfig
-                    , Infrastructure.DB.PgPool
-                    , BDD.Runner
-                    , BDD.Steps.AccountSteps
-                    , BDD.Data.Gherkin
-                    , BDD.Data.Step
-                    , BDD.Parsing.Gherkin
-                    , BDD.Parsing.Step
+                    , Infrastructure.DB.Banking
+                    , Infrastructure.DB.Config
+                    , Infrastructure.DB.Pool
+                    , Steps.AccountSteps
   
   hs-source-dirs:     src/
                     , test
@@ -146,9 +141,6 @@ test-suite Banking-test
   ghc-options:        -O2 
                       -Wall 
                       -Werror 
-                      -threaded
-                      -rtsopts 
-                      -with-rtsopts=-N
                       -Wcompat
                       -Widentities
                       -Wincomplete-record-updates
@@ -159,9 +151,10 @@ test-suite Banking-test
   build-depends:      base
                     , bytestring
                     , cache
-                    , conduit
                     , clock
+                    , conduit
                     , configurator
+                    , cucumber-haskell
                     , either
                     , megaparsec
                     , monad-logger

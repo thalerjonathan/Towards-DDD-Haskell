@@ -1,11 +1,24 @@
 module Steps.AccountSteps where
 
-import Test.Cucumber.Runner
+import Data.Text
 import Test.Cucumber.Data.Step
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.State (get, put)
 
-type AccountStepsData = Maybe Double
+import Control.Monad
+import Control.Monad.State (gets)
+
+import Database.Persist.Postgresql
+
+import Application.DTO
+import Application.Banking
+import Infrastructure.Cache.AppCache
+import Test.Cucumber.Runner (StepAction, StepActionParam (ParamDouble))
+import Control.Monad.IO.Class (liftIO)
+
+data AccountStepsData = AccountStepsData
+ { accountStepDataIban  :: Text
+ , accountStepDataCache :: AppCache
+ , accountStepDataConn  :: SqlBackend
+ }
 
 -- Given my Giro account has a balance of {double}
 givenGiroAccountBalanceStep :: StepType
@@ -13,9 +26,14 @@ givenGiroAccountBalanceStep = Given
                                 (Text "my Giro account has a balance of" 
                                   (Param Double StepEnd)) 
 givenGiroAccountBalance :: StepAction AccountStepsData
-givenGiroAccountBalance [ParamDouble initialBalance]  = do
+givenGiroAccountBalance [ParamDouble balance]  = do
   liftIO $ putStrLn "givenGiroAccountBalance begin"
-  put (Just initialBalance)
+  iban  <- gets accountStepDataIban
+  cache <- gets accountStepDataCache
+  conn  <- gets accountStepDataConn
+
+  owner <- liftIO $ createCustomer cache conn "Jonathan"
+  void $ liftIO $ createAccount cache conn owner iban balance "GIRO"
   liftIO $ putStrLn "givenGiroAccountBalance end"
 givenGiroAccountBalance _ = fail "Invalid params in givenGiroAccountBalance"
 
@@ -26,14 +44,17 @@ whenDepositBalanceStep = When
                             (Param Double 
                               (Text "into my account" StepEnd)))
 whenDepositBalance :: StepAction AccountStepsData
-whenDepositBalance [ParamDouble amount] = do
+whenDepositBalance [ParamDouble balance] = do
   liftIO $ putStrLn "whenDepositBalance begin"
-  ret <- get
+  iban  <- gets accountStepDataIban
+  cache <- gets accountStepDataCache
+  conn  <- gets accountStepDataConn
+
+  ret <- liftIO $ deposit cache conn iban balance
   case ret of
-    Nothing -> fail "Account not found!"
-    Just balance -> do
-      put (Just $ balance + amount)
-      liftIO $ putStrLn "whenDepositBalance end"
+    Nothing -> liftIO $ putStrLn "whenDepositBalance end"
+    (Just e) -> do
+      fail $ "whenDepositBalance failed: could not deposit " ++ show e
 whenDepositBalance _ = fail "Invalid params in whenDepositBalance"
 
 -- Then I should have a balance of {double} in my account
@@ -45,11 +66,16 @@ thenExpectNewBalanceStep = Then
 thenExpectNewBalance :: StepAction AccountStepsData
 thenExpectNewBalance [ParamDouble expectedBalance] = do
   liftIO $ putStrLn "thenExpectNewBalance begin"
-  ret <- get
+  iban  <- gets accountStepDataIban
+  cache <- gets accountStepDataCache
+  conn  <- gets accountStepDataConn
+
+  ret <- liftIO $ getAccount cache conn iban
   case ret of
-    Nothing -> fail "Account not found!"
-    Just balance -> do
-      if abs (balance - expectedBalance) > 0.01
+    (Left _) -> fail "Account Not Found!"
+    (Right a) -> do
+      let balance = accountDetailBalance (accountDetails a)
+      if (abs (balance - expectedBalance) > 0.01)
         then fail $ "Expected balance " ++ show expectedBalance ++ " but was " ++ show balance
         else liftIO $ putStrLn "thenExpectNewBalance end"
 thenExpectNewBalance _ = fail "Invalid params in thenExpectNewBalance"

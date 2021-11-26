@@ -1,4 +1,4 @@
-module Test.BDD.Parsing.Gherkin
+module Test.Cucumber.Parsing.Gherkin
   ( parseGherkin
   ) where
   
@@ -6,7 +6,7 @@ import Data.Void
 import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
 
-import Test.BDD.Data.Gherkin
+import Test.Cucumber.Data.Gherkin
 
 type Parser = Parsec Void String
 

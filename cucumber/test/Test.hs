@@ -2,12 +2,11 @@ module Main where
 
 import Text.Megaparsec hiding (State)
 
-import BDD.Parsing.Gherkin
-import BDD.Steps.AccountSteps
-import BDD.Runner
-
-import Control.Monad.Reader
-import Control.Monad.Except
+import Test.Cucumber.Parsing.Gherkin
+import Steps.AccountSteps
+import Test.Cucumber
+import Test.Cucumber.Data.Step (StepType)
+import Test.Cucumber.Runner (StepAction)
 
 testFeature :: String
 testFeature = "Feature: Depositing money into accounts\n" ++
@@ -19,14 +18,15 @@ testFeature = "Feature: Depositing money into accounts\n" ++
                   "When I deposit 567.89 into my account\n" ++ 
                   "Then I should have a balance of 1802.45 in my account\n"
 
+testFeatureSteps :: [(StepType, StepAction AccountStepsData)]
 testFeatureSteps = [ (givenGiroAccountBalanceStep, 
-                      givenGiroAccountBalance cache)
+                      givenGiroAccountBalance)
                   , 
                     (whenDepositBalanceStep,
-                      whenDepositBalance cache)
+                      whenDepositBalance)
                   , 
                     ( thenExpectNewBalanceStep,
-                      thenExpectNewBalance cache)
+                      thenExpectNewBalance)
                   ]
 
 main :: IO ()
@@ -35,18 +35,11 @@ main = do
   let ret = parse parseGherkin "" testFeature
   case ret of
     (Left e) -> print e
-    (Right feat) -> do
+    (Right feature) -> do
       runFeature 
-        feat
+        feature
         (\scenarioAction -> do
           putStrLn "Before Scenario"
-          
-          runWithConnection dbPool $ \conn -> do 
-            putStrLn "BEGIN TX"
-            beginTX conn
-            _ <- scenarioAction conn
-            putStrLn "ROLLBACK TX"
-            liftIO $ runReaderT transactionUndo conn
-
+          scenarioAction Nothing
           putStrLn "After Scenario"
         ) testFeatureSteps

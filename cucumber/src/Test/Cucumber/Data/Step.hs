@@ -1,4 +1,4 @@
-module BDD.Data.Step where
+module Test.Cucumber.Data.Step where
 
 data StepType 
   = Given StepDefinition

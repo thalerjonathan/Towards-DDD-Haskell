@@ -14,8 +14,8 @@ So why write a new implementation?
 Cucumber-Haskell took .features files from Chuchus test suite as examples because they are simple but good examples and cover a wide range.
 
 ## TODOs
+- Develop comprehensive test suite, based on .feature files from Chuchu.
 - Use Text instead of String
-- Use StateT Monad for Step Actions
 - Template Haskell based definition of Given/When/Then Step Actions inspired by Servant API definitions
 - Gherkin Keywords: Background, Rule, Example, Scenario Outline, Examples. See https://cucumber.io/docs/gherkin/reference/
-- Other languages than english
+- Make other languages than english possible

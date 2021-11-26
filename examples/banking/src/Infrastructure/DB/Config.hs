@@ -1,4 +1,4 @@
-module Infrastructure.DB.DbConfig
+module Infrastructure.DB.Config
   ( DbConfig ( dbUser, dbPassword, dbName, dbSchema, dbHost, dbPort)
   , loadDBCfg
   ) where

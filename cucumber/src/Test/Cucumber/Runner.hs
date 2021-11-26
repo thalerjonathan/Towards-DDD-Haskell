@@ -1,11 +1,12 @@
-module Test.BDD.Runner where
+module Test.Cucumber.Runner where
 
 import Data.Void
 import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
+import Control.Monad.State.Lazy
 
-import Test.BDD.Data.Gherkin
-import Test.BDD.Data.Step
+import Test.Cucumber.Data.Gherkin
+import Test.Cucumber.Data.Step
 
 import System.IO.Unsafe
 
@@ -15,57 +16,53 @@ data StepActionParam
   | ParamDouble Double
   deriving Show
 
-type StepAction s = s -> [StepActionParam] -> IO ()
+type StepAction s = [StepActionParam] -> StateT s IO ()
 
 runScenario :: [(StepType, StepAction s)] -> Scenario -> s -> IO ()
-runScenario steps (Scenario _ (G givenStep (W whenStep (T thenStep)))) state = do
+runScenario steps (Scenario _ (G givenStep (W whenStep (T thenStep)))) s = do
     putStrLn $ "Given: " ++ show givenStep
     putStrLn $ "When: " ++ show whenStep
     putStrLn $ "Then: " ++ show thenStep
     
     putStrLn ""
-
     mapM_ (\(t, _) -> print t) steps
-
     putStrLn ""
 
-    givenRet <- execStepActionsFor steps givenStep "Given" state
-    if not givenRet 
-      then return ()
-      else do
-        whenRet <- execStepActionsFor steps whenStep "When" state
-        if not whenRet
-          then return ()
-          else do
-            _thenRet <- execStepActionsFor steps thenStep "Then" state
+    givenRet <- execStepActionsFor steps givenStep "Given" s
+    case givenRet of
+      Nothing -> return ()
+      (Just givenState) -> do
+        whenRet <- execStepActionsFor steps whenStep "When" givenState
+        case whenRet of
+          Nothing -> return ()
+          (Just whenState) -> do
+            _thenRet <- execStepActionsFor steps thenStep "Then" whenState
             return ()
 
-    return ()
-
-execStepActionsFor :: [(StepType, StepAction s)] -> Step -> String -> s -> IO Bool
-execStepActionsFor steps (Step stepStr stepAnd) st state = do
-    let stepDefs = map (\(s, act) -> (stepDefinition s, act)) $ filter (\(s, _) -> isStepType st s) steps
+execStepActionsFor :: [(StepType, StepAction s)] -> Step -> String -> s -> IO (Maybe s)
+execStepActionsFor steps (Step stepStr stepAnd) st s = do
+    let stepDefs = map (\(step, act) -> (stepDefinition step, act)) $ filter (\(step, _) -> isStepType st step) steps
 
     case findFirstParse stepDefs stepStr of
       Nothing  -> do
         print $ "Error: could not find matching action for " ++ st ++ ": " ++ stepStr
-        return False
+        return Nothing
       (Just (params, action)) -> do
         print $ "Found matching " ++ st ++ " action for " ++ show stepStr ++ ", parsed params: " ++ show params
-        action state params
-        execStepActionsForAnd stepDefs stepAnd st state
+        s' <- execStateT (action params) s
+        execStepActionsForAnd stepDefs stepAnd st s'
 
-execStepActionsForAnd :: [(StepDefinition, StepAction s)] -> And -> String -> s -> IO Bool
-execStepActionsForAnd _ NoAnd _ _ = return True
-execStepActionsForAnd stepDefs (And andStr andAnd) st state = do
+execStepActionsForAnd :: [(StepDefinition, StepAction s)] -> And -> String -> s -> IO (Maybe s)
+execStepActionsForAnd _ NoAnd _ s = return $ Just s
+execStepActionsForAnd stepDefs (And andStr andAnd) st s = do
   case findFirstParse stepDefs andStr of
     Nothing -> do
       print $ "Error: could not find matching action for " ++ st ++ " And:" ++ andStr
-      return False
+      return Nothing
     (Just (params, action)) -> do
       print $ "Found matching " ++ st ++ " And action for " ++ show andStr ++ ", parsed params: " ++ show params
-      action state params
-      execStepActionsForAnd stepDefs andAnd st state
+      s' <- execStateT (action params) s
+      execStepActionsForAnd stepDefs andAnd st s'
 
 findFirstParse :: [(StepDefinition, StepAction s)] -> String -> Maybe ([StepActionParam], StepAction s)
 findFirstParse (sd:sds) parseStr = 

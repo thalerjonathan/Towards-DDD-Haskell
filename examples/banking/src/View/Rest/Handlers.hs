@@ -18,8 +18,7 @@ import Application.DTO
 
 import Infrastructure.Cache.AppCache 
 import Application.Banking
-import Infrastructure.DB.PgPool
-import Infrastructure.DB.BankingDb as DB
+import Infrastructure.DB.Pool as Pool
 
 -- TODO https://www.parsonsmatt.org/2017/06/21/exceptional_servant_handling.html
 
@@ -28,65 +27,64 @@ import Infrastructure.DB.BankingDb as DB
 -- https://wiki.haskell.org/A_practical_Template_Haskell_Tutorial#:~:text=Template%20Haskell%20(TH)%20is%20the,the%20results%20of%20their%20execution.
 -- TODO: put Servant API definition directly here
 handleAllCustomers :: AppCache
-                   -> PgPool 
+                   -> DbPool 
                    -> Handler [CustomerDetailsDTO]
 handleAllCustomers cache p = 
-  liftIO $ DB.runWithTX p $ \conn -> do
-    getAllCustomers cache conn
+  liftIO $ Pool.runWithTX p (getAllCustomers cache)
 
 handleCustomer :: AppCache
-               -> PgPool
+               -> DbPool
                -> T.Text
                -> Handler CustomerDTO
 handleCustomer cache p customerId = do
-  ret <- liftIO $ DB.runWithTX p $ \conn -> getCustomer cache conn customerId
+  ret <- liftIO $ Pool.runWithTX p (getCustomer cache customerId)
   case ret of 
     (Left _) -> throwError err404
     (Right cust) -> return cust
 
 handleAccount :: AppCache
-              -> PgPool
+              -> DbPool
               -> T.Text
               -> Handler AccountDTO
 handleAccount cache p iban = do
-  ret <- liftIO $ DB.runWithTX p $ \conn -> getAccount cache conn iban
+  ret <- liftIO $ Pool.runWithTX p (getAccount cache iban)
   case ret of 
     (Left _) -> throwError err404
     (Right a) -> return a
 
 handleDeposit :: AppCache
-              -> PgPool
+              -> DbPool
               -> T.Text 
               -> Double 
               -> Handler CommandResponse
 handleDeposit cache p iban amount = do
-  ret <- liftIO $ DB.runWithTX p $ \conn -> deposit cache conn iban amount
+  ret <- liftIO $ Pool.runWithTX p (deposit cache iban amount)
   case ret of 
     (Just (InvalidAccountOperation str)) -> return $ CommandResponse False (Just str)
     (Just _) -> throwError err404
     Nothing -> return $ CommandResponse True Nothing
 
 handleWithdraw :: AppCache
-               -> PgPool
+               -> DbPool
                -> T.Text 
                -> Double 
                -> Handler CommandResponse
 handleWithdraw cache p iban amount = do
-  ret <- liftIO $ DB.runWithTX p $ \conn -> withdraw cache conn iban amount
+  ret <- liftIO $ Pool.runWithTX p (withdraw cache iban amount)
   case ret of 
     (Just (InvalidAccountOperation str)) -> return $ CommandResponse False (Just str)
     (Just _) -> throwError err404
     Nothing -> return $ CommandResponse True Nothing
 
 handleTransfer :: AppCache
-               -> PgPool
+               -> DbPool
                -> T.Text 
                -> T.Text 
                -> Double 
                -> T.Text 
                -> Handler CommandResponse
 handleTransfer cache p fromIban toIban amount reference = do
-  ret <- liftIO $ DB.runWithTX p $ \conn -> transfer cache conn fromIban toIban amount reference
+  ret <- liftIO $ Pool.runWithTX p $ (transfer cache fromIban toIban amount reference)
   case ret of 
     (Just (InvalidAccountOperation str)) -> return $ CommandResponse False (Just str)
     (Just _) -> throwError err404

@@ -11,8 +11,8 @@ import Infrastructure.Cache.AppCache
 
 import qualified Infrastructure.Web.Banking as Banking
 import qualified Infrastructure.Web.Server as Server
-import qualified Infrastructure.DB.PgPool as DbPool
-import qualified Infrastructure.DB.DbConfig as DbCfg
+import qualified Infrastructure.DB.Pool as Pool
+import qualified Infrastructure.DB.Config as DbCfg
 
 import Data.Time
 import Data.Fixed
@@ -28,7 +28,7 @@ main = do
   case eCfgs of
     (Left err) -> putStrLn $ "Failed loading configs: \n  " ++ err ++ "\n\nExit!"
     (Right dbBankingCfg) -> do
-      dbPool <- runStdoutLoggingT $ DbPool.initPool dbBankingCfg
+      dbPool <- runStdoutLoggingT $ Pool.initPool dbBankingCfg
       cache  <- mkAppCache
       
       -- uuid <- nextRandom
