@@ -19,6 +19,7 @@ module Infrastructure.DB.Banking
   , CustomerId
   , AccountId
   , TXLineId
+  , AccountType (..)
   
   , beginTX
   , rollbackTX
@@ -42,6 +43,12 @@ import Database.Persist.TH
 import Data.Text
 import Data.Time
 import Control.Monad.Reader
+
+data AccountType 
+  = Giro
+  | Savings
+  deriving (Eq, Show, Read)
+derivePersistField "AccountType"
 
 share [mkPersist sqlSettings]
     $(persistFileWith lowerCaseSettings "db/banking.persistentmodels")

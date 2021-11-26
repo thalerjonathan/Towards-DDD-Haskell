@@ -12,7 +12,7 @@ Account sql=account
     owner CustomerId    sql=account_owner_id
     balance Double      sql=account_balance
     iban Text           sql=account_iban
-    type Text           sql=account_type
+    type AccountType    sql=account_type
     deriving Show
 
 TXLine sql=tx

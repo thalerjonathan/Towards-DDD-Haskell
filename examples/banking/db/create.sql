@@ -66,7 +66,7 @@ RETURNING customer_id;
 INSERT INTO banking.account
   (account_iban, account_balance, account_type, account_owner_id)
 VALUES
-  ('AT12 12345 01234567890', 1300, 'GIRO', 1);
+  ('AT12 12345 01234567890', 1300, 'Giro', 1);
 
 INSERT INTO banking.tx
   (tx_account, tx_iban, tx_amount, tx_name, tx_reference, tx_time)
@@ -87,7 +87,7 @@ VALUES
 INSERT INTO banking.account
   (account_iban, account_balance, account_type, account_owner_id)
 VALUES
-  ('AT23 45678 01234567890', 2500, 'SAVINGS', 1);
+  ('AT23 45678 01234567890', 2500, 'Savings', 1);
 
 INSERT INTO banking.tx
   (tx_account, tx_iban, tx_amount, tx_name, tx_reference, tx_time)
@@ -117,7 +117,7 @@ VALUES
 INSERT INTO banking.account
   (account_iban, account_balance, account_type, account_owner_id)
 VALUES
-  ('AT34 56789 01234567890', 500, 'GIRO', 2);
+  ('AT34 56789 01234567890', 500, 'Giro', 2);
 
 INSERT INTO banking.tx
   (tx_account, tx_iban, tx_amount, tx_name, tx_reference, tx_time)
@@ -138,7 +138,7 @@ VALUES
 INSERT INTO banking.account
   (account_iban, account_balance, account_type, account_owner_id)
 VALUES
-  ('AT45 67890 01234567890', 1500, 'SAVINGS', 2);
+  ('AT45 67890 01234567890', 1500, 'Savings', 2);
 
 INSERT INTO banking.tx
   (tx_account, tx_iban, tx_amount, tx_name, tx_reference, tx_time)

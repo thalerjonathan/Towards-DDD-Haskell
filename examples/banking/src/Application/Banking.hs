@@ -53,7 +53,8 @@ createAccount _cache owner iban balance t conn = do
   case mc of
     Nothing -> return $ Just CustomerNotFound
     (Just (Entity cid _)) -> do
-      let acc = Account cid balance iban t
+      let at = read (T.unpack t) :: DB.AccountType
+      let acc = Account cid balance iban at
       _aid <- DB.insertAccount acc conn
       return Nothing
 
@@ -98,16 +99,17 @@ deposit _cache iban amount conn = do
   case ma of 
     Nothing -> return $ Just AccountNotFound
     (Just (Entity aid a)) -> do
-      -- TODO: check Account Type! only allowed for Giro!
+      if isSavings a
+        then return $ Just $ InvalidAccountOperation "Cannot deposit into Savings account!"
+        else do
+          now <- getCurrentTime
+          let newBalance = amount + accountBalance a 
+              newTxLine  = TXLine aid iban amount "Deposit" "Deposit" now
 
-      now <- getCurrentTime
-      let newBalance = amount + accountBalance a 
-          newTxLine  = TXLine aid iban amount "Deposit" "Deposit" now
-
-      txId <- DB.insertTXLine newTxLine conn
-      print txId
-      DB.updateAccountBalance aid newBalance conn
-      return Nothing
+          txId <- DB.insertTXLine newTxLine conn
+          print txId
+          DB.updateAccountBalance aid newBalance conn
+          return Nothing
 
 withdraw :: AppCache
          -> T.Text 
@@ -119,20 +121,22 @@ withdraw _cache iban amount conn = do
   case ma of 
     Nothing -> return $ Just AccountNotFound
     (Just (Entity aid a)) -> do
-      -- TODO: check Account Type! only allowed for Giro!
-      let newBalance = accountBalance a - amount
-      if newBalance < -1000
-        then return $ Just $ InvalidAccountOperation "Cannot overdraw Giro account by more than -1000.0!"
-        else do
-          now <- getCurrentTime
-          let newTxLine  = TXLine aid iban (-amount) "Deposit" "Deposit" now
+      if isSavings a 
+        then return $ Just $ InvalidAccountOperation "Cannot deposit into Savings account!"
+        else do 
+          let newBalance = accountBalance a - amount
+          if newBalance < -1000
+            then return $ Just $ InvalidAccountOperation "Cannot overdraw Giro account by more than -1000.0!"
+            else do
+              now <- getCurrentTime
+              let newTxLine  = TXLine aid iban (-amount) "Deposit" "Deposit" now
 
-          txId <- DB.insertTXLine newTxLine conn
-          print txId
+              txId <- DB.insertTXLine newTxLine conn
+              print txId
 
-          DB.updateAccountBalance aid newBalance conn
+              DB.updateAccountBalance aid newBalance conn
 
-          return Nothing
+              return Nothing
 
 transfer :: AppCache 
          -> T.Text 
@@ -150,23 +154,40 @@ transfer _cache fromIban toIban amount reference conn = do
       case mTo of 
         Nothing -> return $ Just AccountNotFound
         (Just (Entity toAid toAccount)) -> do
-          now <- getCurrentTime
+          if (not $ sameOwner fromAccount toAccount) 
+            -- not same owner, can only transfer between giros and max 5000 amount
+            then do
+              if isSavings fromAccount || isSavings  toAccount
+                then return $ Just $ InvalidAccountOperation "Transfer cannot happen with Savings account of different customers!"
+                else if amount > 5000 
+                  then return $ Just $ InvalidAccountOperation "Transfer between different customers cannot exceed 5000€!"
+                  else do 
+                    -- TODO: transfer is ok
+                    return Nothing
+            -- same owner, anything goes, no restrictions
+            else do
+              now <- getCurrentTime
 
-          -- TODO: fetch user for name in TXLine
-          let nameStr = "Transfer"
+              -- TODO: fetch customers
+              let fromName = "Transfer"
+                  toName = "Transfer"
 
-          -- TODO: if accounts belong to different customers, then check if giro and below 5000
-          
-          let newFromTxLine  = TXLine fromAid toIban (-amount) nameStr reference now
-              newToTxLine    = TXLine toAid fromIban amount nameStr reference now
+              let newFromTxLine  = TXLine fromAid toIban (-amount) toName reference now
+                  newToTxLine    = TXLine toAid fromIban amount fromName reference now
 
-          _ <- DB.insertTXLine newFromTxLine conn
-          _ <- DB.insertTXLine newToTxLine conn
-          
-          DB.updateAccountBalance fromAid (accountBalance fromAccount - amount) conn
-          DB.updateAccountBalance toAid (accountBalance toAccount - amount) conn
+              _ <- DB.insertTXLine newFromTxLine conn
+              _ <- DB.insertTXLine newToTxLine conn
+              
+              DB.updateAccountBalance fromAid (accountBalance fromAccount - amount) conn
+              DB.updateAccountBalance toAid (accountBalance toAccount - amount) conn
 
-          return Nothing
+              return Nothing
+
+isSavings :: Account -> Bool
+isSavings a = DB.Savings == accountType a
+
+sameOwner :: Account -> Account -> Bool
+sameOwner a1 a2 = accountOwner a1 == accountOwner a2
 
 accountEntityToDTO :: Entity Account -> [Entity TXLine] -> AccountDTO 
 accountEntityToDTO a txs = AccountDTO 
@@ -199,5 +220,5 @@ accountEntityToDetailsDTO :: Entity Account -> AccountDetailsDTO
 accountEntityToDetailsDTO (Entity _ a) = AccountDetailsDTO 
   { accountDetailIban    = accountIban a
   , accountDetailBalance = accountBalance a
-  , accountDetailType    = accountType a
+  , accountDetailType    = T.pack $ show $ accountType a
   }

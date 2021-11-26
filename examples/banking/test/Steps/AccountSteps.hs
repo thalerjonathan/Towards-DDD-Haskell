@@ -32,8 +32,8 @@ givenGiroAccountBalance [ParamDouble balance]  = do
   cache <- gets accountStepDataCache
   conn  <- gets accountStepDataConn
 
-  owner <- liftIO $ createCustomer cache conn "Jonathan"
-  void $ liftIO $ createAccount cache conn owner iban balance "GIRO"
+  owner <- liftIO $ createCustomer cache "Jonathan" conn
+  void $ liftIO $ createAccount cache owner iban balance "Giro" conn
   liftIO $ putStrLn "givenGiroAccountBalance end"
 givenGiroAccountBalance _ = fail "Invalid params in givenGiroAccountBalance"
 
@@ -50,7 +50,7 @@ whenDepositBalance [ParamDouble balance] = do
   cache <- gets accountStepDataCache
   conn  <- gets accountStepDataConn
 
-  ret <- liftIO $ deposit cache conn iban balance
+  ret <- liftIO $ deposit cache iban balance conn
   case ret of
     Nothing -> liftIO $ putStrLn "whenDepositBalance end"
     (Just e) -> do
@@ -70,7 +70,7 @@ thenExpectNewBalance [ParamDouble expectedBalance] = do
   cache <- gets accountStepDataCache
   conn  <- gets accountStepDataConn
 
-  ret <- liftIO $ getAccount cache conn iban
+  ret <- liftIO $ getAccount cache iban conn
   case ret of
     (Left _) -> fail "Account Not Found!"
     (Right a) -> do

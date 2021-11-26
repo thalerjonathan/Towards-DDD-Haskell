@@ -17,9 +17,9 @@ import Data.Either.Combinators
 
 import Database.Persist.Sql
 import Infrastructure.Cache.AppCache
-import Infrastructure.DB.PgPool
-import qualified Infrastructure.DB.DbConfig as DbCfg
-import Infrastructure.DB.BankingDb as DB
+import Infrastructure.DB.Pool
+import qualified Infrastructure.DB.Config as DbCfg
+import Infrastructure.DB.Banking as DB
 
 type AppConfig = DbCfg.DbConfig
 
