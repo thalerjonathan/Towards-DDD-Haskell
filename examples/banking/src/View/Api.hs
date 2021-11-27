@@ -17,7 +17,11 @@ type BankingApi = (SwaggerApi
                   :<|> PostWithdrawRest
                   :<|> PostTransferRest
                   :<|> GetAllCustomersHtml
-                  :<|> GetCustomerHtml)
+                  :<|> GetCustomerHtml
+                  :<|> GetAccountHtml
+                  :<|> PostDepositHtml
+                  :<|> PostWithdrawHtml
+                  :<|> PostTransferHtml)
 
 bankingApi :: Proxy BankingApi
 bankingApi = Proxy

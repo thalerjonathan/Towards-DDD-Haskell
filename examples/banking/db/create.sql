@@ -111,7 +111,7 @@ VALUES
 INSERT INTO banking.customer 
   (customer_domain_id, customer_name)
 VALUES
-  ('cad6e64d-23a2-4598-8a77-17d6b8e3733b', 'Thomas Schwarz');
+  ('c06f7abf-3735-46cf-9088-a1515f58a79f', 'Thomas Schwarz');
 
 -- GIRO ACCOUNT
 INSERT INTO banking.account

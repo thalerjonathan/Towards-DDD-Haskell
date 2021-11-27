@@ -27,25 +27,12 @@ customerHtml c = docTypeHtml $ do
     ul ! class_ "list-group" $ forM_ (customerAccountDetails c) (renderAccount c)
 
 renderAccount :: CustomerDTO -> AccountDetailsDTO -> Html
-renderAccount c a = do
-  H.li ! class_ "list-group-item d-flex justify-content-between align-items-center" $
-    H.a ! href (toValue $ "/account?iban=" <> (accountDetailIban a) <> "&id=" <> (customerDetailsId $ customerDetails c) <> "&name=" <> (customerDetailsName $ customerDetails c)) $ toHtml $ (accountDetailIban a) -- <> " (" <> (accountDetailType a) <> " )"
+renderAccount c acc = do
+  H.li ! class_ "list-group-item d-flex justify-content-between align-items-center" $ do
+    H.a ! href (toValue $ "/account?iban=" <> accountDetailIban acc <> 
+                          "&id=" <> customerDetailsId (customerDetails c) <> 
+                          "&name=" <> customerDetailsName (customerDetails c)) $ 
+                            toHtml $ accountDetailIban acc <> " (" <> accountDetailType acc <> ")"
 
-    H.span class_ "badge bg-primary rounded-pill" $ (toHtml $ accountDetailBalance a)
+    H.span ! class_ "badge bg-primary rounded-pill" $ toHtml $ accountDetailBalance acc
 
-{-
-        
-        <ul class="list-group">
-            <li class="list-group-item d-flex justify-content-between align-items-center" th:each="a : ${customer.accounts}">
-                
-                <a th:href="@{/account(
-                    iban=${a.iban},
-                    id=${customer.details.id},
-                    name=${customer.details.name})}" th:text="${a.iban} + ' (' + ${a.type} + ')'"></a>
-
-                <span class="badge bg-primary rounded-pill" th:text="${a.balance}"></span>
-            </li>
-        </ul>
-    </body>
-</html>
--}

@@ -31,3 +31,7 @@ banking cache dbPool
           :<|> Rest.handleTransfer cache dbPool
           :<|> Html.handleAllCustomers cache dbPool
           :<|> Html.handleCustomer cache dbPool
+          :<|> Html.handleAccount cache dbPool
+          :<|> Html.handleDeposit cache dbPool
+          :<|> Html.handleWithdraw cache dbPool
+          :<|> Html.handleTransfer cache dbPool

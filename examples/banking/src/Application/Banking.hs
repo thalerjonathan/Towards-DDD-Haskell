@@ -195,7 +195,7 @@ performTransfer fromAid fromAccount toAid toAccount amount reference conn = do
           _ <- DB.insertTXLine newToTxLine conn
           
           DB.updateAccountBalance fromAid (accountBalance fromAccount - amount) conn
-          DB.updateAccountBalance toAid (accountBalance toAccount - amount) conn
+          DB.updateAccountBalance toAid (accountBalance toAccount + amount) conn
 
           return Nothing
 

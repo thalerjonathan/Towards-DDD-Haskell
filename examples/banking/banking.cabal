@@ -69,6 +69,7 @@ executable Banking
                     , View.HTML.Controller
                     , View.HTML.Templates.AllCustomers
                     , View.HTML.Templates.Customer
+                    , View.HTML.Templates.Account
                     , View.Rest.Api
                     , View.Rest.Handlers 
 
@@ -90,6 +91,7 @@ executable Banking
                     , dunai
                     , either
                     , free
+                    , http-api-data
                     , lens
                     , monad-logger
                     , mtl
