@@ -24,3 +24,8 @@ The goal is to implement a simple banking system for bank employees where they c
 
 ## TODOs
 - Optimistic concurrency control with versioning of Aggregates for safe collaboration
+- Do a naive approach directly in the rest handlers with IO, without layers, enforcing all business rules in the rest handler
+
+- use Church Encoded Free monads for performance
+- Do a tagless final approach
+- Do a freer monads approach
