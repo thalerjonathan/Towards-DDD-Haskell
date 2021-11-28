@@ -35,3 +35,4 @@ banking cache dbPool
           :<|> Html.handleDeposit cache dbPool
           :<|> Html.handleWithdraw cache dbPool
           :<|> Html.handleTransfer cache dbPool
+          :<|> Html.handleError

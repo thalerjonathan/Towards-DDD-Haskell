@@ -1,7 +1,7 @@
-{-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE TypeOperators      #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE TypeOperators        #-}
+{-# LANGUAGE DeriveGeneric        #-}
+{-# LANGUAGE DeriveDataTypeable   #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module View.Rest.Api where
 

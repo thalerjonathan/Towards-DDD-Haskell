@@ -9,10 +9,12 @@ import qualified Infrastructure.DB.Pool as Pool
 import Application.Banking
 import Infrastructure.Cache.AppCache (AppCache)
 
-import View.HTML.Api
+import View.HTML.Forms
 import View.HTML.Templates.AllCustomers
 import View.HTML.Templates.Customer
 import View.HTML.Templates.Account
+import View.HTML.Templates.Error
+import View.HTML.Templates.Redirect
 
 handleAllCustomers :: AppCache
                    -> Pool.DbPool 
@@ -28,10 +30,10 @@ handleCustomer :: AppCache
 handleCustomer cache p customerId = do
   ret <- liftIO $ Pool.runWithTX p (getCustomer cache customerId)
   case ret of 
-    (Left _)  -> do
-      liftIO $ putStrLn "fuck"
-      undefined -- TODO: redirect to error page
-    (Right c) -> return (customerHtml c)
+    (Left err) -> 
+      redirectToError $ exceptionToErrorMessage err
+    (Right c)  -> 
+      return (customerHtml c)
 
 handleAccount :: AppCache
               -> Pool.DbPool
@@ -42,10 +44,10 @@ handleAccount :: AppCache
 handleAccount cache p accIban customerId customerName = do
   ret <- liftIO $ Pool.runWithTX p (getAccount cache accIban)
   case ret of 
-    (Left _)  -> do
-      liftIO $ putStrLn "fuck"
-      undefined -- TODO: redirect to error page
-    (Right a) -> return (accountHtml customerId customerName a) 
+    (Left err) -> 
+      redirectToError $ exceptionToErrorMessage err
+    (Right a)  -> 
+      return (accountHtml customerId customerName a) 
 
 handleDeposit :: AppCache
               -> Pool.DbPool
@@ -54,17 +56,13 @@ handleDeposit :: AppCache
 handleDeposit cache p form = do
   let iban   = accountFormIban form
       amount = accountFormAmount form
+
   ret <- liftIO $ Pool.runWithTX p (deposit cache iban amount)
   case ret of 
-    (Just (InvalidAccountOperation _err)) -> do
-      liftIO $ putStrLn "fuck"
-      undefined -- TODO: redirect to error page
-    (Just _err) -> do
-      liftIO $ putStrLn "fuck"
-      undefined -- TODO: redirect to error page
-    Nothing -> do
-      -- TODO: redirect to account
-      undefined
+    (Just err) -> 
+      redirectToError $ exceptionToErrorMessage err
+    Nothing -> 
+      redirectToAccount form
 
 handleWithdraw :: AppCache
                -> Pool.DbPool
@@ -75,33 +73,51 @@ handleWithdraw cache p form = do
       amount = accountFormAmount form
   ret <- liftIO $ Pool.runWithTX p (withdraw cache iban amount)
   case ret of 
-    (Just (InvalidAccountOperation _err)) -> do
-      liftIO $ putStrLn "fuck"
-      undefined -- TODO: redirect to error page
-    (Just _err) -> do
-      liftIO $ putStrLn "fuck"
-      undefined -- TODO: redirect to error page
-    Nothing -> do
-      -- TODO: redirect to account
-      undefined
+    (Just err) -> 
+      redirectToError $ exceptionToErrorMessage err
+    Nothing -> 
+      redirectToAccount form
 
 handleTransfer :: AppCache
                -> Pool.DbPool
                -> TransferForm
                -> Handler Html
 handleTransfer cache p form = do
-  let fromIban  = transferFormFromIban form
-      toIban    = transferFormToIban form
-      amount    = transferFormAmount form
-      reference = transferFormReference form
-  ret <- liftIO $ Pool.runWithTX p (transfer cache fromIban toIban amount reference)
-  case ret of 
-    (Just (InvalidAccountOperation _err)) -> do
-      liftIO $ putStrLn "fuck"
-      undefined -- TODO: redirect to error page
-    (Just _err) -> do
-      liftIO $ putStrLn "fuck"
-      undefined -- TODO: redirect to error page
-    Nothing -> do
-      -- TODO: redirect to account
-      undefined
+    let fromIban  = transferFormFromIban form
+        toIban    = transferFormToIban form
+        amount    = transferFormAmount form
+        reference = transferFormReference form
+    ret <- liftIO $ Pool.runWithTX p (transfer cache fromIban toIban amount reference)
+    case ret of 
+      (Just err) -> 
+        redirectToError $ exceptionToErrorMessage err
+      Nothing -> 
+        redirectToAccount (transferToAccountForm form)
+  where
+    transferToAccountForm :: TransferForm -> AccountForm
+    transferToAccountForm t = AccountForm
+      { accountFormCustomerId   = transferFormCustomerId t
+      , accountFormCustomerName = transferFormCustomerName t
+      , accountFormIban         = transferFormFromIban t
+      , accountFormAmount       = 0.0
+      }
+
+handleError :: Text -> Handler Html
+handleError msg = return $ errorPageHtml msg
+
+exceptionToErrorMessage :: Exception -> Text
+exceptionToErrorMessage CustomerNotFound              = "Customer not found!"
+exceptionToErrorMessage AccountNotFound               = "Account not found!"
+exceptionToErrorMessage (InvalidAccountOperation err) = err
+
+redirectToError :: Text -> Handler Html
+redirectToError msg = return $ redirectToHtml $ "/error?msg=" <> msg
+
+redirectToAccount :: AccountForm -> Handler Html
+redirectToAccount form = return $ redirectToHtml (accountPageLink (accountFormIban form) (accountFormCustomerId form) (accountFormCustomerName form))
+
+accountPageLink :: Text -> Text -> Text -> Text
+accountPageLink accountIban customerId customerName 
+  = "/account?iban=" <> accountIban <> 
+    "&id=" <> customerId <> 
+    "&name=" <> customerName

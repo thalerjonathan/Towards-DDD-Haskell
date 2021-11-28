@@ -67,9 +67,12 @@ executable Banking
                     , View.Api
                     , View.HTML.Api
                     , View.HTML.Controller
+                    , View.HTML.Forms
                     , View.HTML.Templates.AllCustomers
                     , View.HTML.Templates.Customer
                     , View.HTML.Templates.Account
+                    , View.HTML.Templates.Redirect
+                    , View.HTML.Templates.Error
                     , View.Rest.Api
                     , View.Rest.Handlers 
 

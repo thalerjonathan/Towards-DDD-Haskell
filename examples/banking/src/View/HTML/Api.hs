@@ -1,31 +1,15 @@
-{-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE TypeOperators      #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE TypeOperators        #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module View.HTML.Api where
 
 import Data.Text
 import Servant
 import Servant.HTML.Blaze
 import Text.Blaze.Html (Html)
-import GHC.Generics
 import Web.FormUrlEncoded
 
-data AccountForm = AccountForm 
-  { accountFormCustomerId   :: Text
-  , accountFormCustomerName :: Text
-  , accountFormIban         :: Text
-  , accountFormAmount       :: Double
-  } deriving (Eq, Show, Generic)
-
-data TransferForm = TransferForm 
-  { transferFormCustomerId   :: Text
-  , transferFormCustomerName :: Text
-  , transferFormFromIban     :: Text
-  , transferFormToIban       :: Text
-  , transferFormAmount       :: Double
-  , transferFormReference    :: Text
-  } deriving (Eq, Show, Generic)
+import View.HTML.Forms
 
 instance FromForm AccountForm where
   fromForm f = AccountForm
@@ -54,3 +38,5 @@ type GetAccountHtml = "account" :> QueryParam' '[Required, Strict] "iban" Text
 type PostDepositHtml = "account" :> "deposit" :> ReqBody '[FormUrlEncoded] AccountForm :> Post '[HTML] Html
 type PostWithdrawHtml = "account" :> "withdraw" :> ReqBody '[FormUrlEncoded] AccountForm :> Post '[HTML] Html
 type PostTransferHtml = "account" :> "transfer" :> ReqBody '[FormUrlEncoded] TransferForm :> Post '[HTML] Html
+
+type GetError = "error" :> QueryParam' '[Required, Strict] "msg" Text :> Get '[HTML] Html
