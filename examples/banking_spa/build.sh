@@ -1,0 +1,1 @@
+elm make src/Main.elm --output=build/banking.js
