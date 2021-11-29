@@ -12,14 +12,6 @@ Implement it with BOTH with Java AND Haskell for direct comparison
 - Haskell Microservices from first principles
 - Develop a framework like spring, for monoliths as well as microservices: chimera
 
-We need an interesting and complex domain
-- write a product vision of a referee assignment tool which can be used for SE project in WS 2022 (business rules, notifications of fixture changes,...) 
-- do Event storming
-- do Story mapping
-- Define aggregates and contexts
-- Draw domain model
-
-
 Ideas
 - what about using Idris 2 and make use of dependent types?
 - BDD with haskell: types, quickcheck, dsl,...
@@ -28,11 +20,16 @@ What we want
 something where haskell code directly reflects the ubiquitous language for which we can also express scenarios directly in code and test it together with quickcheck
 
 What we need
+- easy TDD
+- easy DDD
+- easy BDD
+- Unit of Work, Caching, Mail, Messaging, REST, CQRS/ES support out of the box.  
 - we need some form of caching (query / results) 
 - something like unit of work, where changes to the entities/aggregates are tracked and then flushed to the DB at the end of the TX.
 - type safe REST api using servant
 - some kind of service bus to help us with asynchronous processing of domain events for eventual consistency
 - versioning of aggregates for optimistic/pessimistic concurrency control in collaborative domains
+- app cache
 
 Research Questions
 - Can we exploit stm to enforce tx boundaries of aggregates?

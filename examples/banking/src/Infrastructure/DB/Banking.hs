@@ -20,10 +20,6 @@ module Infrastructure.DB.Banking
   , AccountId
   , TXLineId
   , AccountType (..)
-  
-  , beginTX
-  , rollbackTX
-  , commitTX
 
   , insertCustomer
   , insertAccount
@@ -53,15 +49,6 @@ derivePersistField "AccountType"
 
 share [mkPersist sqlSettings]
     $(persistFileWith lowerCaseSettings "db/banking.persistentmodels")
-
-beginTX :: SqlBackend -> IO ()
-beginTX = executeActionWithoutTX (rawExecute "BEGIN" [])
-
-rollbackTX :: SqlBackend -> IO ()
-rollbackTX = executeActionWithoutTX (rawExecute "ROLLBACK" [])
-
-commitTX :: SqlBackend -> IO ()
-commitTX = executeActionWithoutTX (rawExecute "COMMIT" [])
 
 insertCustomer :: Customer -> SqlBackend -> IO (Key Customer)
 insertCustomer cust = executeActionWithoutTX (insert cust)

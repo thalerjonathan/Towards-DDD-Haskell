@@ -7,12 +7,12 @@ import Test.Cucumber.Data.Step
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.State (get, put)
 
-import Test.Cucumber.Generator.StepDefinition ( given )
+-- import Test.Cucumber.Generator.StepDefinition ( given )
 
 type AccountStepsData = Maybe Double
 
-givenGiroAccountBalanceStepGenerated :: StepType
-givenGiroAccountBalanceStepGenerated = [given|my Giro account has a balance of {double}|]
+-- givenGiroAccountBalanceStepGenerated :: StepType
+-- givenGiroAccountBalanceStepGenerated = [given|my Giro account has a balance of {double}|]
 
 -- Given my Giro account has a balance of {double}
 givenGiroAccountBalanceStep :: StepType

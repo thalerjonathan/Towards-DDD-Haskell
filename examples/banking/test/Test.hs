@@ -15,11 +15,9 @@ import Control.Monad.Logger
 import Control.Monad.Except
 import Data.Either.Combinators
 
-import Database.Persist.Sql
 import Infrastructure.Cache.AppCache
 import Infrastructure.DB.Pool
 import qualified Infrastructure.DB.Config as DbCfg
-import Infrastructure.DB.Banking as DB
 
 type AppConfig = DbCfg.DbConfig
 
@@ -71,10 +69,7 @@ main = do
             (\scenarioAction -> do
               putStrLn "Before Scenario"
               
-              runWithConnection dbPool $ \conn -> do 
-                putStrLn "BEGIN TX"
-                beginTX conn
-
+              runTXWithRollback dbPool $ \conn -> do 
                 let s = DepositStepData {
                     depositStepDataIban  = "AT99 99999 9999999999"
                   , depositStepDataCache = cache
@@ -82,8 +77,6 @@ main = do
                   }
 
                 void $ scenarioAction s
-                putStrLn "ROLLBACK TX"
-                liftIO $ runReaderT transactionUndo conn
-
+      
               putStrLn "After Scenario"
             ) depositSteps

@@ -19,7 +19,7 @@ testFeature = "Feature: Depositing money into accounts\n" ++
                   "Then I should have a balance of 1802.45 in my account\n"
 
 testFeatureSteps :: [(StepType, StepAction AccountStepsData)]
-testFeatureSteps = [ (givenGiroAccountBalanceStepGenerated,  -- givenGiroAccountBalanceStep
+testFeatureSteps = [ (givenGiroAccountBalanceStep,  -- givenGiroAccountBalanceStep givenGiroAccountBalanceStepGenerated
                       givenGiroAccountBalance)
                   , 
                     (whenDepositBalanceStep,

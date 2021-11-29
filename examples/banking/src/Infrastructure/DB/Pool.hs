@@ -10,6 +10,11 @@ module Infrastructure.DB.Pool
   , runWithConnection
   , runNoTX
   , runWithTX
+  , runTXWithRollback
+    
+  , beginTX
+  , rollbackTX
+  , commitTX
   ) where
 
 import Database.PostgreSQL.Simple
@@ -61,3 +66,19 @@ runWithTX :: DbPool -> (SqlBackend -> IO a) -> IO a
 runWithTX p act = runSqlPool (do
   conn <- ask
   liftIO $ act conn) (getPool p)
+
+runTXWithRollback :: DbPool -> (SqlBackend -> IO a) -> IO a
+runTXWithRollback p act = runWithConnection p (\conn -> do
+  beginTX conn
+  ret <- act conn
+  rollbackTX conn
+  return ret)
+
+beginTX :: SqlBackend -> IO ()
+beginTX = liftIO . runReaderT (rawExecute "BEGIN" [])
+
+rollbackTX :: SqlBackend -> IO ()
+rollbackTX = liftIO . runReaderT (rawExecute "ROLLBACK" [])
+
+commitTX :: SqlBackend -> IO ()
+commitTX = liftIO . runReaderT (rawExecute "COMMIT" [])

@@ -22,8 +22,6 @@ import Database.Persist.Postgresql
 import Infrastructure.Cache.AppCache 
 import Infrastructure.DB.Banking as DB
 
--- TODO: use cache (invalidate upon writes!)
-
 data Exception
   = CustomerNotFound
   | AccountNotFound
@@ -122,7 +120,7 @@ withdraw _cache iban amount conn = do
     Nothing -> return $ Just AccountNotFound
     (Just (Entity aid a)) -> do
       if isSavings a 
-        then return $ Just $ InvalidAccountOperation "Cannot deposit into Savings account!"
+        then return $ Just $ InvalidAccountOperation "Cannot withdraw from Savings account!"
         else do 
           let newBalance = accountBalance a - amount
           if newBalance < -1000
@@ -154,7 +152,7 @@ transfer _cache fromIban toIban amount reference conn = do
       case mTo of 
         Nothing -> return $ Just AccountNotFound
         (Just (Entity toAid toAccount)) -> do
-          if (not $ sameOwner fromAccount toAccount) 
+          if not $ sameOwner fromAccount toAccount
             -- not same owner, can only transfer between giros and max 5000 amount
             then do
               if isSavings fromAccount || isSavings  toAccount
@@ -183,24 +181,37 @@ performTransfer fromAid fromAccount toAid toAccount amount reference conn = do
       case mtc of 
         Nothing -> return $ Just CustomerNotFound
         (Just toCustomer) -> do
-          let fromName = customerName fromCustomer
-              toName   = customerName toCustomer
+          let check = checkAccountOverdraft fromAccount amount
+          case check of 
+            (Just err) -> return $ Just err
+            _ -> do
+              let fromName = customerName fromCustomer
+                  toName   = customerName toCustomer
 
-          now <- getCurrentTime
+              now <- getCurrentTime
 
-          let newFromTxLine  = TXLine fromAid (accountIban toAccount) (-amount) toName reference now
-              newToTxLine    = TXLine toAid (accountIban fromAccount) amount fromName reference now
+              let newFromTxLine  = TXLine fromAid (accountIban toAccount) (-amount) toName reference now
+                  newToTxLine    = TXLine toAid (accountIban fromAccount) amount fromName reference now
 
-          _ <- DB.insertTXLine newFromTxLine conn
-          _ <- DB.insertTXLine newToTxLine conn
-          
-          DB.updateAccountBalance fromAid (accountBalance fromAccount - amount) conn
-          DB.updateAccountBalance toAid (accountBalance toAccount + amount) conn
+              _ <- DB.insertTXLine newFromTxLine conn
+              _ <- DB.insertTXLine newToTxLine conn
+              
+              DB.updateAccountBalance fromAid (accountBalance fromAccount - amount) conn
+              DB.updateAccountBalance toAid (accountBalance toAccount + amount) conn
 
-          return Nothing
+              return Nothing
+
+checkAccountOverdraft :: Account -> Double -> Maybe Exception
+checkAccountOverdraft a amount
+  | isSavings a && accountBalance a - amount < 0  = Just $ InvalidAccountOperation "Savings Account cannot have negative balance!"
+  | isGiro a && accountBalance a - amount < -1000 = Just $ InvalidAccountOperation "Cannot overdraw Giro account by more than -1000.0!"
+  | otherwise = Nothing 
 
 isSavings :: Account -> Bool
 isSavings a = DB.Savings == accountType a
+
+isGiro :: Account -> Bool
+isGiro a = DB.Giro == accountType a
 
 sameOwner :: Account -> Account -> Bool
 sameOwner a1 a2 = accountOwner a1 == accountOwner a2

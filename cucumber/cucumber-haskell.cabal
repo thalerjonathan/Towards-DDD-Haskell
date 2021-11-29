@@ -90,7 +90,7 @@ library
   default-language:    Haskell2010
 
 
-test-suite Cucumber-Haskell-test
+test-suite cucumber-haskell-test
   -- Base language which the package is written in.
   default-language:    Haskell2010
 

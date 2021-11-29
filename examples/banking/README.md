@@ -23,9 +23,7 @@ The goal is to implement a simple banking system for bank employees where they c
 - When transferring fails the money is eventually transferred back to the sending account after some time.
 
 ## TODOs
-- Optimistic concurrency control with versioning of Aggregates for safe collaboration
-- Do a naive approach directly in the rest handlers with IO, without layers, enforcing all business rules in the rest handler
-
-- use Church Encoded Free monads for performance
-- Do a tagless final approach
-- Do a freer monads approach
+- implement eventual consistency for transfer: use domain events serialised to the DB ? or use Persistent STM https://dl.acm.org/doi/pdf/10.1145/3473568 ?
+- Implement cucumber given/when/then_ TH
+- Use TH to parse rest/html endpoints into servant types like spring, but directly in types e.g. handleDepositAccount :: SqlBackend -> [getREST|/account/deposit?iban:text&amount:double|]
+- work on domain layer: 3 Layer Cake, Tagless Final, Free Monads, Freeer Monads
