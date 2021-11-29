@@ -5298,14 +5298,8 @@ var $author$project$Page$Account$init = F2(
 	function (name, email) {
 		return A3($author$project$Page$Account$Model, name, email, 0);
 	});
-var $author$project$Page$AllCustomers$Model = F3(
-	function (name, email, ticks) {
-		return {email: email, name: name, ticks: ticks};
-	});
-var $author$project$Page$AllCustomers$init = F2(
-	function (name, email) {
-		return A3($author$project$Page$AllCustomers$Model, name, email, 0);
-	});
+var $author$project$Page$AllCustomers$Loading = {$: 'Loading'};
+var $author$project$Page$AllCustomers$init = $author$project$Page$AllCustomers$Loading;
 var $author$project$Page$Customer$Model = F3(
 	function (name, email, ticks) {
 		return {email: email, name: name, ticks: ticks};
@@ -5422,8 +5416,7 @@ var $author$project$Route$parser = $elm$url$Url$Parser$oneOf(
 			A2(
 			$danhandrea$elm_router$Router$mapRoute,
 			$elm$url$Url$Parser$top,
-			$author$project$Route$AllCustomers(
-				A2($author$project$Page$AllCustomers$init, '', ''))),
+			$author$project$Route$AllCustomers($author$project$Page$AllCustomers$init)),
 			A2(
 			$danhandrea$elm_router$Router$mapRoute,
 			$elm$url$Url$Parser$s('customer'),
@@ -5869,11 +5862,10 @@ var $elm$time$Time$every = F2(
 var $author$project$Page$Account$subscriptions = function (_v0) {
 	return A2($elm$time$Time$every, 1000, $author$project$Page$Account$Tick);
 };
-var $author$project$Page$AllCustomers$Tick = function (a) {
-	return {$: 'Tick', a: a};
-};
+var $elm$core$Platform$Sub$batch = _Platform_batch;
+var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
 var $author$project$Page$AllCustomers$subscriptions = function (_v0) {
-	return A2($elm$time$Time$every, 1000, $author$project$Page$AllCustomers$Tick);
+	return $elm$core$Platform$Sub$none;
 };
 var $author$project$Page$Customer$Tick = function (a) {
 	return {$: 'Tick', a: a};
@@ -5945,29 +5937,49 @@ var $author$project$Page$Account$update = F2(
 					$elm$core$Platform$Cmd$none);
 		}
 	});
+var $author$project$Page$AllCustomers$Failure = function (a) {
+	return {$: 'Failure', a: a};
+};
+var $author$project$Page$AllCustomers$Success = function (a) {
+	return {$: 'Success', a: a};
+};
+var $author$project$Page$AllCustomers$errorToString = function (e) {
+	switch (e.$) {
+		case 'BadUrl':
+			var url = e.a;
+			return 'The URL ' + (url + ' was invalid');
+		case 'Timeout':
+			return 'Unable to reach the server, try again';
+		case 'NetworkError':
+			return 'Unable to reach the server, check your network connection';
+		case 'BadStatus':
+			switch (e.a) {
+				case 500:
+					return 'The server had a problem, try again later';
+				case 400:
+					return 'Verify your information and try again';
+				default:
+					return 'Unknown error';
+			}
+		default:
+			var errorMessage = e.a;
+			return errorMessage;
+	}
+};
 var $author$project$Page$AllCustomers$update = F2(
-	function (msg, model) {
-		switch (msg.$) {
-			case 'Name':
-				var name = msg.a;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{name: name}),
-					$elm$core$Platform$Cmd$none);
-			case 'Email':
-				var email = msg.a;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{email: email}),
-					$elm$core$Platform$Cmd$none);
-			default:
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{ticks: model.ticks + 1}),
-					$elm$core$Platform$Cmd$none);
+	function (msg, _v0) {
+		var result = msg.a;
+		if (result.$ === 'Ok') {
+			var fullText = result.a;
+			return _Utils_Tuple2(
+				$author$project$Page$AllCustomers$Success(fullText),
+				$elm$core$Platform$Cmd$none);
+		} else {
+			var err = result.a;
+			return _Utils_Tuple2(
+				$author$project$Page$AllCustomers$Failure(
+					$author$project$Page$AllCustomers$errorToString(err)),
+				$elm$core$Platform$Cmd$none);
 		}
 	});
 var $author$project$Page$Customer$update = F2(
@@ -6131,6 +6143,7 @@ var $author$project$Page$Account$view = function (_v0) {
 };
 var $elm$html$Html$a = _VirtualDom_node('a');
 var $elm$html$Html$Attributes$class = $elm$html$Html$Attributes$stringProperty('className');
+var $elm$html$Html$h2 = _VirtualDom_node('h2');
 var $elm$html$Html$Attributes$href = function (url) {
 	return A2(
 		$elm$html$Html$Attributes$stringProperty,
@@ -6139,51 +6152,88 @@ var $elm$html$Html$Attributes$href = function (url) {
 };
 var $elm$html$Html$li = _VirtualDom_node('li');
 var $elm$html$Html$ul = _VirtualDom_node('ul');
-var $author$project$Page$AllCustomers$view = function (_v0) {
-	var name = _v0.name;
-	var email = _v0.email;
-	var ticks = _v0.ticks;
-	return _List_fromArray(
-		[
-			A2(
-			$elm$html$Html$h1,
-			_List_Nil,
-			_List_fromArray(
+var $author$project$Page$AllCustomers$view = function (model) {
+	switch (model.$) {
+		case 'Loading':
+			return _List_fromArray(
 				[
-					$elm$html$Html$text('Customers')
-				])),
-			A2(
-			$elm$html$Html$ul,
-			_List_fromArray(
+					A2(
+					$elm$html$Html$h1,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Customers')
+						])),
+					A2(
+					$elm$html$Html$h2,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Loading...')
+						]))
+				]);
+		case 'Failure':
+			var err = model.a;
+			return _List_fromArray(
 				[
-					$elm$html$Html$Attributes$class('list-group list-group-flush')
-				]),
-			A2(
-				$elm$core$List$map,
-				function (n) {
-					return A2(
-						$elm$html$Html$li,
-						_List_fromArray(
-							[
-								$elm$html$Html$Attributes$class('list-group-item')
-							]),
-						_List_fromArray(
-							[
-								A2(
-								$elm$html$Html$a,
+					A2(
+					$elm$html$Html$h1,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Customers')
+						])),
+					A2(
+					$elm$html$Html$h2,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Failed loading: \'' + (err + '\''))
+						]))
+				]);
+		default:
+			var cs = model.a;
+			return _List_fromArray(
+				[
+					A2(
+					$elm$html$Html$h1,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Customers')
+						])),
+					A2(
+					$elm$html$Html$ul,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('list-group list-group-flush')
+						]),
+					A2(
+						$elm$core$List$map,
+						function (c) {
+							return A2(
+								$elm$html$Html$li,
 								_List_fromArray(
 									[
-										$elm$html$Html$Attributes$href('/customer?id=lkjalkj')
+										$elm$html$Html$Attributes$class('list-group-item')
 									]),
 								_List_fromArray(
 									[
-										$elm$html$Html$text(n)
-									]))
-							]));
-				},
-				_List_fromArray(
-					['Jonathan Thaler', 'Thomas Schwarz'])))
-		]);
+										A2(
+										$elm$html$Html$a,
+										_List_fromArray(
+											[
+												$elm$html$Html$Attributes$href('/customer?id=' + c.id)
+											]),
+										_List_fromArray(
+											[
+												$elm$html$Html$text(c.name)
+											]))
+									]));
+						},
+						cs))
+				]);
+	}
 };
 var $author$project$Page$Customer$Email = function (a) {
 	return {$: 'Email', a: a};
@@ -6841,7 +6891,6 @@ var $danhandrea$elm_router$Router$Sub = F2(
 	function (a, b) {
 		return {$: 'Sub', a: a, b: b};
 	});
-var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $danhandrea$elm_router$Router$subscriptions = F2(
 	function (config, _v0) {
 		var routes = _v0.a.routes;
