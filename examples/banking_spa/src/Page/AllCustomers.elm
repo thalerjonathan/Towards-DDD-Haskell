@@ -86,6 +86,5 @@ view model =
               H.a [ A.href ("/customer?id=" ++ c.id) ] [ H.text (c.name)]] ) cs)
       ]
 
--- SUBSCRIPTIONS
 subscriptions : Model -> Sub Msg
 subscriptions _ = Sub.none

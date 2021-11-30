@@ -5308,6 +5308,7 @@ var $author$project$Page$Customer$init = F2(
 	function (name, email) {
 		return A3($author$project$Page$Customer$Model, name, email, 0);
 	});
+var $elm$core$Debug$log = _Debug_log;
 var $elm$url$Url$Parser$Parser = function (a) {
 	return {$: 'Parser', a: a};
 };
@@ -5410,7 +5411,10 @@ var $elm$url$Url$Parser$top = $elm$url$Url$Parser$Parser(
 		return _List_fromArray(
 			[state]);
 	});
-var $author$project$Route$parser = $elm$url$Url$Parser$oneOf(
+var $author$project$Route$parser = A3(
+	$elm$core$Debug$log,
+	'parser',
+	$elm$url$Url$Parser$oneOf,
 	_List_fromArray(
 		[
 			A2(
@@ -5432,15 +5436,13 @@ var $author$project$Route$AccountMsg = F2(
 	function (a, b) {
 		return {$: 'AccountMsg', a: a, b: b};
 	});
-var $author$project$Route$AllCustomersMsg = F2(
-	function (a, b) {
-		return {$: 'AllCustomersMsg', a: a, b: b};
-	});
 var $author$project$Route$CustomerMsg = F2(
 	function (a, b) {
 		return {$: 'CustomerMsg', a: a, b: b};
 	});
 var $elm$core$Platform$Sub$map = _Platform_map;
+var $elm$core$Platform$Sub$batch = _Platform_batch;
+var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
 var $author$project$Page$Account$Tick = function (a) {
 	return {$: 'Tick', a: a};
 };
@@ -5862,11 +5864,6 @@ var $elm$time$Time$every = F2(
 var $author$project$Page$Account$subscriptions = function (_v0) {
 	return A2($elm$time$Time$every, 1000, $author$project$Page$Account$Tick);
 };
-var $elm$core$Platform$Sub$batch = _Platform_batch;
-var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
-var $author$project$Page$AllCustomers$subscriptions = function (_v0) {
-	return $elm$core$Platform$Sub$none;
-};
 var $author$project$Page$Customer$Tick = function (a) {
 	return {$: 'Tick', a: a};
 };
@@ -5874,13 +5871,11 @@ var $author$project$Page$Customer$subscriptions = function (_v0) {
 	return A2($elm$time$Time$every, 1000, $author$project$Page$Customer$Tick);
 };
 var $author$project$Route$subscriptions = function (route) {
+	var ret = A2($elm$core$Debug$log, 'subscriptions', route);
 	switch (route.$) {
 		case 'AllCustomers':
 			var mdl = route.a;
-			return A2(
-				$elm$core$Platform$Sub$map,
-				$author$project$Route$AllCustomersMsg(mdl),
-				$author$project$Page$AllCustomers$subscriptions(mdl));
+			return $elm$core$Platform$Sub$none;
 		case 'Customer':
 			var mdl = route.a;
 			return A2(
@@ -5898,6 +5893,10 @@ var $author$project$Route$subscriptions = function (route) {
 var $author$project$Route$title = function (_v0) {
 	return $elm$core$Maybe$Just('Banking');
 };
+var $author$project$Route$AllCustomersMsg = F2(
+	function (a, b) {
+		return {$: 'AllCustomersMsg', a: a, b: b};
+	});
 var $elm$core$Platform$Cmd$map = _Platform_map;
 var $danhandrea$elm_router$Router$mapUpdate = F3(
 	function (modelInto, msgInto, _v0) {
@@ -6008,6 +6007,7 @@ var $author$project$Page$Customer$update = F2(
 		}
 	});
 var $author$project$Route$update = function (message) {
+	var ret = A2($elm$core$Debug$log, 'update', message);
 	switch (message.$) {
 		case 'AllCustomersMsg':
 			var model = message.a;
@@ -6289,6 +6289,7 @@ var $author$project$Page$Customer$view = function (_v0) {
 		]);
 };
 var $author$project$Route$view = function (route) {
+	var ret = A2($elm$core$Debug$log, 'view', route);
 	switch (route.$) {
 		case 'AllCustomers':
 			var mdl = route.a;

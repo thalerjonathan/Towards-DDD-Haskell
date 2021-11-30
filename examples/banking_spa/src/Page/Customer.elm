@@ -1,10 +1,10 @@
-module Page.Customer exposing (Model, Msg, init, subscriptions, update, view)
+module Page.Customer exposing (Model, Msg, init, subscriptions, update, view, urlParser)
 
 import Html as H exposing (Html)
 import Html.Attributes as A
 import Html.Events as E
 import Time
-
+import Url.Parser
 
 
 -- MODEL
@@ -79,3 +79,7 @@ view { name, email, ticks } =
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Time.every 1000 Tick
+
+urlParser : Url.Parser.Parser (String -> a) a
+urlParser =
+    Url.Parser.custom "id" (\str -> Just str)
