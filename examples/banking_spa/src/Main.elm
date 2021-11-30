@@ -10,16 +10,12 @@ import Url exposing (Url)
 import Page.Account as Account
 import Page.Customer as Customer
 import Page.AllCustomers as AllCustomers
-
--- MODEL
 type Model 
   = AllCustomers AllCustomers.Model
   | Customer Customer.Model
   | Account Account.Model
   | Loading
   | NotFound 
-  
--- MSG
 type Msg
     = GotAllCustomersMsg AllCustomers.Msg
     | GotCustomerMsg Customer.Msg
@@ -27,7 +23,6 @@ type Msg
     | ChangedUrl Url
     | ClickedLink Browser.UrlRequest
 
--- INIT
 init : () -> Url -> Key -> ( Model, Cmd Msg )
 init _ url key =
   changeRouteTo (Route.fromUrl url) Loading
@@ -38,9 +33,17 @@ changeRouteTo maybeRoute model =
     Nothing -> 
       (NotFound, Cmd.none)
 
-    (Just Route.AllCustomersRoute) ->
+    (Just Route.AllCustomers) ->
       AllCustomers.init 
         |> updateWith AllCustomers GotAllCustomersMsg model
+    
+    (Just (Route.Customer cid)) ->
+      Customer.init cid
+        |> updateWith Customer GotCustomerMsg model
+    
+    (Just (Route.Account str)) ->
+      Account.init "" ""
+        |> updateWith Account GotAccountMsg model
     
 updateWith : (subModel -> Model) -> (subMsg -> Msg) -> Model -> ( subModel, Cmd subMsg ) -> ( Model, Cmd Msg )
 updateWith toModel toMsg model ( subModel, subCmd ) =
@@ -68,8 +71,8 @@ update msg model =
                 ( model, Cmd.none )
 
             Just _ ->
-                ( model
-                , Nav.pushUrl "foo" (Url.toString url)
+                ( model, Cmd.none
+                -- TODO get key from init, Nav.pushUrl "foo" (Url.toString url)
                 )
 
         Browser.External href ->
@@ -101,30 +104,24 @@ view : Model -> Document Msg
 view model =
   case model of 
     Loading -> 
-      { title = Just "Banking"
-      , body = [H.h1 [] [ H.text "Loading..." ]]
-      }
+      viewPage GotAllCustomersMsg "Banking" [H.h1 [] [ H.text "Loading..." ]]
 
     NotFound ->
-      { title = Just "Banking"
-      , body =  [ H.h1 [] [ H.text "Page not found!" ]]
-      }
+      viewPage GotAllCustomersMsg "Banking" [ H.h1 [] [ H.text "Page not found!" ]]
 
     AllCustomers allCustomers -> 
-      { title = Just "Banking"
-      , body = List.map (H.map GotAllCustomersMsg) (AllCustomers.view allCustomers)
-      }
+      viewPage GotAllCustomersMsg "Banking" (AllCustomers.view allCustomers)
 
     Customer customer -> 
-      { title = Just "Banking"
-      , body = List.map (H.map GotCustomerMsg) (Customer.view customer)
-      }
+      viewPage GotCustomerMsg "Banking" (Customer.view customer)
 
     Account account ->
-      { title = Just "Banking"
-      , body = List.map (H.map GotAccountMsg) (Account.view account)
-      }
+      viewPage GotAccountMsg "Banking" (Account.view account)
  
+viewPage toMsg title body =
+    { title = title
+    , body = List.map (H.map toMsg) body
+    }
 
 -- SUBSCRIPTIONS
 subscriptions : Model -> Sub Msg

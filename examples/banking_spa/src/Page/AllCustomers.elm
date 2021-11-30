@@ -5,37 +5,34 @@ import Html as H exposing (Html)
 import Html.Attributes as A
 import Json.Decode as D
 
-type alias CustomerDetails = 
-  { id : String
-  , name : String
-  }
-  
+import Api
+
 -- MODEL
 type Model 
   = Loading
   | Failure String
-  | Success (List CustomerDetails)
+  | Success (List Api.CustomerDetails)
 
 type Msg
-    = AllCustomersLoaded (Result Http.Error (List CustomerDetails))
-
-customerDetailsDecoder : D.Decoder CustomerDetails
-customerDetailsDecoder =
-  D.map2 CustomerDetails
-      (D.field "id" D.string)
-      (D.field "name" D.string)
+    = AllCustomersLoaded (Result Http.Error (List Api.CustomerDetails))
 
 -- INIT
-init : Model --(Model, Cmd Msg)
-init = Loading
-{-
+init : (Model, Cmd Msg)
+init = 
   ( Loading
-  , Http.get
-      { url = "/"
-      , expect = Http.expectJson AllCustomersLoaded (D.list customerDetailsDecoder)
+  , Http.request
+      { method = "GET"
+      , headers = []
+          -- [ Http.header "Origin" "http://elm-lang.org"
+          -- , Http.header "Access-Control-Request-Method" "GET"
+          -- , Http.header "Access-Control-Request-Headers" "X-Custom-Header" ]
+      , url = "http://localhost:8080/rest/customer/all/"
+      , body = Http.emptyBody
+      , expect = Http.expectJson AllCustomersLoaded (D.list Api.customerDetailsDecoder)
+      , timeout = Nothing
+      , tracker = Nothing
       }
   )
--}
 
 -- update
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -83,7 +80,7 @@ view model =
       [ H.h1 [] [ H.text "Customers" ]
       , H.ul [ A.class "list-group list-group-flush" ] (List.map (\c -> 
           H.li [ A.class "list-group-item" ] [ 
-              H.a [ A.href ("/customer?id=" ++ c.id) ] [ H.text (c.name)]] ) cs)
+              H.a [ A.href ("/customer/" ++ c.id) ] [ H.text (c.name)]] ) cs)
       ]
 
 subscriptions : Model -> Sub Msg

@@ -21,9 +21,9 @@ type alias Model =
 -- INIT
 
 
-init : String -> String -> Model
+init : String -> String -> (Model, Cmd Msg)
 init name email =
-    Model name email 0
+  (Model name email 0, Cmd.none)
 
 
 

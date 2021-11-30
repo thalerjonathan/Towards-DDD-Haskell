@@ -104,6 +104,7 @@ executable Banking
                     , postgresql-simple
                     , resource-pool
                     , servant-blaze
+                    -- , servant-options
                     , servant-server
                     , servant-swagger
                     , swagger2
@@ -112,6 +113,7 @@ executable Banking
                     , unordered-containers
                     , uuid
                     , wai
+                    , wai-cors
                     , warp
                     
   -- Directories containing source files.

@@ -4358,6 +4358,198 @@ function _Browser_load(url)
 
 
 
+// SEND REQUEST
+
+var _Http_toTask = F3(function(router, toTask, request)
+{
+	return _Scheduler_binding(function(callback)
+	{
+		function done(response) {
+			callback(toTask(request.expect.a(response)));
+		}
+
+		var xhr = new XMLHttpRequest();
+		xhr.addEventListener('error', function() { done($elm$http$Http$NetworkError_); });
+		xhr.addEventListener('timeout', function() { done($elm$http$Http$Timeout_); });
+		xhr.addEventListener('load', function() { done(_Http_toResponse(request.expect.b, xhr)); });
+		$elm$core$Maybe$isJust(request.tracker) && _Http_track(router, xhr, request.tracker.a);
+
+		try {
+			xhr.open(request.method, request.url, true);
+		} catch (e) {
+			return done($elm$http$Http$BadUrl_(request.url));
+		}
+
+		_Http_configureRequest(xhr, request);
+
+		request.body.a && xhr.setRequestHeader('Content-Type', request.body.a);
+		xhr.send(request.body.b);
+
+		return function() { xhr.c = true; xhr.abort(); };
+	});
+});
+
+
+// CONFIGURE
+
+function _Http_configureRequest(xhr, request)
+{
+	for (var headers = request.headers; headers.b; headers = headers.b) // WHILE_CONS
+	{
+		xhr.setRequestHeader(headers.a.a, headers.a.b);
+	}
+	xhr.timeout = request.timeout.a || 0;
+	xhr.responseType = request.expect.d;
+	xhr.withCredentials = request.allowCookiesFromOtherDomains;
+}
+
+
+// RESPONSES
+
+function _Http_toResponse(toBody, xhr)
+{
+	return A2(
+		200 <= xhr.status && xhr.status < 300 ? $elm$http$Http$GoodStatus_ : $elm$http$Http$BadStatus_,
+		_Http_toMetadata(xhr),
+		toBody(xhr.response)
+	);
+}
+
+
+// METADATA
+
+function _Http_toMetadata(xhr)
+{
+	return {
+		url: xhr.responseURL,
+		statusCode: xhr.status,
+		statusText: xhr.statusText,
+		headers: _Http_parseHeaders(xhr.getAllResponseHeaders())
+	};
+}
+
+
+// HEADERS
+
+function _Http_parseHeaders(rawHeaders)
+{
+	if (!rawHeaders)
+	{
+		return $elm$core$Dict$empty;
+	}
+
+	var headers = $elm$core$Dict$empty;
+	var headerPairs = rawHeaders.split('\r\n');
+	for (var i = headerPairs.length; i--; )
+	{
+		var headerPair = headerPairs[i];
+		var index = headerPair.indexOf(': ');
+		if (index > 0)
+		{
+			var key = headerPair.substring(0, index);
+			var value = headerPair.substring(index + 2);
+
+			headers = A3($elm$core$Dict$update, key, function(oldValue) {
+				return $elm$core$Maybe$Just($elm$core$Maybe$isJust(oldValue)
+					? value + ', ' + oldValue.a
+					: value
+				);
+			}, headers);
+		}
+	}
+	return headers;
+}
+
+
+// EXPECT
+
+var _Http_expect = F3(function(type, toBody, toValue)
+{
+	return {
+		$: 0,
+		d: type,
+		b: toBody,
+		a: toValue
+	};
+});
+
+var _Http_mapExpect = F2(function(func, expect)
+{
+	return {
+		$: 0,
+		d: expect.d,
+		b: expect.b,
+		a: function(x) { return func(expect.a(x)); }
+	};
+});
+
+function _Http_toDataView(arrayBuffer)
+{
+	return new DataView(arrayBuffer);
+}
+
+
+// BODY and PARTS
+
+var _Http_emptyBody = { $: 0 };
+var _Http_pair = F2(function(a, b) { return { $: 0, a: a, b: b }; });
+
+function _Http_toFormData(parts)
+{
+	for (var formData = new FormData(); parts.b; parts = parts.b) // WHILE_CONS
+	{
+		var part = parts.a;
+		formData.append(part.a, part.b);
+	}
+	return formData;
+}
+
+var _Http_bytesToBlob = F2(function(mime, bytes)
+{
+	return new Blob([bytes], { type: mime });
+});
+
+
+// PROGRESS
+
+function _Http_track(router, xhr, tracker)
+{
+	// TODO check out lengthComputable on loadstart event
+
+	xhr.upload.addEventListener('progress', function(event) {
+		if (xhr.c) { return; }
+		_Scheduler_rawSpawn(A2($elm$core$Platform$sendToSelf, router, _Utils_Tuple2(tracker, $elm$http$Http$Sending({
+			sent: event.loaded,
+			size: event.total
+		}))));
+	});
+	xhr.addEventListener('progress', function(event) {
+		if (xhr.c) { return; }
+		_Scheduler_rawSpawn(A2($elm$core$Platform$sendToSelf, router, _Utils_Tuple2(tracker, $elm$http$Http$Receiving({
+			received: event.loaded,
+			size: event.lengthComputable ? $elm$core$Maybe$Just(event.total) : $elm$core$Maybe$Nothing
+		}))));
+	});
+}
+
+function _Url_percentEncode(string)
+{
+	return encodeURIComponent(string);
+}
+
+function _Url_percentDecode(string)
+{
+	try
+	{
+		return $elm$core$Maybe$Just(decodeURIComponent(string));
+	}
+	catch (e)
+	{
+		return $elm$core$Maybe$Nothing;
+	}
+}
+
+
 function _Time_now(millisToPosix)
 {
 	return _Scheduler_binding(function(callback)
@@ -4401,24 +4593,13 @@ function _Time_getZoneName()
 		callback(_Scheduler_succeed(name));
 	});
 }
-
-
-function _Url_percentEncode(string)
-{
-	return encodeURIComponent(string);
-}
-
-function _Url_percentDecode(string)
-{
-	try
-	{
-		return $elm$core$Maybe$Just(decodeURIComponent(string));
-	}
-	catch (e)
-	{
-		return $elm$core$Maybe$Nothing;
-	}
-}var $elm$core$Basics$EQ = {$: 'EQ'};
+var $author$project$Main$ChangedUrl = function (a) {
+	return {$: 'ChangedUrl', a: a};
+};
+var $author$project$Main$ClickedLink = function (a) {
+	return {$: 'ClickedLink', a: a};
+};
+var $elm$core$Basics$EQ = {$: 'EQ'};
 var $elm$core$Basics$GT = {$: 'GT'};
 var $elm$core$Basics$LT = {$: 'LT'};
 var $elm$core$List$cons = _List_cons;
@@ -5207,257 +5388,82 @@ var $elm$core$Task$perform = F2(
 				A2($elm$core$Task$map, toMessage, task)));
 	});
 var $elm$browser$Browser$application = _Browser_application;
-var $author$project$Main$Router = function (a) {
-	return {$: 'Router', a: a};
-};
-var $author$project$Main$UrlChanged = function (a) {
-	return {$: 'UrlChanged', a: a};
-};
-var $elm$html$Html$h1 = _VirtualDom_node('h1');
-var $elm$html$Html$h3 = _VirtualDom_node('h3');
-var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
-var $elm$html$Html$text = $elm$virtual_dom$VirtualDom$text;
-var $elm$url$Url$addPort = F2(
-	function (maybePort, starter) {
-		if (maybePort.$ === 'Nothing') {
-			return starter;
-		} else {
-			var port_ = maybePort.a;
-			return starter + (':' + $elm$core$String$fromInt(port_));
-		}
-	});
-var $elm$url$Url$addPrefixed = F3(
-	function (prefix, maybeSegment, starter) {
-		if (maybeSegment.$ === 'Nothing') {
-			return starter;
-		} else {
-			var segment = maybeSegment.a;
-			return _Utils_ap(
-				starter,
-				_Utils_ap(prefix, segment));
-		}
-	});
-var $elm$url$Url$toString = function (url) {
-	var http = function () {
-		var _v0 = url.protocol;
-		if (_v0.$ === 'Http') {
-			return 'http://';
-		} else {
-			return 'https://';
-		}
-	}();
-	return A3(
-		$elm$url$Url$addPrefixed,
-		'#',
-		url.fragment,
-		A3(
-			$elm$url$Url$addPrefixed,
-			'?',
-			url.query,
-			_Utils_ap(
-				A2(
-					$elm$url$Url$addPort,
-					url.port_,
-					_Utils_ap(http, url.host)),
-				url.path)));
-};
-var $author$project$Route$notFound = function (url) {
-	return _List_fromArray(
-		[
-			A2(
-			$elm$html$Html$h1,
-			_List_Nil,
-			_List_fromArray(
-				[
-					$elm$html$Html$text('Page not found!')
-				])),
-			A2(
-			$elm$html$Html$h3,
-			_List_Nil,
-			_List_fromArray(
-				[
-					$elm$html$Html$text(
-					$elm$url$Url$toString(url))
-				]))
-		]);
-};
-var $author$project$Route$Account = function (a) {
+var $author$project$Main$Loading = {$: 'Loading'};
+var $author$project$Main$Account = function (a) {
 	return {$: 'Account', a: a};
 };
-var $author$project$Route$AllCustomers = function (a) {
+var $author$project$Main$AllCustomers = function (a) {
 	return {$: 'AllCustomers', a: a};
 };
-var $author$project$Route$Customer = function (a) {
+var $author$project$Main$Customer = function (a) {
 	return {$: 'Customer', a: a};
 };
+var $author$project$Main$GotAccountMsg = function (a) {
+	return {$: 'GotAccountMsg', a: a};
+};
+var $author$project$Main$GotAllCustomersMsg = function (a) {
+	return {$: 'GotAllCustomersMsg', a: a};
+};
+var $author$project$Main$GotCustomerMsg = function (a) {
+	return {$: 'GotCustomerMsg', a: a};
+};
+var $author$project$Main$NotFound = {$: 'NotFound'};
 var $author$project$Page$Account$Model = F3(
 	function (name, email, ticks) {
 		return {email: email, name: name, ticks: ticks};
 	});
+var $elm$core$Platform$Cmd$batch = _Platform_batch;
+var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
 var $author$project$Page$Account$init = F2(
 	function (name, email) {
-		return A3($author$project$Page$Account$Model, name, email, 0);
+		return _Utils_Tuple2(
+			A3($author$project$Page$Account$Model, name, email, 0),
+			$elm$core$Platform$Cmd$none);
 	});
+var $author$project$Page$AllCustomers$AllCustomersLoaded = function (a) {
+	return {$: 'AllCustomersLoaded', a: a};
+};
 var $author$project$Page$AllCustomers$Loading = {$: 'Loading'};
-var $author$project$Page$AllCustomers$init = $author$project$Page$AllCustomers$Loading;
-var $author$project$Page$Customer$Model = F3(
-	function (name, email, ticks) {
-		return {email: email, name: name, ticks: ticks};
+var $author$project$Api$CustomerDetails = F2(
+	function (id, name) {
+		return {id: id, name: name};
 	});
-var $author$project$Page$Customer$init = F2(
-	function (name, email) {
-		return A3($author$project$Page$Customer$Model, name, email, 0);
-	});
-var $elm$core$Debug$log = _Debug_log;
-var $elm$url$Url$Parser$Parser = function (a) {
-	return {$: 'Parser', a: a};
-};
-var $elm$url$Url$Parser$State = F5(
-	function (visited, unvisited, params, frag, value) {
-		return {frag: frag, params: params, unvisited: unvisited, value: value, visited: visited};
-	});
-var $elm$url$Url$Parser$mapState = F2(
-	function (func, _v0) {
-		var visited = _v0.visited;
-		var unvisited = _v0.unvisited;
-		var params = _v0.params;
-		var frag = _v0.frag;
-		var value = _v0.value;
-		return A5(
-			$elm$url$Url$Parser$State,
-			visited,
-			unvisited,
-			params,
-			frag,
-			func(value));
-	});
-var $elm$url$Url$Parser$map = F2(
-	function (subValue, _v0) {
-		var parseArg = _v0.a;
-		return $elm$url$Url$Parser$Parser(
-			function (_v1) {
-				var visited = _v1.visited;
-				var unvisited = _v1.unvisited;
-				var params = _v1.params;
-				var frag = _v1.frag;
-				var value = _v1.value;
-				return A2(
-					$elm$core$List$map,
-					$elm$url$Url$Parser$mapState(value),
-					parseArg(
-						A5($elm$url$Url$Parser$State, visited, unvisited, params, frag, subValue)));
-			});
-	});
-var $danhandrea$elm_router$Router$mapRoute = F2(
-	function (where_, what) {
-		return A2($elm$url$Url$Parser$map, what, where_);
-	});
-var $elm$core$List$append = F2(
-	function (xs, ys) {
-		if (!ys.b) {
-			return xs;
-		} else {
-			return A3($elm$core$List$foldr, $elm$core$List$cons, ys, xs);
-		}
-	});
-var $elm$core$List$concat = function (lists) {
-	return A3($elm$core$List$foldr, $elm$core$List$append, _List_Nil, lists);
-};
-var $elm$core$List$concatMap = F2(
-	function (f, list) {
-		return $elm$core$List$concat(
-			A2($elm$core$List$map, f, list));
-	});
-var $elm$url$Url$Parser$oneOf = function (parsers) {
-	return $elm$url$Url$Parser$Parser(
-		function (state) {
-			return A2(
-				$elm$core$List$concatMap,
-				function (_v0) {
-					var parser = _v0.a;
-					return parser(state);
-				},
-				parsers);
-		});
-};
-var $elm$url$Url$Parser$s = function (str) {
-	return $elm$url$Url$Parser$Parser(
-		function (_v0) {
-			var visited = _v0.visited;
-			var unvisited = _v0.unvisited;
-			var params = _v0.params;
-			var frag = _v0.frag;
-			var value = _v0.value;
-			if (!unvisited.b) {
-				return _List_Nil;
-			} else {
-				var next = unvisited.a;
-				var rest = unvisited.b;
-				return _Utils_eq(next, str) ? _List_fromArray(
-					[
-						A5(
-						$elm$url$Url$Parser$State,
-						A2($elm$core$List$cons, next, visited),
-						rest,
-						params,
-						frag,
-						value)
-					]) : _List_Nil;
-			}
-		});
-};
-var $elm$url$Url$Parser$top = $elm$url$Url$Parser$Parser(
-	function (state) {
-		return _List_fromArray(
-			[state]);
-	});
-var $author$project$Route$parser = A3(
-	$elm$core$Debug$log,
-	'parser',
-	$elm$url$Url$Parser$oneOf,
-	_List_fromArray(
-		[
-			A2(
-			$danhandrea$elm_router$Router$mapRoute,
-			$elm$url$Url$Parser$top,
-			$author$project$Route$AllCustomers($author$project$Page$AllCustomers$init)),
-			A2(
-			$danhandrea$elm_router$Router$mapRoute,
-			$elm$url$Url$Parser$s('customer'),
-			$author$project$Route$Customer(
-				A2($author$project$Page$Customer$init, '', ''))),
-			A2(
-			$danhandrea$elm_router$Router$mapRoute,
-			$elm$url$Url$Parser$s('account'),
-			$author$project$Route$Account(
-				A2($author$project$Page$Account$init, '', '')))
-		]));
-var $author$project$Route$AccountMsg = F2(
+var $elm$json$Json$Decode$field = _Json_decodeField;
+var $elm$json$Json$Decode$string = _Json_decodeString;
+var $author$project$Api$customerDetailsDecoder = A3(
+	$elm$json$Json$Decode$map2,
+	$author$project$Api$CustomerDetails,
+	A2($elm$json$Json$Decode$field, 'customerDetailsId', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'customerDetailsName', $elm$json$Json$Decode$string));
+var $elm$http$Http$BadStatus_ = F2(
 	function (a, b) {
-		return {$: 'AccountMsg', a: a, b: b};
+		return {$: 'BadStatus_', a: a, b: b};
 	});
-var $author$project$Route$CustomerMsg = F2(
-	function (a, b) {
-		return {$: 'CustomerMsg', a: a, b: b};
-	});
-var $elm$core$Platform$Sub$map = _Platform_map;
-var $elm$core$Platform$Sub$batch = _Platform_batch;
-var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
-var $author$project$Page$Account$Tick = function (a) {
-	return {$: 'Tick', a: a};
+var $elm$http$Http$BadUrl_ = function (a) {
+	return {$: 'BadUrl_', a: a};
 };
-var $elm$time$Time$Every = F2(
+var $elm$http$Http$GoodStatus_ = F2(
 	function (a, b) {
-		return {$: 'Every', a: a, b: b};
+		return {$: 'GoodStatus_', a: a, b: b};
 	});
-var $elm$time$Time$State = F2(
-	function (taggers, processes) {
-		return {processes: processes, taggers: taggers};
-	});
+var $elm$http$Http$NetworkError_ = {$: 'NetworkError_'};
+var $elm$http$Http$Receiving = function (a) {
+	return {$: 'Receiving', a: a};
+};
+var $elm$http$Http$Sending = function (a) {
+	return {$: 'Sending', a: a};
+};
+var $elm$http$Http$Timeout_ = {$: 'Timeout_'};
 var $elm$core$Dict$RBEmpty_elm_builtin = {$: 'RBEmpty_elm_builtin'};
 var $elm$core$Dict$empty = $elm$core$Dict$RBEmpty_elm_builtin;
-var $elm$time$Time$init = $elm$core$Task$succeed(
-	A2($elm$time$Time$State, $elm$core$Dict$empty, $elm$core$Dict$empty));
+var $elm$core$Maybe$isJust = function (maybe) {
+	if (maybe.$ === 'Just') {
+		return true;
+	} else {
+		return false;
+	}
+};
+var $elm$core$Platform$sendToSelf = _Platform_sendToSelf;
 var $elm$core$Basics$compare = _Utils_compare;
 var $elm$core$Dict$get = F2(
 	function (targetKey, dict) {
@@ -5598,808 +5604,6 @@ var $elm$core$Dict$insert = F3(
 			return x;
 		}
 	});
-var $elm$time$Time$addMySub = F2(
-	function (_v0, state) {
-		var interval = _v0.a;
-		var tagger = _v0.b;
-		var _v1 = A2($elm$core$Dict$get, interval, state);
-		if (_v1.$ === 'Nothing') {
-			return A3(
-				$elm$core$Dict$insert,
-				interval,
-				_List_fromArray(
-					[tagger]),
-				state);
-		} else {
-			var taggers = _v1.a;
-			return A3(
-				$elm$core$Dict$insert,
-				interval,
-				A2($elm$core$List$cons, tagger, taggers),
-				state);
-		}
-	});
-var $elm$core$Process$kill = _Scheduler_kill;
-var $elm$core$Dict$foldl = F3(
-	function (func, acc, dict) {
-		foldl:
-		while (true) {
-			if (dict.$ === 'RBEmpty_elm_builtin') {
-				return acc;
-			} else {
-				var key = dict.b;
-				var value = dict.c;
-				var left = dict.d;
-				var right = dict.e;
-				var $temp$func = func,
-					$temp$acc = A3(
-					func,
-					key,
-					value,
-					A3($elm$core$Dict$foldl, func, acc, left)),
-					$temp$dict = right;
-				func = $temp$func;
-				acc = $temp$acc;
-				dict = $temp$dict;
-				continue foldl;
-			}
-		}
-	});
-var $elm$core$Dict$merge = F6(
-	function (leftStep, bothStep, rightStep, leftDict, rightDict, initialResult) {
-		var stepState = F3(
-			function (rKey, rValue, _v0) {
-				stepState:
-				while (true) {
-					var list = _v0.a;
-					var result = _v0.b;
-					if (!list.b) {
-						return _Utils_Tuple2(
-							list,
-							A3(rightStep, rKey, rValue, result));
-					} else {
-						var _v2 = list.a;
-						var lKey = _v2.a;
-						var lValue = _v2.b;
-						var rest = list.b;
-						if (_Utils_cmp(lKey, rKey) < 0) {
-							var $temp$rKey = rKey,
-								$temp$rValue = rValue,
-								$temp$_v0 = _Utils_Tuple2(
-								rest,
-								A3(leftStep, lKey, lValue, result));
-							rKey = $temp$rKey;
-							rValue = $temp$rValue;
-							_v0 = $temp$_v0;
-							continue stepState;
-						} else {
-							if (_Utils_cmp(lKey, rKey) > 0) {
-								return _Utils_Tuple2(
-									list,
-									A3(rightStep, rKey, rValue, result));
-							} else {
-								return _Utils_Tuple2(
-									rest,
-									A4(bothStep, lKey, lValue, rValue, result));
-							}
-						}
-					}
-				}
-			});
-		var _v3 = A3(
-			$elm$core$Dict$foldl,
-			stepState,
-			_Utils_Tuple2(
-				$elm$core$Dict$toList(leftDict),
-				initialResult),
-			rightDict);
-		var leftovers = _v3.a;
-		var intermediateResult = _v3.b;
-		return A3(
-			$elm$core$List$foldl,
-			F2(
-				function (_v4, result) {
-					var k = _v4.a;
-					var v = _v4.b;
-					return A3(leftStep, k, v, result);
-				}),
-			intermediateResult,
-			leftovers);
-	});
-var $elm$core$Platform$sendToSelf = _Platform_sendToSelf;
-var $elm$time$Time$Name = function (a) {
-	return {$: 'Name', a: a};
-};
-var $elm$time$Time$Offset = function (a) {
-	return {$: 'Offset', a: a};
-};
-var $elm$time$Time$Zone = F2(
-	function (a, b) {
-		return {$: 'Zone', a: a, b: b};
-	});
-var $elm$time$Time$customZone = $elm$time$Time$Zone;
-var $elm$time$Time$setInterval = _Time_setInterval;
-var $elm$core$Process$spawn = _Scheduler_spawn;
-var $elm$time$Time$spawnHelp = F3(
-	function (router, intervals, processes) {
-		if (!intervals.b) {
-			return $elm$core$Task$succeed(processes);
-		} else {
-			var interval = intervals.a;
-			var rest = intervals.b;
-			var spawnTimer = $elm$core$Process$spawn(
-				A2(
-					$elm$time$Time$setInterval,
-					interval,
-					A2($elm$core$Platform$sendToSelf, router, interval)));
-			var spawnRest = function (id) {
-				return A3(
-					$elm$time$Time$spawnHelp,
-					router,
-					rest,
-					A3($elm$core$Dict$insert, interval, id, processes));
-			};
-			return A2($elm$core$Task$andThen, spawnRest, spawnTimer);
-		}
-	});
-var $elm$time$Time$onEffects = F3(
-	function (router, subs, _v0) {
-		var processes = _v0.processes;
-		var rightStep = F3(
-			function (_v6, id, _v7) {
-				var spawns = _v7.a;
-				var existing = _v7.b;
-				var kills = _v7.c;
-				return _Utils_Tuple3(
-					spawns,
-					existing,
-					A2(
-						$elm$core$Task$andThen,
-						function (_v5) {
-							return kills;
-						},
-						$elm$core$Process$kill(id)));
-			});
-		var newTaggers = A3($elm$core$List$foldl, $elm$time$Time$addMySub, $elm$core$Dict$empty, subs);
-		var leftStep = F3(
-			function (interval, taggers, _v4) {
-				var spawns = _v4.a;
-				var existing = _v4.b;
-				var kills = _v4.c;
-				return _Utils_Tuple3(
-					A2($elm$core$List$cons, interval, spawns),
-					existing,
-					kills);
-			});
-		var bothStep = F4(
-			function (interval, taggers, id, _v3) {
-				var spawns = _v3.a;
-				var existing = _v3.b;
-				var kills = _v3.c;
-				return _Utils_Tuple3(
-					spawns,
-					A3($elm$core$Dict$insert, interval, id, existing),
-					kills);
-			});
-		var _v1 = A6(
-			$elm$core$Dict$merge,
-			leftStep,
-			bothStep,
-			rightStep,
-			newTaggers,
-			processes,
-			_Utils_Tuple3(
-				_List_Nil,
-				$elm$core$Dict$empty,
-				$elm$core$Task$succeed(_Utils_Tuple0)));
-		var spawnList = _v1.a;
-		var existingDict = _v1.b;
-		var killTask = _v1.c;
-		return A2(
-			$elm$core$Task$andThen,
-			function (newProcesses) {
-				return $elm$core$Task$succeed(
-					A2($elm$time$Time$State, newTaggers, newProcesses));
-			},
-			A2(
-				$elm$core$Task$andThen,
-				function (_v2) {
-					return A3($elm$time$Time$spawnHelp, router, spawnList, existingDict);
-				},
-				killTask));
-	});
-var $elm$time$Time$Posix = function (a) {
-	return {$: 'Posix', a: a};
-};
-var $elm$time$Time$millisToPosix = $elm$time$Time$Posix;
-var $elm$time$Time$now = _Time_now($elm$time$Time$millisToPosix);
-var $elm$time$Time$onSelfMsg = F3(
-	function (router, interval, state) {
-		var _v0 = A2($elm$core$Dict$get, interval, state.taggers);
-		if (_v0.$ === 'Nothing') {
-			return $elm$core$Task$succeed(state);
-		} else {
-			var taggers = _v0.a;
-			var tellTaggers = function (time) {
-				return $elm$core$Task$sequence(
-					A2(
-						$elm$core$List$map,
-						function (tagger) {
-							return A2(
-								$elm$core$Platform$sendToApp,
-								router,
-								tagger(time));
-						},
-						taggers));
-			};
-			return A2(
-				$elm$core$Task$andThen,
-				function (_v1) {
-					return $elm$core$Task$succeed(state);
-				},
-				A2($elm$core$Task$andThen, tellTaggers, $elm$time$Time$now));
-		}
-	});
-var $elm$core$Basics$composeL = F3(
-	function (g, f, x) {
-		return g(
-			f(x));
-	});
-var $elm$time$Time$subMap = F2(
-	function (f, _v0) {
-		var interval = _v0.a;
-		var tagger = _v0.b;
-		return A2(
-			$elm$time$Time$Every,
-			interval,
-			A2($elm$core$Basics$composeL, f, tagger));
-	});
-_Platform_effectManagers['Time'] = _Platform_createManager($elm$time$Time$init, $elm$time$Time$onEffects, $elm$time$Time$onSelfMsg, 0, $elm$time$Time$subMap);
-var $elm$time$Time$subscription = _Platform_leaf('Time');
-var $elm$time$Time$every = F2(
-	function (interval, tagger) {
-		return $elm$time$Time$subscription(
-			A2($elm$time$Time$Every, interval, tagger));
-	});
-var $author$project$Page$Account$subscriptions = function (_v0) {
-	return A2($elm$time$Time$every, 1000, $author$project$Page$Account$Tick);
-};
-var $author$project$Page$Customer$Tick = function (a) {
-	return {$: 'Tick', a: a};
-};
-var $author$project$Page$Customer$subscriptions = function (_v0) {
-	return A2($elm$time$Time$every, 1000, $author$project$Page$Customer$Tick);
-};
-var $author$project$Route$subscriptions = function (route) {
-	var ret = A2($elm$core$Debug$log, 'subscriptions', route);
-	switch (route.$) {
-		case 'AllCustomers':
-			var mdl = route.a;
-			return $elm$core$Platform$Sub$none;
-		case 'Customer':
-			var mdl = route.a;
-			return A2(
-				$elm$core$Platform$Sub$map,
-				$author$project$Route$CustomerMsg(mdl),
-				$author$project$Page$Customer$subscriptions(mdl));
-		default:
-			var mdl = route.a;
-			return A2(
-				$elm$core$Platform$Sub$map,
-				$author$project$Route$AccountMsg(mdl),
-				$author$project$Page$Account$subscriptions(mdl));
-	}
-};
-var $author$project$Route$title = function (_v0) {
-	return $elm$core$Maybe$Just('Banking');
-};
-var $author$project$Route$AllCustomersMsg = F2(
-	function (a, b) {
-		return {$: 'AllCustomersMsg', a: a, b: b};
-	});
-var $elm$core$Platform$Cmd$map = _Platform_map;
-var $danhandrea$elm_router$Router$mapUpdate = F3(
-	function (modelInto, msgInto, _v0) {
-		var mdl = _v0.a;
-		var msg = _v0.b;
-		return _Utils_Tuple2(
-			modelInto(mdl),
-			A2(
-				$elm$core$Platform$Cmd$map,
-				msgInto(mdl),
-				msg));
-	});
-var $elm$core$Platform$Cmd$batch = _Platform_batch;
-var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
-var $author$project$Page$Account$update = F2(
-	function (msg, model) {
-		switch (msg.$) {
-			case 'Name':
-				var name = msg.a;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{name: name}),
-					$elm$core$Platform$Cmd$none);
-			case 'Email':
-				var email = msg.a;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{email: email}),
-					$elm$core$Platform$Cmd$none);
-			default:
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{ticks: model.ticks + 1}),
-					$elm$core$Platform$Cmd$none);
-		}
-	});
-var $author$project$Page$AllCustomers$Failure = function (a) {
-	return {$: 'Failure', a: a};
-};
-var $author$project$Page$AllCustomers$Success = function (a) {
-	return {$: 'Success', a: a};
-};
-var $author$project$Page$AllCustomers$errorToString = function (e) {
-	switch (e.$) {
-		case 'BadUrl':
-			var url = e.a;
-			return 'The URL ' + (url + ' was invalid');
-		case 'Timeout':
-			return 'Unable to reach the server, try again';
-		case 'NetworkError':
-			return 'Unable to reach the server, check your network connection';
-		case 'BadStatus':
-			switch (e.a) {
-				case 500:
-					return 'The server had a problem, try again later';
-				case 400:
-					return 'Verify your information and try again';
-				default:
-					return 'Unknown error';
-			}
-		default:
-			var errorMessage = e.a;
-			return errorMessage;
-	}
-};
-var $author$project$Page$AllCustomers$update = F2(
-	function (msg, _v0) {
-		var result = msg.a;
-		if (result.$ === 'Ok') {
-			var fullText = result.a;
-			return _Utils_Tuple2(
-				$author$project$Page$AllCustomers$Success(fullText),
-				$elm$core$Platform$Cmd$none);
-		} else {
-			var err = result.a;
-			return _Utils_Tuple2(
-				$author$project$Page$AllCustomers$Failure(
-					$author$project$Page$AllCustomers$errorToString(err)),
-				$elm$core$Platform$Cmd$none);
-		}
-	});
-var $author$project$Page$Customer$update = F2(
-	function (msg, model) {
-		switch (msg.$) {
-			case 'Name':
-				var name = msg.a;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{name: name}),
-					$elm$core$Platform$Cmd$none);
-			case 'Email':
-				var email = msg.a;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{email: email}),
-					$elm$core$Platform$Cmd$none);
-			default:
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{ticks: model.ticks + 1}),
-					$elm$core$Platform$Cmd$none);
-		}
-	});
-var $author$project$Route$update = function (message) {
-	var ret = A2($elm$core$Debug$log, 'update', message);
-	switch (message.$) {
-		case 'AllCustomersMsg':
-			var model = message.a;
-			var msg = message.b;
-			return A3(
-				$danhandrea$elm_router$Router$mapUpdate,
-				$author$project$Route$AllCustomers,
-				$author$project$Route$AllCustomersMsg,
-				A2($author$project$Page$AllCustomers$update, msg, model));
-		case 'CustomerMsg':
-			var model = message.a;
-			var msg = message.b;
-			return A3(
-				$danhandrea$elm_router$Router$mapUpdate,
-				$author$project$Route$Customer,
-				$author$project$Route$CustomerMsg,
-				A2($author$project$Page$Customer$update, msg, model));
-		default:
-			var model = message.a;
-			var msg = message.b;
-			return A3(
-				$danhandrea$elm_router$Router$mapUpdate,
-				$author$project$Route$Account,
-				$author$project$Route$AccountMsg,
-				A2($author$project$Page$Account$update, msg, model));
-	}
-};
-var $elm$virtual_dom$VirtualDom$map = _VirtualDom_map;
-var $elm$html$Html$map = $elm$virtual_dom$VirtualDom$map;
-var $danhandrea$elm_router$Router$mapMsg = function (msg) {
-	return $elm$core$List$map(
-		$elm$html$Html$map(msg));
-};
-var $author$project$Page$Account$Email = function (a) {
-	return {$: 'Email', a: a};
-};
-var $author$project$Page$Account$Name = function (a) {
-	return {$: 'Name', a: a};
-};
-var $elm$html$Html$input = _VirtualDom_node('input');
-var $elm$html$Html$label = _VirtualDom_node('label');
-var $elm$html$Html$Events$alwaysStop = function (x) {
-	return _Utils_Tuple2(x, true);
-};
-var $elm$virtual_dom$VirtualDom$MayStopPropagation = function (a) {
-	return {$: 'MayStopPropagation', a: a};
-};
-var $elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
-var $elm$html$Html$Events$stopPropagationOn = F2(
-	function (event, decoder) {
-		return A2(
-			$elm$virtual_dom$VirtualDom$on,
-			event,
-			$elm$virtual_dom$VirtualDom$MayStopPropagation(decoder));
-	});
-var $elm$json$Json$Decode$field = _Json_decodeField;
-var $elm$json$Json$Decode$at = F2(
-	function (fields, decoder) {
-		return A3($elm$core$List$foldr, $elm$json$Json$Decode$field, decoder, fields);
-	});
-var $elm$json$Json$Decode$string = _Json_decodeString;
-var $elm$html$Html$Events$targetValue = A2(
-	$elm$json$Json$Decode$at,
-	_List_fromArray(
-		['target', 'value']),
-	$elm$json$Json$Decode$string);
-var $elm$html$Html$Events$onInput = function (tagger) {
-	return A2(
-		$elm$html$Html$Events$stopPropagationOn,
-		'input',
-		A2(
-			$elm$json$Json$Decode$map,
-			$elm$html$Html$Events$alwaysStop,
-			A2($elm$json$Json$Decode$map, tagger, $elm$html$Html$Events$targetValue)));
-};
-var $elm$html$Html$section = _VirtualDom_node('section');
-var $elm$json$Json$Encode$string = _Json_wrap;
-var $elm$html$Html$Attributes$stringProperty = F2(
-	function (key, string) {
-		return A2(
-			_VirtualDom_property,
-			key,
-			$elm$json$Json$Encode$string(string));
-	});
-var $elm$html$Html$Attributes$type_ = $elm$html$Html$Attributes$stringProperty('type');
-var $elm$html$Html$Attributes$value = $elm$html$Html$Attributes$stringProperty('value');
-var $author$project$Page$Account$view = function (_v0) {
-	var name = _v0.name;
-	var email = _v0.email;
-	var ticks = _v0.ticks;
-	return _List_fromArray(
-		[
-			A2(
-			$elm$html$Html$h1,
-			_List_Nil,
-			_List_fromArray(
-				[
-					$elm$html$Html$text('Customer')
-				])),
-			A2(
-			$elm$html$Html$section,
-			_List_Nil,
-			_List_fromArray(
-				[
-					A2(
-					$elm$html$Html$input,
-					_List_fromArray(
-						[
-							$elm$html$Html$Attributes$type_('text'),
-							$elm$html$Html$Attributes$value(name),
-							$elm$html$Html$Events$onInput($author$project$Page$Account$Name)
-						]),
-					_List_Nil),
-					A2(
-					$elm$html$Html$input,
-					_List_fromArray(
-						[
-							$elm$html$Html$Attributes$type_('email'),
-							$elm$html$Html$Attributes$value(email),
-							$elm$html$Html$Events$onInput($author$project$Page$Account$Email)
-						]),
-					_List_Nil),
-					A2(
-					$elm$html$Html$label,
-					_List_Nil,
-					_List_fromArray(
-						[
-							$elm$html$Html$text(
-							'ticks : ' + $elm$core$String$fromInt(ticks))
-						]))
-				]))
-		]);
-};
-var $elm$html$Html$a = _VirtualDom_node('a');
-var $elm$html$Html$Attributes$class = $elm$html$Html$Attributes$stringProperty('className');
-var $elm$html$Html$h2 = _VirtualDom_node('h2');
-var $elm$html$Html$Attributes$href = function (url) {
-	return A2(
-		$elm$html$Html$Attributes$stringProperty,
-		'href',
-		_VirtualDom_noJavaScriptUri(url));
-};
-var $elm$html$Html$li = _VirtualDom_node('li');
-var $elm$html$Html$ul = _VirtualDom_node('ul');
-var $author$project$Page$AllCustomers$view = function (model) {
-	switch (model.$) {
-		case 'Loading':
-			return _List_fromArray(
-				[
-					A2(
-					$elm$html$Html$h1,
-					_List_Nil,
-					_List_fromArray(
-						[
-							$elm$html$Html$text('Customers')
-						])),
-					A2(
-					$elm$html$Html$h2,
-					_List_Nil,
-					_List_fromArray(
-						[
-							$elm$html$Html$text('Loading...')
-						]))
-				]);
-		case 'Failure':
-			var err = model.a;
-			return _List_fromArray(
-				[
-					A2(
-					$elm$html$Html$h1,
-					_List_Nil,
-					_List_fromArray(
-						[
-							$elm$html$Html$text('Customers')
-						])),
-					A2(
-					$elm$html$Html$h2,
-					_List_Nil,
-					_List_fromArray(
-						[
-							$elm$html$Html$text('Failed loading: \'' + (err + '\''))
-						]))
-				]);
-		default:
-			var cs = model.a;
-			return _List_fromArray(
-				[
-					A2(
-					$elm$html$Html$h1,
-					_List_Nil,
-					_List_fromArray(
-						[
-							$elm$html$Html$text('Customers')
-						])),
-					A2(
-					$elm$html$Html$ul,
-					_List_fromArray(
-						[
-							$elm$html$Html$Attributes$class('list-group list-group-flush')
-						]),
-					A2(
-						$elm$core$List$map,
-						function (c) {
-							return A2(
-								$elm$html$Html$li,
-								_List_fromArray(
-									[
-										$elm$html$Html$Attributes$class('list-group-item')
-									]),
-								_List_fromArray(
-									[
-										A2(
-										$elm$html$Html$a,
-										_List_fromArray(
-											[
-												$elm$html$Html$Attributes$href('/customer?id=' + c.id)
-											]),
-										_List_fromArray(
-											[
-												$elm$html$Html$text(c.name)
-											]))
-									]));
-						},
-						cs))
-				]);
-	}
-};
-var $author$project$Page$Customer$Email = function (a) {
-	return {$: 'Email', a: a};
-};
-var $author$project$Page$Customer$Name = function (a) {
-	return {$: 'Name', a: a};
-};
-var $author$project$Page$Customer$view = function (_v0) {
-	var name = _v0.name;
-	var email = _v0.email;
-	var ticks = _v0.ticks;
-	return _List_fromArray(
-		[
-			A2(
-			$elm$html$Html$h1,
-			_List_Nil,
-			_List_fromArray(
-				[
-					$elm$html$Html$text('Customer')
-				])),
-			A2(
-			$elm$html$Html$section,
-			_List_Nil,
-			_List_fromArray(
-				[
-					A2(
-					$elm$html$Html$input,
-					_List_fromArray(
-						[
-							$elm$html$Html$Attributes$type_('text'),
-							$elm$html$Html$Attributes$value(name),
-							$elm$html$Html$Events$onInput($author$project$Page$Customer$Name)
-						]),
-					_List_Nil),
-					A2(
-					$elm$html$Html$input,
-					_List_fromArray(
-						[
-							$elm$html$Html$Attributes$type_('email'),
-							$elm$html$Html$Attributes$value(email),
-							$elm$html$Html$Events$onInput($author$project$Page$Customer$Email)
-						]),
-					_List_Nil),
-					A2(
-					$elm$html$Html$label,
-					_List_Nil,
-					_List_fromArray(
-						[
-							$elm$html$Html$text(
-							'ticks : ' + $elm$core$String$fromInt(ticks))
-						]))
-				]))
-		]);
-};
-var $author$project$Route$view = function (route) {
-	var ret = A2($elm$core$Debug$log, 'view', route);
-	switch (route.$) {
-		case 'AllCustomers':
-			var mdl = route.a;
-			return A2(
-				$danhandrea$elm_router$Router$mapMsg,
-				$author$project$Route$AllCustomersMsg(mdl),
-				$author$project$Page$AllCustomers$view(mdl));
-		case 'Account':
-			var mdl = route.a;
-			return A2(
-				$danhandrea$elm_router$Router$mapMsg,
-				$author$project$Route$AccountMsg(mdl),
-				$author$project$Page$Account$view(mdl));
-		default:
-			var mdl = route.a;
-			return A2(
-				$danhandrea$elm_router$Router$mapMsg,
-				$author$project$Route$CustomerMsg(mdl),
-				$author$project$Page$Customer$view(mdl));
-	}
-};
-var $author$project$Main$config = {
-	message: $author$project$Main$Router,
-	notFound: $author$project$Route$notFound,
-	onUrlChanged: $elm$core$Maybe$Just($author$project$Main$UrlChanged),
-	parser: $author$project$Route$parser,
-	routeTitle: $author$project$Route$title,
-	subscriptions: $author$project$Route$subscriptions,
-	update: $author$project$Route$update,
-	view: $author$project$Route$view
-};
-var $author$project$Main$Model = function (router) {
-	return {router: router};
-};
-var $danhandrea$elm_router$Router$GrabViewport = F2(
-	function (a, b) {
-		return {$: 'GrabViewport', a: a, b: b};
-	});
-var $danhandrea$elm_router$Router$Router = function (a) {
-	return {$: 'Router', a: a};
-};
-var $elm$core$Basics$composeR = F3(
-	function (f, g, x) {
-		return g(
-			f(x));
-	});
-var $elm$browser$Browser$Dom$getViewport = _Browser_withWindow(_Browser_getViewport);
-var $danhandrea$elm_router$Router$notFoundTitle = $elm$core$Maybe$Just('Not found!');
-var $elm$url$Url$Parser$getFirstMatch = function (states) {
-	getFirstMatch:
-	while (true) {
-		if (!states.b) {
-			return $elm$core$Maybe$Nothing;
-		} else {
-			var state = states.a;
-			var rest = states.b;
-			var _v1 = state.unvisited;
-			if (!_v1.b) {
-				return $elm$core$Maybe$Just(state.value);
-			} else {
-				if ((_v1.a === '') && (!_v1.b.b)) {
-					return $elm$core$Maybe$Just(state.value);
-				} else {
-					var $temp$states = rest;
-					states = $temp$states;
-					continue getFirstMatch;
-				}
-			}
-		}
-	}
-};
-var $elm$url$Url$Parser$removeFinalEmpty = function (segments) {
-	if (!segments.b) {
-		return _List_Nil;
-	} else {
-		if ((segments.a === '') && (!segments.b.b)) {
-			return _List_Nil;
-		} else {
-			var segment = segments.a;
-			var rest = segments.b;
-			return A2(
-				$elm$core$List$cons,
-				segment,
-				$elm$url$Url$Parser$removeFinalEmpty(rest));
-		}
-	}
-};
-var $elm$url$Url$Parser$preparePath = function (path) {
-	var _v0 = A2($elm$core$String$split, '/', path);
-	if (_v0.b && (_v0.a === '')) {
-		var segments = _v0.b;
-		return $elm$url$Url$Parser$removeFinalEmpty(segments);
-	} else {
-		var segments = _v0;
-		return $elm$url$Url$Parser$removeFinalEmpty(segments);
-	}
-};
-var $elm$url$Url$Parser$addToParametersHelp = F2(
-	function (value, maybeList) {
-		if (maybeList.$ === 'Nothing') {
-			return $elm$core$Maybe$Just(
-				_List_fromArray(
-					[value]));
-		} else {
-			var list = maybeList.a;
-			return $elm$core$Maybe$Just(
-				A2($elm$core$List$cons, value, list));
-		}
-	});
-var $elm$url$Url$percentDecode = _Url_percentDecode;
 var $elm$core$Dict$getMin = function (dict) {
 	getMin:
 	while (true) {
@@ -6773,6 +5977,406 @@ var $elm$core$Dict$update = F3(
 			return A2($elm$core$Dict$remove, targetKey, dictionary);
 		}
 	});
+var $elm$http$Http$emptyBody = _Http_emptyBody;
+var $elm$json$Json$Decode$decodeString = _Json_runOnString;
+var $elm$core$Basics$composeR = F3(
+	function (f, g, x) {
+		return g(
+			f(x));
+	});
+var $elm$http$Http$expectStringResponse = F2(
+	function (toMsg, toResult) {
+		return A3(
+			_Http_expect,
+			'',
+			$elm$core$Basics$identity,
+			A2($elm$core$Basics$composeR, toResult, toMsg));
+	});
+var $elm$core$Result$mapError = F2(
+	function (f, result) {
+		if (result.$ === 'Ok') {
+			var v = result.a;
+			return $elm$core$Result$Ok(v);
+		} else {
+			var e = result.a;
+			return $elm$core$Result$Err(
+				f(e));
+		}
+	});
+var $elm$http$Http$BadBody = function (a) {
+	return {$: 'BadBody', a: a};
+};
+var $elm$http$Http$BadStatus = function (a) {
+	return {$: 'BadStatus', a: a};
+};
+var $elm$http$Http$BadUrl = function (a) {
+	return {$: 'BadUrl', a: a};
+};
+var $elm$http$Http$NetworkError = {$: 'NetworkError'};
+var $elm$http$Http$Timeout = {$: 'Timeout'};
+var $elm$http$Http$resolve = F2(
+	function (toResult, response) {
+		switch (response.$) {
+			case 'BadUrl_':
+				var url = response.a;
+				return $elm$core$Result$Err(
+					$elm$http$Http$BadUrl(url));
+			case 'Timeout_':
+				return $elm$core$Result$Err($elm$http$Http$Timeout);
+			case 'NetworkError_':
+				return $elm$core$Result$Err($elm$http$Http$NetworkError);
+			case 'BadStatus_':
+				var metadata = response.a;
+				return $elm$core$Result$Err(
+					$elm$http$Http$BadStatus(metadata.statusCode));
+			default:
+				var body = response.b;
+				return A2(
+					$elm$core$Result$mapError,
+					$elm$http$Http$BadBody,
+					toResult(body));
+		}
+	});
+var $elm$http$Http$expectJson = F2(
+	function (toMsg, decoder) {
+		return A2(
+			$elm$http$Http$expectStringResponse,
+			toMsg,
+			$elm$http$Http$resolve(
+				function (string) {
+					return A2(
+						$elm$core$Result$mapError,
+						$elm$json$Json$Decode$errorToString,
+						A2($elm$json$Json$Decode$decodeString, decoder, string));
+				}));
+	});
+var $elm$json$Json$Decode$list = _Json_decodeList;
+var $elm$http$Http$Request = function (a) {
+	return {$: 'Request', a: a};
+};
+var $elm$http$Http$State = F2(
+	function (reqs, subs) {
+		return {reqs: reqs, subs: subs};
+	});
+var $elm$http$Http$init = $elm$core$Task$succeed(
+	A2($elm$http$Http$State, $elm$core$Dict$empty, _List_Nil));
+var $elm$core$Process$kill = _Scheduler_kill;
+var $elm$core$Process$spawn = _Scheduler_spawn;
+var $elm$http$Http$updateReqs = F3(
+	function (router, cmds, reqs) {
+		updateReqs:
+		while (true) {
+			if (!cmds.b) {
+				return $elm$core$Task$succeed(reqs);
+			} else {
+				var cmd = cmds.a;
+				var otherCmds = cmds.b;
+				if (cmd.$ === 'Cancel') {
+					var tracker = cmd.a;
+					var _v2 = A2($elm$core$Dict$get, tracker, reqs);
+					if (_v2.$ === 'Nothing') {
+						var $temp$router = router,
+							$temp$cmds = otherCmds,
+							$temp$reqs = reqs;
+						router = $temp$router;
+						cmds = $temp$cmds;
+						reqs = $temp$reqs;
+						continue updateReqs;
+					} else {
+						var pid = _v2.a;
+						return A2(
+							$elm$core$Task$andThen,
+							function (_v3) {
+								return A3(
+									$elm$http$Http$updateReqs,
+									router,
+									otherCmds,
+									A2($elm$core$Dict$remove, tracker, reqs));
+							},
+							$elm$core$Process$kill(pid));
+					}
+				} else {
+					var req = cmd.a;
+					return A2(
+						$elm$core$Task$andThen,
+						function (pid) {
+							var _v4 = req.tracker;
+							if (_v4.$ === 'Nothing') {
+								return A3($elm$http$Http$updateReqs, router, otherCmds, reqs);
+							} else {
+								var tracker = _v4.a;
+								return A3(
+									$elm$http$Http$updateReqs,
+									router,
+									otherCmds,
+									A3($elm$core$Dict$insert, tracker, pid, reqs));
+							}
+						},
+						$elm$core$Process$spawn(
+							A3(
+								_Http_toTask,
+								router,
+								$elm$core$Platform$sendToApp(router),
+								req)));
+				}
+			}
+		}
+	});
+var $elm$http$Http$onEffects = F4(
+	function (router, cmds, subs, state) {
+		return A2(
+			$elm$core$Task$andThen,
+			function (reqs) {
+				return $elm$core$Task$succeed(
+					A2($elm$http$Http$State, reqs, subs));
+			},
+			A3($elm$http$Http$updateReqs, router, cmds, state.reqs));
+	});
+var $elm$core$List$maybeCons = F3(
+	function (f, mx, xs) {
+		var _v0 = f(mx);
+		if (_v0.$ === 'Just') {
+			var x = _v0.a;
+			return A2($elm$core$List$cons, x, xs);
+		} else {
+			return xs;
+		}
+	});
+var $elm$core$List$filterMap = F2(
+	function (f, xs) {
+		return A3(
+			$elm$core$List$foldr,
+			$elm$core$List$maybeCons(f),
+			_List_Nil,
+			xs);
+	});
+var $elm$http$Http$maybeSend = F4(
+	function (router, desiredTracker, progress, _v0) {
+		var actualTracker = _v0.a;
+		var toMsg = _v0.b;
+		return _Utils_eq(desiredTracker, actualTracker) ? $elm$core$Maybe$Just(
+			A2(
+				$elm$core$Platform$sendToApp,
+				router,
+				toMsg(progress))) : $elm$core$Maybe$Nothing;
+	});
+var $elm$http$Http$onSelfMsg = F3(
+	function (router, _v0, state) {
+		var tracker = _v0.a;
+		var progress = _v0.b;
+		return A2(
+			$elm$core$Task$andThen,
+			function (_v1) {
+				return $elm$core$Task$succeed(state);
+			},
+			$elm$core$Task$sequence(
+				A2(
+					$elm$core$List$filterMap,
+					A3($elm$http$Http$maybeSend, router, tracker, progress),
+					state.subs)));
+	});
+var $elm$http$Http$Cancel = function (a) {
+	return {$: 'Cancel', a: a};
+};
+var $elm$http$Http$cmdMap = F2(
+	function (func, cmd) {
+		if (cmd.$ === 'Cancel') {
+			var tracker = cmd.a;
+			return $elm$http$Http$Cancel(tracker);
+		} else {
+			var r = cmd.a;
+			return $elm$http$Http$Request(
+				{
+					allowCookiesFromOtherDomains: r.allowCookiesFromOtherDomains,
+					body: r.body,
+					expect: A2(_Http_mapExpect, func, r.expect),
+					headers: r.headers,
+					method: r.method,
+					timeout: r.timeout,
+					tracker: r.tracker,
+					url: r.url
+				});
+		}
+	});
+var $elm$http$Http$MySub = F2(
+	function (a, b) {
+		return {$: 'MySub', a: a, b: b};
+	});
+var $elm$http$Http$subMap = F2(
+	function (func, _v0) {
+		var tracker = _v0.a;
+		var toMsg = _v0.b;
+		return A2(
+			$elm$http$Http$MySub,
+			tracker,
+			A2($elm$core$Basics$composeR, toMsg, func));
+	});
+_Platform_effectManagers['Http'] = _Platform_createManager($elm$http$Http$init, $elm$http$Http$onEffects, $elm$http$Http$onSelfMsg, $elm$http$Http$cmdMap, $elm$http$Http$subMap);
+var $elm$http$Http$command = _Platform_leaf('Http');
+var $elm$http$Http$subscription = _Platform_leaf('Http');
+var $elm$http$Http$request = function (r) {
+	return $elm$http$Http$command(
+		$elm$http$Http$Request(
+			{allowCookiesFromOtherDomains: false, body: r.body, expect: r.expect, headers: r.headers, method: r.method, timeout: r.timeout, tracker: r.tracker, url: r.url}));
+};
+var $author$project$Page$AllCustomers$init = _Utils_Tuple2(
+	$author$project$Page$AllCustomers$Loading,
+	$elm$http$Http$request(
+		{
+			body: $elm$http$Http$emptyBody,
+			expect: A2(
+				$elm$http$Http$expectJson,
+				$author$project$Page$AllCustomers$AllCustomersLoaded,
+				$elm$json$Json$Decode$list($author$project$Api$customerDetailsDecoder)),
+			headers: _List_Nil,
+			method: 'GET',
+			timeout: $elm$core$Maybe$Nothing,
+			tracker: $elm$core$Maybe$Nothing,
+			url: 'http://localhost:8080/rest/customer/all/'
+		}));
+var $author$project$Page$Customer$CustomerLoaded = function (a) {
+	return {$: 'CustomerLoaded', a: a};
+};
+var $author$project$Page$Customer$Loading = function (a) {
+	return {$: 'Loading', a: a};
+};
+var $author$project$Api$Customer = F2(
+	function (details, accountDetails) {
+		return {accountDetails: accountDetails, details: details};
+	});
+var $author$project$Api$AccountDetails = F3(
+	function (iban, balance, accountType) {
+		return {accountType: accountType, balance: balance, iban: iban};
+	});
+var $elm$json$Json$Decode$float = _Json_decodeFloat;
+var $elm$json$Json$Decode$map3 = _Json_map3;
+var $author$project$Api$accountDetailsDecoder = A4(
+	$elm$json$Json$Decode$map3,
+	$author$project$Api$AccountDetails,
+	A2($elm$json$Json$Decode$field, 'accountDetailIban', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'accountDetailBalance', $elm$json$Json$Decode$float),
+	A2($elm$json$Json$Decode$field, 'accountDetailType', $elm$json$Json$Decode$string));
+var $author$project$Api$customerDecoder = A3(
+	$elm$json$Json$Decode$map2,
+	$author$project$Api$Customer,
+	A2($elm$json$Json$Decode$field, 'customerDetails', $author$project$Api$customerDetailsDecoder),
+	$elm$json$Json$Decode$list($author$project$Api$accountDetailsDecoder));
+var $elm$http$Http$get = function (r) {
+	return $elm$http$Http$request(
+		{body: $elm$http$Http$emptyBody, expect: r.expect, headers: _List_Nil, method: 'GET', timeout: $elm$core$Maybe$Nothing, tracker: $elm$core$Maybe$Nothing, url: r.url});
+};
+var $author$project$Page$Customer$init = function (cid) {
+	return _Utils_Tuple2(
+		$author$project$Page$Customer$Loading(cid),
+		$elm$http$Http$get(
+			{
+				expect: A2($elm$http$Http$expectJson, $author$project$Page$Customer$CustomerLoaded, $author$project$Api$customerDecoder),
+				url: 'http://localhost:8080/rest/customer/' + cid
+			}));
+};
+var $elm$core$Platform$Cmd$map = _Platform_map;
+var $author$project$Main$updateWith = F4(
+	function (toModel, toMsg, model, _v0) {
+		var subModel = _v0.a;
+		var subCmd = _v0.b;
+		return _Utils_Tuple2(
+			toModel(subModel),
+			A2($elm$core$Platform$Cmd$map, toMsg, subCmd));
+	});
+var $author$project$Main$changeRouteTo = F2(
+	function (maybeRoute, model) {
+		if (maybeRoute.$ === 'Nothing') {
+			return _Utils_Tuple2($author$project$Main$NotFound, $elm$core$Platform$Cmd$none);
+		} else {
+			switch (maybeRoute.a.$) {
+				case 'AllCustomers':
+					var _v1 = maybeRoute.a;
+					return A4($author$project$Main$updateWith, $author$project$Main$AllCustomers, $author$project$Main$GotAllCustomersMsg, model, $author$project$Page$AllCustomers$init);
+				case 'Customer':
+					var cid = maybeRoute.a.a;
+					return A4(
+						$author$project$Main$updateWith,
+						$author$project$Main$Customer,
+						$author$project$Main$GotCustomerMsg,
+						model,
+						$author$project$Page$Customer$init(cid));
+				default:
+					var str = maybeRoute.a.a;
+					return A4(
+						$author$project$Main$updateWith,
+						$author$project$Main$Account,
+						$author$project$Main$GotAccountMsg,
+						model,
+						A2($author$project$Page$Account$init, '', ''));
+			}
+		}
+	});
+var $elm$url$Url$Parser$State = F5(
+	function (visited, unvisited, params, frag, value) {
+		return {frag: frag, params: params, unvisited: unvisited, value: value, visited: visited};
+	});
+var $elm$url$Url$Parser$getFirstMatch = function (states) {
+	getFirstMatch:
+	while (true) {
+		if (!states.b) {
+			return $elm$core$Maybe$Nothing;
+		} else {
+			var state = states.a;
+			var rest = states.b;
+			var _v1 = state.unvisited;
+			if (!_v1.b) {
+				return $elm$core$Maybe$Just(state.value);
+			} else {
+				if ((_v1.a === '') && (!_v1.b.b)) {
+					return $elm$core$Maybe$Just(state.value);
+				} else {
+					var $temp$states = rest;
+					states = $temp$states;
+					continue getFirstMatch;
+				}
+			}
+		}
+	}
+};
+var $elm$url$Url$Parser$removeFinalEmpty = function (segments) {
+	if (!segments.b) {
+		return _List_Nil;
+	} else {
+		if ((segments.a === '') && (!segments.b.b)) {
+			return _List_Nil;
+		} else {
+			var segment = segments.a;
+			var rest = segments.b;
+			return A2(
+				$elm$core$List$cons,
+				segment,
+				$elm$url$Url$Parser$removeFinalEmpty(rest));
+		}
+	}
+};
+var $elm$url$Url$Parser$preparePath = function (path) {
+	var _v0 = A2($elm$core$String$split, '/', path);
+	if (_v0.b && (_v0.a === '')) {
+		var segments = _v0.b;
+		return $elm$url$Url$Parser$removeFinalEmpty(segments);
+	} else {
+		var segments = _v0;
+		return $elm$url$Url$Parser$removeFinalEmpty(segments);
+	}
+};
+var $elm$url$Url$Parser$addToParametersHelp = F2(
+	function (value, maybeList) {
+		if (maybeList.$ === 'Nothing') {
+			return $elm$core$Maybe$Just(
+				_List_fromArray(
+					[value]));
+		} else {
+			var list = maybeList.a;
+			return $elm$core$Maybe$Just(
+				A2($elm$core$List$cons, value, list));
+		}
+	});
+var $elm$url$Url$percentDecode = _Url_percentDecode;
 var $elm$url$Url$Parser$addParam = F2(
 	function (segment, dict) {
 		var _v0 = A2($elm$core$String$split, '=', segment);
@@ -6826,137 +6430,183 @@ var $elm$url$Url$Parser$parse = F2(
 					url.fragment,
 					$elm$core$Basics$identity)));
 	});
-var $elm$core$Dict$singleton = F2(
-	function (key, value) {
-		return A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, key, value, $elm$core$Dict$RBEmpty_elm_builtin, $elm$core$Dict$RBEmpty_elm_builtin);
+var $author$project$Route$Account = function (a) {
+	return {$: 'Account', a: a};
+};
+var $author$project$Route$AllCustomers = {$: 'AllCustomers'};
+var $author$project$Route$Customer = function (a) {
+	return {$: 'Customer', a: a};
+};
+var $elm$url$Url$Parser$Parser = function (a) {
+	return {$: 'Parser', a: a};
+};
+var $elm$url$Url$Parser$mapState = F2(
+	function (func, _v0) {
+		var visited = _v0.visited;
+		var unvisited = _v0.unvisited;
+		var params = _v0.params;
+		var frag = _v0.frag;
+		var value = _v0.value;
+		return A5(
+			$elm$url$Url$Parser$State,
+			visited,
+			unvisited,
+			params,
+			frag,
+			func(value));
 	});
-var $danhandrea$elm_router$Router$init = F3(
-	function (_v0, url, key) {
-		var parser = _v0.parser;
-		var routeTitle = _v0.routeTitle;
-		var message = _v0.message;
-		var grabViewport = A2(
-			$elm$core$Task$perform,
-			A2(
-				$elm$core$Basics$composeR,
-				$danhandrea$elm_router$Router$GrabViewport(url),
-				message),
-			$elm$browser$Browser$Dom$getViewport);
-		var empty = {key: key, pageTitle: $elm$core$Maybe$Nothing, routes: $elm$core$Dict$empty, url: url, viewports: $elm$core$Dict$empty};
-		var _v1 = A2($elm$url$Url$Parser$parse, parser, url);
-		if (_v1.$ === 'Nothing') {
-			return _Utils_Tuple2(
-				$danhandrea$elm_router$Router$Router(
-					_Utils_update(
-						empty,
-						{pageTitle: $danhandrea$elm_router$Router$notFoundTitle})),
-				grabViewport);
+var $elm$url$Url$Parser$map = F2(
+	function (subValue, _v0) {
+		var parseArg = _v0.a;
+		return $elm$url$Url$Parser$Parser(
+			function (_v1) {
+				var visited = _v1.visited;
+				var unvisited = _v1.unvisited;
+				var params = _v1.params;
+				var frag = _v1.frag;
+				var value = _v1.value;
+				return A2(
+					$elm$core$List$map,
+					$elm$url$Url$Parser$mapState(value),
+					parseArg(
+						A5($elm$url$Url$Parser$State, visited, unvisited, params, frag, subValue)));
+			});
+	});
+var $elm$core$List$append = F2(
+	function (xs, ys) {
+		if (!ys.b) {
+			return xs;
 		} else {
-			var route = _v1.a;
-			return _Utils_Tuple2(
-				$danhandrea$elm_router$Router$Router(
-					_Utils_update(
-						empty,
-						{
-							pageTitle: routeTitle(route),
-							routes: A2(
-								$elm$core$Dict$singleton,
-								$elm$url$Url$toString(url),
-								route)
-						})),
-				grabViewport);
+			return A3($elm$core$List$foldr, $elm$core$List$cons, ys, xs);
 		}
 	});
-var $author$project$Main$init = F3(
-	function (_v0, url, key) {
-		var _v1 = A3($danhandrea$elm_router$Router$init, $author$project$Main$config, url, key);
-		var router = _v1.a;
-		var cmd = _v1.b;
-		return _Utils_Tuple2(
-			$author$project$Main$Model(router),
-			cmd);
+var $elm$core$List$concat = function (lists) {
+	return A3($elm$core$List$foldr, $elm$core$List$append, _List_Nil, lists);
+};
+var $elm$core$List$concatMap = F2(
+	function (f, list) {
+		return $elm$core$List$concat(
+			A2($elm$core$List$map, f, list));
 	});
-var $danhandrea$elm_router$Router$UrlChanged = function (a) {
-	return {$: 'UrlChanged', a: a};
-};
-var $danhandrea$elm_router$Router$onUrlChange = function (config) {
-	return A2($elm$core$Basics$composeR, $danhandrea$elm_router$Router$UrlChanged, config.message);
-};
-var $danhandrea$elm_router$Router$UrlRequest = function (a) {
-	return {$: 'UrlRequest', a: a};
-};
-var $danhandrea$elm_router$Router$onUrlRequest = function (config) {
-	return A2($elm$core$Basics$composeR, $danhandrea$elm_router$Router$UrlRequest, config.message);
-};
-var $danhandrea$elm_router$Router$Sub = F2(
-	function (a, b) {
-		return {$: 'Sub', a: a, b: b};
-	});
-var $danhandrea$elm_router$Router$subscriptions = F2(
-	function (config, _v0) {
-		var routes = _v0.a.routes;
-		return $elm$core$Platform$Sub$batch(
-			A2(
-				$elm$core$List$map,
-				function (_v1) {
-					var key = _v1.a;
-					var route = _v1.b;
-					return A2(
-						$elm$core$Platform$Sub$map,
-						A2(
-							$elm$core$Basics$composeR,
-							$danhandrea$elm_router$Router$Sub(key),
-							config.message),
-						config.subscriptions(route));
+var $elm$url$Url$Parser$oneOf = function (parsers) {
+	return $elm$url$Url$Parser$Parser(
+		function (state) {
+			return A2(
+				$elm$core$List$concatMap,
+				function (_v0) {
+					var parser = _v0.a;
+					return parser(state);
 				},
-				$elm$core$Dict$toList(routes)));
-	});
-var $author$project$Main$subscriptions = function (_v0) {
-	var router = _v0.router;
-	return A2($danhandrea$elm_router$Router$subscriptions, $author$project$Main$config, router);
+				parsers);
+		});
 };
-var $danhandrea$elm_router$Router$NoOp = {$: 'NoOp'};
-var $danhandrea$elm_router$Router$Route = function (a) {
-	return {$: 'Route', a: a};
+var $elm$url$Url$Parser$s = function (str) {
+	return $elm$url$Url$Parser$Parser(
+		function (_v0) {
+			var visited = _v0.visited;
+			var unvisited = _v0.unvisited;
+			var params = _v0.params;
+			var frag = _v0.frag;
+			var value = _v0.value;
+			if (!unvisited.b) {
+				return _List_Nil;
+			} else {
+				var next = unvisited.a;
+				var rest = unvisited.b;
+				return _Utils_eq(next, str) ? _List_fromArray(
+					[
+						A5(
+						$elm$url$Url$Parser$State,
+						A2($elm$core$List$cons, next, visited),
+						rest,
+						params,
+						frag,
+						value)
+					]) : _List_Nil;
+			}
+		});
 };
-var $elm$core$Dict$member = F2(
-	function (key, dict) {
-		var _v0 = A2($elm$core$Dict$get, key, dict);
-		if (_v0.$ === 'Just') {
-			return true;
-		} else {
-			return false;
-		}
+var $elm$url$Url$Parser$slash = F2(
+	function (_v0, _v1) {
+		var parseBefore = _v0.a;
+		var parseAfter = _v1.a;
+		return $elm$url$Url$Parser$Parser(
+			function (state) {
+				return A2(
+					$elm$core$List$concatMap,
+					parseAfter,
+					parseBefore(state));
+			});
 	});
-var $danhandrea$elm_router$Router$change = F3(
-	function (_v0, url, routes) {
-		var parser = _v0.parser;
-		var _v1 = A2($elm$url$Url$Parser$parse, parser, url);
-		if (_v1.$ === 'Nothing') {
-			return _Utils_Tuple2($elm$core$Maybe$Nothing, routes);
-		} else {
-			var route = _v1.a;
-			var urlString = $elm$url$Url$toString(url);
-			return A2($elm$core$Dict$member, urlString, routes) ? _Utils_Tuple2(
-				$elm$core$Maybe$Just(route),
-				routes) : _Utils_Tuple2(
-				$elm$core$Maybe$Just(route),
-				A3($elm$core$Dict$insert, urlString, route, routes));
-		}
+var $elm$url$Url$Parser$top = $elm$url$Url$Parser$Parser(
+	function (state) {
+		return _List_fromArray(
+			[state]);
 	});
-var $elm$browser$Browser$Navigation$load = _Browser_load;
-var $elm$core$Maybe$map = F2(
-	function (f, maybe) {
-		if (maybe.$ === 'Just') {
-			var value = maybe.a;
-			return $elm$core$Maybe$Just(
-				f(value));
-		} else {
-			return $elm$core$Maybe$Nothing;
-		}
+var $elm$url$Url$Parser$custom = F2(
+	function (tipe, stringToSomething) {
+		return $elm$url$Url$Parser$Parser(
+			function (_v0) {
+				var visited = _v0.visited;
+				var unvisited = _v0.unvisited;
+				var params = _v0.params;
+				var frag = _v0.frag;
+				var value = _v0.value;
+				if (!unvisited.b) {
+					return _List_Nil;
+				} else {
+					var next = unvisited.a;
+					var rest = unvisited.b;
+					var _v2 = stringToSomething(next);
+					if (_v2.$ === 'Just') {
+						var nextValue = _v2.a;
+						return _List_fromArray(
+							[
+								A5(
+								$elm$url$Url$Parser$State,
+								A2($elm$core$List$cons, next, visited),
+								rest,
+								params,
+								frag,
+								value(nextValue))
+							]);
+					} else {
+						return _List_Nil;
+					}
+				}
+			});
 	});
-var $elm$browser$Browser$Navigation$pushUrl = _Browser_pushUrl;
-var $elm$browser$Browser$Dom$setViewport = _Browser_setViewport;
+var $author$project$Page$Account$urlParser = A2(
+	$elm$url$Url$Parser$custom,
+	'id',
+	function (str) {
+		return $elm$core$Maybe$Just(str);
+	});
+var $author$project$Page$Customer$urlParser = A2(
+	$elm$url$Url$Parser$custom,
+	'',
+	function (str) {
+		return $elm$core$Maybe$Just(str);
+	});
+var $author$project$Route$parser = $elm$url$Url$Parser$oneOf(
+	_List_fromArray(
+		[
+			A2($elm$url$Url$Parser$map, $author$project$Route$AllCustomers, $elm$url$Url$Parser$top),
+			A2(
+			$elm$url$Url$Parser$map,
+			$author$project$Route$Customer,
+			A2(
+				$elm$url$Url$Parser$slash,
+				$elm$url$Url$Parser$s('customer'),
+				$author$project$Page$Customer$urlParser)),
+			A2(
+			$elm$url$Url$Parser$map,
+			$author$project$Route$Account,
+			A2(
+				$elm$url$Url$Parser$slash,
+				$elm$url$Url$Parser$s('account'),
+				$author$project$Page$Account$urlParser))
+		]));
 var $elm$core$Maybe$withDefault = F2(
 	function (_default, maybe) {
 		if (maybe.$ === 'Just') {
@@ -6966,274 +6616,879 @@ var $elm$core$Maybe$withDefault = F2(
 			return _default;
 		}
 	});
-var $danhandrea$elm_router$Router$update = F3(
-	function (config, message, _v0) {
-		var router = _v0.a;
-		switch (message.$) {
-			case 'UrlRequest':
-				var request = message.a;
-				if (request.$ === 'Internal') {
-					var newUrl = request.a;
-					return _Utils_Tuple2(
-						$danhandrea$elm_router$Router$Router(router),
-						A2(
-							$elm$core$Task$perform,
-							A2(
-								$elm$core$Basics$composeR,
-								$danhandrea$elm_router$Router$GrabViewport(newUrl),
-								config.message),
-							$elm$browser$Browser$Dom$getViewport));
-				} else {
-					var newUrl = request.a;
-					return _Utils_Tuple2(
-						$danhandrea$elm_router$Router$Router(router),
-						$elm$browser$Browser$Navigation$load(newUrl));
+var $author$project$Route$fromUrl = function (url) {
+	return A2(
+		$elm$url$Url$Parser$parse,
+		$author$project$Route$parser,
+		_Utils_update(
+			url,
+			{
+				fragment: $elm$core$Maybe$Nothing,
+				path: A2($elm$core$Maybe$withDefault, '', url.fragment)
+			}));
+};
+var $author$project$Main$init = F3(
+	function (_v0, url, key) {
+		return A2(
+			$author$project$Main$changeRouteTo,
+			$author$project$Route$fromUrl(url),
+			$author$project$Main$Loading);
+	});
+var $elm$core$Platform$Sub$map = _Platform_map;
+var $elm$core$Platform$Sub$batch = _Platform_batch;
+var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
+var $author$project$Page$Account$Tick = function (a) {
+	return {$: 'Tick', a: a};
+};
+var $elm$time$Time$Every = F2(
+	function (a, b) {
+		return {$: 'Every', a: a, b: b};
+	});
+var $elm$time$Time$State = F2(
+	function (taggers, processes) {
+		return {processes: processes, taggers: taggers};
+	});
+var $elm$time$Time$init = $elm$core$Task$succeed(
+	A2($elm$time$Time$State, $elm$core$Dict$empty, $elm$core$Dict$empty));
+var $elm$time$Time$addMySub = F2(
+	function (_v0, state) {
+		var interval = _v0.a;
+		var tagger = _v0.b;
+		var _v1 = A2($elm$core$Dict$get, interval, state);
+		if (_v1.$ === 'Nothing') {
+			return A3(
+				$elm$core$Dict$insert,
+				interval,
+				_List_fromArray(
+					[tagger]),
+				state);
+		} else {
+			var taggers = _v1.a;
+			return A3(
+				$elm$core$Dict$insert,
+				interval,
+				A2($elm$core$List$cons, tagger, taggers),
+				state);
+		}
+	});
+var $elm$core$Dict$foldl = F3(
+	function (func, acc, dict) {
+		foldl:
+		while (true) {
+			if (dict.$ === 'RBEmpty_elm_builtin') {
+				return acc;
+			} else {
+				var key = dict.b;
+				var value = dict.c;
+				var left = dict.d;
+				var right = dict.e;
+				var $temp$func = func,
+					$temp$acc = A3(
+					func,
+					key,
+					value,
+					A3($elm$core$Dict$foldl, func, acc, left)),
+					$temp$dict = right;
+				func = $temp$func;
+				acc = $temp$acc;
+				dict = $temp$dict;
+				continue foldl;
+			}
+		}
+	});
+var $elm$core$Dict$merge = F6(
+	function (leftStep, bothStep, rightStep, leftDict, rightDict, initialResult) {
+		var stepState = F3(
+			function (rKey, rValue, _v0) {
+				stepState:
+				while (true) {
+					var list = _v0.a;
+					var result = _v0.b;
+					if (!list.b) {
+						return _Utils_Tuple2(
+							list,
+							A3(rightStep, rKey, rValue, result));
+					} else {
+						var _v2 = list.a;
+						var lKey = _v2.a;
+						var lValue = _v2.b;
+						var rest = list.b;
+						if (_Utils_cmp(lKey, rKey) < 0) {
+							var $temp$rKey = rKey,
+								$temp$rValue = rValue,
+								$temp$_v0 = _Utils_Tuple2(
+								rest,
+								A3(leftStep, lKey, lValue, result));
+							rKey = $temp$rKey;
+							rValue = $temp$rValue;
+							_v0 = $temp$_v0;
+							continue stepState;
+						} else {
+							if (_Utils_cmp(lKey, rKey) > 0) {
+								return _Utils_Tuple2(
+									list,
+									A3(rightStep, rKey, rValue, result));
+							} else {
+								return _Utils_Tuple2(
+									rest,
+									A4(bothStep, lKey, lValue, rValue, result));
+							}
+						}
+					}
 				}
-			case 'UrlChanged':
-				var newUrl = message.a;
-				var notifyUrlChanged = function () {
-					var _v6 = config.onUrlChanged;
-					if (_v6.$ === 'Just') {
-						var method = _v6.a;
-						return A2(
-							$elm$core$Task$perform,
-							$elm$core$Basics$identity,
-							$elm$core$Task$succeed(
-								method(newUrl)));
-					} else {
-						return $elm$core$Platform$Cmd$none;
-					}
-				}();
-				var cmd = function () {
-					var _v4 = A2(
-						$elm$core$Dict$get,
-						$elm$url$Url$toString(newUrl),
-						router.viewports);
-					if (_v4.$ === 'Just') {
-						var vp = _v4.a;
-						return A2(
-							$elm$core$Task$perform,
-							function (_v5) {
-								return config.message($danhandrea$elm_router$Router$NoOp);
-							},
-							A2($elm$browser$Browser$Dom$setViewport, vp.viewport.x, vp.viewport.y));
-					} else {
-						return $elm$core$Platform$Cmd$none;
-					}
-				}();
-				var _v3 = A3($danhandrea$elm_router$Router$change, config, newUrl, router.routes);
-				var route = _v3.a;
-				var routes = _v3.b;
-				return _Utils_Tuple2(
-					$danhandrea$elm_router$Router$Router(
-						_Utils_update(
-							router,
-							{
-								pageTitle: A2(
-									$elm$core$Maybe$withDefault,
-									$danhandrea$elm_router$Router$notFoundTitle,
-									A2($elm$core$Maybe$map, config.routeTitle, route)),
-								routes: routes,
-								url: newUrl
-							})),
-					$elm$core$Platform$Cmd$batch(
-						_List_fromArray(
-							[cmd, notifyUrlChanged])));
-			case 'GrabViewport':
-				var url = message.a;
-				var viewport = message.b;
-				return _Utils_Tuple2(
-					$danhandrea$elm_router$Router$Router(
-						_Utils_update(
-							router,
-							{
-								viewports: A2(
-									$elm$core$Dict$member,
-									$elm$url$Url$toString(router.url),
-									router.viewports) ? A3(
-									$elm$core$Dict$update,
-									$elm$url$Url$toString(router.url),
-									function (_v7) {
-										return $elm$core$Maybe$Just(viewport);
-									},
-									router.viewports) : A3(
-									$elm$core$Dict$insert,
-									$elm$url$Url$toString(router.url),
-									viewport,
-									router.viewports)
-							})),
+			});
+		var _v3 = A3(
+			$elm$core$Dict$foldl,
+			stepState,
+			_Utils_Tuple2(
+				$elm$core$Dict$toList(leftDict),
+				initialResult),
+			rightDict);
+		var leftovers = _v3.a;
+		var intermediateResult = _v3.b;
+		return A3(
+			$elm$core$List$foldl,
+			F2(
+				function (_v4, result) {
+					var k = _v4.a;
+					var v = _v4.b;
+					return A3(leftStep, k, v, result);
+				}),
+			intermediateResult,
+			leftovers);
+	});
+var $elm$time$Time$Name = function (a) {
+	return {$: 'Name', a: a};
+};
+var $elm$time$Time$Offset = function (a) {
+	return {$: 'Offset', a: a};
+};
+var $elm$time$Time$Zone = F2(
+	function (a, b) {
+		return {$: 'Zone', a: a, b: b};
+	});
+var $elm$time$Time$customZone = $elm$time$Time$Zone;
+var $elm$time$Time$setInterval = _Time_setInterval;
+var $elm$time$Time$spawnHelp = F3(
+	function (router, intervals, processes) {
+		if (!intervals.b) {
+			return $elm$core$Task$succeed(processes);
+		} else {
+			var interval = intervals.a;
+			var rest = intervals.b;
+			var spawnTimer = $elm$core$Process$spawn(
+				A2(
+					$elm$time$Time$setInterval,
+					interval,
+					A2($elm$core$Platform$sendToSelf, router, interval)));
+			var spawnRest = function (id) {
+				return A3(
+					$elm$time$Time$spawnHelp,
+					router,
+					rest,
+					A3($elm$core$Dict$insert, interval, id, processes));
+			};
+			return A2($elm$core$Task$andThen, spawnRest, spawnTimer);
+		}
+	});
+var $elm$time$Time$onEffects = F3(
+	function (router, subs, _v0) {
+		var processes = _v0.processes;
+		var rightStep = F3(
+			function (_v6, id, _v7) {
+				var spawns = _v7.a;
+				var existing = _v7.b;
+				var kills = _v7.c;
+				return _Utils_Tuple3(
+					spawns,
+					existing,
 					A2(
-						$elm$browser$Browser$Navigation$pushUrl,
-						router.key,
-						$elm$url$Url$toString(url)));
-			case 'Route':
-				var msg = message.a;
-				var _v8 = config.update(msg);
-				var route = _v8.a;
-				var cmd = _v8.b;
-				return _Utils_Tuple2(
-					$danhandrea$elm_router$Router$Router(
-						_Utils_update(
-							router,
-							{
-								routes: A3(
-									$elm$core$Dict$update,
-									$elm$url$Url$toString(router.url),
-									$elm$core$Maybe$map(
-										function (_v9) {
-											return route;
-										}),
-									router.routes)
-							})),
+						$elm$core$Task$andThen,
+						function (_v5) {
+							return kills;
+						},
+						$elm$core$Process$kill(id)));
+			});
+		var newTaggers = A3($elm$core$List$foldl, $elm$time$Time$addMySub, $elm$core$Dict$empty, subs);
+		var leftStep = F3(
+			function (interval, taggers, _v4) {
+				var spawns = _v4.a;
+				var existing = _v4.b;
+				var kills = _v4.c;
+				return _Utils_Tuple3(
+					A2($elm$core$List$cons, interval, spawns),
+					existing,
+					kills);
+			});
+		var bothStep = F4(
+			function (interval, taggers, id, _v3) {
+				var spawns = _v3.a;
+				var existing = _v3.b;
+				var kills = _v3.c;
+				return _Utils_Tuple3(
+					spawns,
+					A3($elm$core$Dict$insert, interval, id, existing),
+					kills);
+			});
+		var _v1 = A6(
+			$elm$core$Dict$merge,
+			leftStep,
+			bothStep,
+			rightStep,
+			newTaggers,
+			processes,
+			_Utils_Tuple3(
+				_List_Nil,
+				$elm$core$Dict$empty,
+				$elm$core$Task$succeed(_Utils_Tuple0)));
+		var spawnList = _v1.a;
+		var existingDict = _v1.b;
+		var killTask = _v1.c;
+		return A2(
+			$elm$core$Task$andThen,
+			function (newProcesses) {
+				return $elm$core$Task$succeed(
+					A2($elm$time$Time$State, newTaggers, newProcesses));
+			},
+			A2(
+				$elm$core$Task$andThen,
+				function (_v2) {
+					return A3($elm$time$Time$spawnHelp, router, spawnList, existingDict);
+				},
+				killTask));
+	});
+var $elm$time$Time$Posix = function (a) {
+	return {$: 'Posix', a: a};
+};
+var $elm$time$Time$millisToPosix = $elm$time$Time$Posix;
+var $elm$time$Time$now = _Time_now($elm$time$Time$millisToPosix);
+var $elm$time$Time$onSelfMsg = F3(
+	function (router, interval, state) {
+		var _v0 = A2($elm$core$Dict$get, interval, state.taggers);
+		if (_v0.$ === 'Nothing') {
+			return $elm$core$Task$succeed(state);
+		} else {
+			var taggers = _v0.a;
+			var tellTaggers = function (time) {
+				return $elm$core$Task$sequence(
 					A2(
-						$elm$core$Platform$Cmd$map,
-						A2($elm$core$Basics$composeR, $danhandrea$elm_router$Router$Route, config.message),
-						cmd));
-			case 'Sub':
-				var url = message.a;
-				var msg = message.b;
-				var _v10 = config.update(msg);
-				var route = _v10.a;
-				var cmd = _v10.b;
+						$elm$core$List$map,
+						function (tagger) {
+							return A2(
+								$elm$core$Platform$sendToApp,
+								router,
+								tagger(time));
+						},
+						taggers));
+			};
+			return A2(
+				$elm$core$Task$andThen,
+				function (_v1) {
+					return $elm$core$Task$succeed(state);
+				},
+				A2($elm$core$Task$andThen, tellTaggers, $elm$time$Time$now));
+		}
+	});
+var $elm$core$Basics$composeL = F3(
+	function (g, f, x) {
+		return g(
+			f(x));
+	});
+var $elm$time$Time$subMap = F2(
+	function (f, _v0) {
+		var interval = _v0.a;
+		var tagger = _v0.b;
+		return A2(
+			$elm$time$Time$Every,
+			interval,
+			A2($elm$core$Basics$composeL, f, tagger));
+	});
+_Platform_effectManagers['Time'] = _Platform_createManager($elm$time$Time$init, $elm$time$Time$onEffects, $elm$time$Time$onSelfMsg, 0, $elm$time$Time$subMap);
+var $elm$time$Time$subscription = _Platform_leaf('Time');
+var $elm$time$Time$every = F2(
+	function (interval, tagger) {
+		return $elm$time$Time$subscription(
+			A2($elm$time$Time$Every, interval, tagger));
+	});
+var $author$project$Page$Account$subscriptions = function (_v0) {
+	return A2($elm$time$Time$every, 1000, $author$project$Page$Account$Tick);
+};
+var $author$project$Page$AllCustomers$subscriptions = function (_v0) {
+	return $elm$core$Platform$Sub$none;
+};
+var $author$project$Page$Customer$subscriptions = function (_v0) {
+	return $elm$core$Platform$Sub$none;
+};
+var $author$project$Main$subscriptions = function (model) {
+	switch (model.$) {
+		case 'NotFound':
+			return $elm$core$Platform$Sub$none;
+		case 'Loading':
+			return $elm$core$Platform$Sub$none;
+		case 'AllCustomers':
+			var allCustomers = model.a;
+			return A2(
+				$elm$core$Platform$Sub$map,
+				$author$project$Main$GotAllCustomersMsg,
+				$author$project$Page$AllCustomers$subscriptions(allCustomers));
+		case 'Customer':
+			var customer = model.a;
+			return A2(
+				$elm$core$Platform$Sub$map,
+				$author$project$Main$GotCustomerMsg,
+				$author$project$Page$Customer$subscriptions(customer));
+		default:
+			var account = model.a;
+			return A2(
+				$elm$core$Platform$Sub$map,
+				$author$project$Main$GotAccountMsg,
+				$author$project$Page$Account$subscriptions(account));
+	}
+};
+var $elm$browser$Browser$Navigation$load = _Browser_load;
+var $author$project$Page$Account$update = F2(
+	function (msg, model) {
+		switch (msg.$) {
+			case 'Name':
+				var name = msg.a;
 				return _Utils_Tuple2(
-					$danhandrea$elm_router$Router$Router(
-						_Utils_update(
-							router,
-							{
-								routes: A3(
-									$elm$core$Dict$update,
-									url,
-									$elm$core$Maybe$map(
-										function (_v11) {
-											return route;
-										}),
-									router.routes)
-							})),
-					A2(
-						$elm$core$Platform$Cmd$map,
-						A2($elm$core$Basics$composeR, $danhandrea$elm_router$Router$Route, config.message),
-						cmd));
+					_Utils_update(
+						model,
+						{name: name}),
+					$elm$core$Platform$Cmd$none);
+			case 'Email':
+				var email = msg.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{email: email}),
+					$elm$core$Platform$Cmd$none);
 			default:
 				return _Utils_Tuple2(
-					$danhandrea$elm_router$Router$Router(router),
+					_Utils_update(
+						model,
+						{ticks: model.ticks + 1}),
 					$elm$core$Platform$Cmd$none);
 		}
 	});
-var $author$project$Main$update = F2(
-	function (message, model) {
-		var router = model.router;
-		if (message.$ === 'Router') {
-			var msg = message.a;
-			var _v1 = A3($danhandrea$elm_router$Router$update, $author$project$Main$config, msg, router);
-			var newRouter = _v1.a;
-			var cmd = _v1.b;
+var $author$project$Page$AllCustomers$Failure = function (a) {
+	return {$: 'Failure', a: a};
+};
+var $author$project$Page$AllCustomers$Success = function (a) {
+	return {$: 'Success', a: a};
+};
+var $author$project$Page$AllCustomers$errorToString = function (e) {
+	switch (e.$) {
+		case 'BadUrl':
+			var url = e.a;
+			return 'The URL ' + (url + ' was invalid');
+		case 'Timeout':
+			return 'Unable to reach the server, try again';
+		case 'NetworkError':
+			return 'Unable to reach the server, check your network connection';
+		case 'BadStatus':
+			switch (e.a) {
+				case 500:
+					return 'The server had a problem, try again later';
+				case 400:
+					return 'Verify your information and try again';
+				default:
+					return 'Unknown error';
+			}
+		default:
+			var errorMessage = e.a;
+			return errorMessage;
+	}
+};
+var $author$project$Page$AllCustomers$update = F2(
+	function (msg, _v0) {
+		var result = msg.a;
+		if (result.$ === 'Ok') {
+			var fullText = result.a;
 			return _Utils_Tuple2(
-				_Utils_update(
-					model,
-					{router: newRouter}),
-				cmd);
+				$author$project$Page$AllCustomers$Success(fullText),
+				$elm$core$Platform$Cmd$none);
 		} else {
-			var url = message.a;
+			var err = result.a;
+			return _Utils_Tuple2(
+				$author$project$Page$AllCustomers$Failure(
+					$author$project$Page$AllCustomers$errorToString(err)),
+				$elm$core$Platform$Cmd$none);
+		}
+	});
+var $author$project$Page$Customer$Failure = F2(
+	function (a, b) {
+		return {$: 'Failure', a: a, b: b};
+	});
+var $author$project$Page$Customer$Success = function (a) {
+	return {$: 'Success', a: a};
+};
+var $author$project$Page$Customer$errorToString = function (e) {
+	switch (e.$) {
+		case 'BadUrl':
+			var url = e.a;
+			return 'The URL ' + (url + ' was invalid');
+		case 'Timeout':
+			return 'Unable to reach the server, try again';
+		case 'NetworkError':
+			return 'Unable to reach the server, check your network connection';
+		case 'BadStatus':
+			switch (e.a) {
+				case 500:
+					return 'The server had a problem, try again later';
+				case 400:
+					return 'Verify your information and try again';
+				default:
+					return 'Unknown error';
+			}
+		default:
+			var errorMessage = e.a;
+			return errorMessage;
+	}
+};
+var $author$project$Page$Customer$update = F2(
+	function (msg, model) {
+		var _v0 = _Utils_Tuple2(msg, model);
+		if (_v0.b.$ === 'Loading') {
+			var result = _v0.a.a;
+			var cd = _v0.b.a;
+			if (result.$ === 'Ok') {
+				var c = result.a;
+				return _Utils_Tuple2(
+					$author$project$Page$Customer$Success(c),
+					$elm$core$Platform$Cmd$none);
+			} else {
+				var err = result.a;
+				return _Utils_Tuple2(
+					A2(
+						$author$project$Page$Customer$Failure,
+						cd,
+						$author$project$Page$Customer$errorToString(err)),
+					$elm$core$Platform$Cmd$none);
+			}
+		} else {
 			return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 		}
 	});
-var $elm$html$Html$main_ = _VirtualDom_node('main');
-var $elm$html$Html$nav = _VirtualDom_node('nav');
-var $danhandrea$elm_router$Router$title = F2(
-	function (_v0, appTitle) {
-		var pageTitle = _v0.a.pageTitle;
-		if (pageTitle.$ === 'Nothing') {
-			return appTitle;
-		} else {
-			var t = pageTitle.a;
-			return appTitle + (' - ' + t);
+var $author$project$Main$update = F2(
+	function (msg, model) {
+		var _v0 = _Utils_Tuple2(msg, model);
+		_v0$5:
+		while (true) {
+			switch (_v0.a.$) {
+				case 'ClickedLink':
+					var urlRequest = _v0.a.a;
+					if (urlRequest.$ === 'Internal') {
+						var url = urlRequest.a;
+						var _v2 = url.fragment;
+						if (_v2.$ === 'Nothing') {
+							return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+						} else {
+							return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+						}
+					} else {
+						var href = urlRequest.a;
+						return _Utils_Tuple2(
+							model,
+							$elm$browser$Browser$Navigation$load(href));
+					}
+				case 'ChangedUrl':
+					var url = _v0.a.a;
+					return A2(
+						$author$project$Main$changeRouteTo,
+						$author$project$Route$fromUrl(url),
+						model);
+				case 'GotAllCustomersMsg':
+					if (_v0.b.$ === 'AllCustomers') {
+						var subMsg = _v0.a.a;
+						var subModel = _v0.b.a;
+						return A4(
+							$author$project$Main$updateWith,
+							$author$project$Main$AllCustomers,
+							$author$project$Main$GotAllCustomersMsg,
+							model,
+							A2($author$project$Page$AllCustomers$update, subMsg, subModel));
+					} else {
+						break _v0$5;
+					}
+				case 'GotCustomerMsg':
+					if (_v0.b.$ === 'Customer') {
+						var subMsg = _v0.a.a;
+						var subModel = _v0.b.a;
+						return A4(
+							$author$project$Main$updateWith,
+							$author$project$Main$Customer,
+							$author$project$Main$GotCustomerMsg,
+							model,
+							A2($author$project$Page$Customer$update, subMsg, subModel));
+					} else {
+						break _v0$5;
+					}
+				default:
+					if (_v0.b.$ === 'Account') {
+						var subMsg = _v0.a.a;
+						var subModel = _v0.b.a;
+						return A4(
+							$author$project$Main$updateWith,
+							$author$project$Main$Account,
+							$author$project$Main$GotAccountMsg,
+							model,
+							A2($author$project$Page$Account$update, subMsg, subModel));
+					} else {
+						break _v0$5;
+					}
+			}
 		}
+		return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 	});
-var $danhandrea$elm_router$Router$view = F2(
-	function (config, _v0) {
-		var router = _v0.a;
-		var _v1 = A2(
-			$elm$core$Dict$get,
-			$elm$url$Url$toString(router.url),
-			router.routes);
-		if (_v1.$ === 'Nothing') {
-			return config.notFound(router.url);
-		} else {
-			var route = _v1.a;
-			return A2(
+var $elm$html$Html$h1 = _VirtualDom_node('h1');
+var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
+var $elm$html$Html$text = $elm$virtual_dom$VirtualDom$text;
+var $author$project$Page$Account$Email = function (a) {
+	return {$: 'Email', a: a};
+};
+var $author$project$Page$Account$Name = function (a) {
+	return {$: 'Name', a: a};
+};
+var $elm$html$Html$input = _VirtualDom_node('input');
+var $elm$html$Html$label = _VirtualDom_node('label');
+var $elm$html$Html$Events$alwaysStop = function (x) {
+	return _Utils_Tuple2(x, true);
+};
+var $elm$virtual_dom$VirtualDom$MayStopPropagation = function (a) {
+	return {$: 'MayStopPropagation', a: a};
+};
+var $elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
+var $elm$html$Html$Events$stopPropagationOn = F2(
+	function (event, decoder) {
+		return A2(
+			$elm$virtual_dom$VirtualDom$on,
+			event,
+			$elm$virtual_dom$VirtualDom$MayStopPropagation(decoder));
+	});
+var $elm$json$Json$Decode$at = F2(
+	function (fields, decoder) {
+		return A3($elm$core$List$foldr, $elm$json$Json$Decode$field, decoder, fields);
+	});
+var $elm$html$Html$Events$targetValue = A2(
+	$elm$json$Json$Decode$at,
+	_List_fromArray(
+		['target', 'value']),
+	$elm$json$Json$Decode$string);
+var $elm$html$Html$Events$onInput = function (tagger) {
+	return A2(
+		$elm$html$Html$Events$stopPropagationOn,
+		'input',
+		A2(
+			$elm$json$Json$Decode$map,
+			$elm$html$Html$Events$alwaysStop,
+			A2($elm$json$Json$Decode$map, tagger, $elm$html$Html$Events$targetValue)));
+};
+var $elm$html$Html$section = _VirtualDom_node('section');
+var $elm$json$Json$Encode$string = _Json_wrap;
+var $elm$html$Html$Attributes$stringProperty = F2(
+	function (key, string) {
+		return A2(
+			_VirtualDom_property,
+			key,
+			$elm$json$Json$Encode$string(string));
+	});
+var $elm$html$Html$Attributes$type_ = $elm$html$Html$Attributes$stringProperty('type');
+var $elm$html$Html$Attributes$value = $elm$html$Html$Attributes$stringProperty('value');
+var $author$project$Page$Account$view = function (_v0) {
+	var name = _v0.name;
+	var email = _v0.email;
+	var ticks = _v0.ticks;
+	return _List_fromArray(
+		[
+			A2(
+			$elm$html$Html$h1,
+			_List_Nil,
+			_List_fromArray(
+				[
+					$elm$html$Html$text('Customer')
+				])),
+			A2(
+			$elm$html$Html$section,
+			_List_Nil,
+			_List_fromArray(
+				[
+					A2(
+					$elm$html$Html$input,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$type_('text'),
+							$elm$html$Html$Attributes$value(name),
+							$elm$html$Html$Events$onInput($author$project$Page$Account$Name)
+						]),
+					_List_Nil),
+					A2(
+					$elm$html$Html$input,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$type_('email'),
+							$elm$html$Html$Attributes$value(email),
+							$elm$html$Html$Events$onInput($author$project$Page$Account$Email)
+						]),
+					_List_Nil),
+					A2(
+					$elm$html$Html$label,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text(
+							'ticks : ' + $elm$core$String$fromInt(ticks))
+						]))
+				]))
+		]);
+};
+var $elm$html$Html$a = _VirtualDom_node('a');
+var $elm$html$Html$Attributes$class = $elm$html$Html$Attributes$stringProperty('className');
+var $elm$html$Html$h2 = _VirtualDom_node('h2');
+var $elm$html$Html$Attributes$href = function (url) {
+	return A2(
+		$elm$html$Html$Attributes$stringProperty,
+		'href',
+		_VirtualDom_noJavaScriptUri(url));
+};
+var $elm$html$Html$li = _VirtualDom_node('li');
+var $elm$html$Html$ul = _VirtualDom_node('ul');
+var $author$project$Page$AllCustomers$view = function (model) {
+	switch (model.$) {
+		case 'Loading':
+			return _List_fromArray(
+				[
+					A2(
+					$elm$html$Html$h1,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Customers')
+						])),
+					A2(
+					$elm$html$Html$h2,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Loading...')
+						]))
+				]);
+		case 'Failure':
+			var err = model.a;
+			return _List_fromArray(
+				[
+					A2(
+					$elm$html$Html$h1,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Customers')
+						])),
+					A2(
+					$elm$html$Html$h2,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Failed loading: \'' + (err + '\''))
+						]))
+				]);
+		default:
+			var cs = model.a;
+			return _List_fromArray(
+				[
+					A2(
+					$elm$html$Html$h1,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Customers')
+						])),
+					A2(
+					$elm$html$Html$ul,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('list-group list-group-flush')
+						]),
+					A2(
+						$elm$core$List$map,
+						function (c) {
+							return A2(
+								$elm$html$Html$li,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$class('list-group-item')
+									]),
+								_List_fromArray(
+									[
+										A2(
+										$elm$html$Html$a,
+										_List_fromArray(
+											[
+												$elm$html$Html$Attributes$href('/customer/' + c.id)
+											]),
+										_List_fromArray(
+											[
+												$elm$html$Html$text(c.name)
+											]))
+									]));
+						},
+						cs))
+				]);
+	}
+};
+var $elm$html$Html$br = _VirtualDom_node('br');
+var $author$project$Page$Customer$view = function (model) {
+	switch (model.$) {
+		case 'Loading':
+			var cid = model.a;
+			return _List_fromArray(
+				[
+					A2(
+					$elm$html$Html$h2,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Loading customer ' + (cid + '...'))
+						]))
+				]);
+		case 'Failure':
+			var cid = model.a;
+			var err = model.b;
+			return _List_fromArray(
+				[
+					A2(
+					$elm$html$Html$h2,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Failed loading customer ' + (cid + (': \'' + (err + '\''))))
+						]))
+				]);
+		default:
+			var c = model.a;
+			return _List_fromArray(
+				[
+					A2(
+					$elm$html$Html$h1,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text(c.details.name)
+						])),
+					A2(
+					$elm$html$Html$a,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('btn btn-outline-primary'),
+							$elm$html$Html$Attributes$href('/')
+						]),
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Back')
+						])),
+					A2($elm$html$Html$br, _List_Nil, _List_Nil),
+					A2($elm$html$Html$br, _List_Nil, _List_Nil),
+					A2(
+					$elm$html$Html$ul,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('list-group')
+						]),
+					A2(
+						$elm$core$List$map,
+						function (acc) {
+							return A2(
+								$elm$html$Html$li,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$class('list-group-item d-flex justify-content-between align-items-center')
+									]),
+								_List_fromArray(
+									[
+										A2(
+										$elm$html$Html$a,
+										_List_fromArray(
+											[
+												$elm$html$Html$Attributes$href('/account/' + acc.iban)
+											]),
+										_List_fromArray(
+											[
+												$elm$html$Html$text(acc.iban + (' (' + (acc.accountType + ')')))
+											]))
+									]));
+						},
+						c.accountDetails))
+				]);
+	}
+};
+var $elm$virtual_dom$VirtualDom$map = _VirtualDom_map;
+var $elm$html$Html$map = $elm$virtual_dom$VirtualDom$map;
+var $author$project$Main$viewPage = F3(
+	function (toMsg, title, body) {
+		return {
+			body: A2(
 				$elm$core$List$map,
-				$elm$html$Html$map(
-					A2($elm$core$Basics$composeR, $danhandrea$elm_router$Router$Route, config.message)),
-				config.view(route));
-		}
+				$elm$html$Html$map(toMsg),
+				body),
+			title: title
+		};
 	});
-var $author$project$Main$view = function (_v0) {
-	var router = _v0.router;
-	return {
-		body: _List_fromArray(
-			[
-				A2(
-				$elm$html$Html$nav,
-				_List_Nil,
+var $author$project$Main$view = function (model) {
+	switch (model.$) {
+		case 'Loading':
+			return A3(
+				$author$project$Main$viewPage,
+				$author$project$Main$GotAllCustomersMsg,
+				'Banking',
 				_List_fromArray(
 					[
 						A2(
-						$elm$html$Html$a,
+						$elm$html$Html$h1,
+						_List_Nil,
 						_List_fromArray(
 							[
-								$elm$html$Html$Attributes$href('/')
-							]),
-						_List_fromArray(
-							[
-								$elm$html$Html$text('All Customers')
-							])),
-						A2(
-						$elm$html$Html$a,
-						_List_fromArray(
-							[
-								$elm$html$Html$Attributes$href('/customer')
-							]),
-						_List_fromArray(
-							[
-								$elm$html$Html$text('Customer')
-							])),
-						A2(
-						$elm$html$Html$a,
-						_List_fromArray(
-							[
-								$elm$html$Html$Attributes$href('/account')
-							]),
-						_List_fromArray(
-							[
-								$elm$html$Html$text('Account')
-							])),
-						A2(
-						$elm$html$Html$a,
-						_List_fromArray(
-							[
-								$elm$html$Html$Attributes$href('/something_not_routed')
-							]),
-						_List_fromArray(
-							[
-								$elm$html$Html$text('404')
+								$elm$html$Html$text('Loading...')
 							]))
-					])),
-				A2(
-				$elm$html$Html$main_,
-				_List_Nil,
-				A2($danhandrea$elm_router$Router$view, $author$project$Main$config, router))
-			]),
-		title: A2($danhandrea$elm_router$Router$title, router, 'Banking')
-	};
+					]));
+		case 'NotFound':
+			return A3(
+				$author$project$Main$viewPage,
+				$author$project$Main$GotAllCustomersMsg,
+				'Banking',
+				_List_fromArray(
+					[
+						A2(
+						$elm$html$Html$h1,
+						_List_Nil,
+						_List_fromArray(
+							[
+								$elm$html$Html$text('Page not found!')
+							]))
+					]));
+		case 'AllCustomers':
+			var allCustomers = model.a;
+			return A3(
+				$author$project$Main$viewPage,
+				$author$project$Main$GotAllCustomersMsg,
+				'Banking',
+				$author$project$Page$AllCustomers$view(allCustomers));
+		case 'Customer':
+			var customer = model.a;
+			return A3(
+				$author$project$Main$viewPage,
+				$author$project$Main$GotCustomerMsg,
+				'Banking',
+				$author$project$Page$Customer$view(customer));
+		default:
+			var account = model.a;
+			return A3(
+				$author$project$Main$viewPage,
+				$author$project$Main$GotAccountMsg,
+				'Banking',
+				$author$project$Page$Account$view(account));
+	}
 };
 var $author$project$Main$main = $elm$browser$Browser$application(
-	{
-		init: $author$project$Main$init,
-		onUrlChange: $danhandrea$elm_router$Router$onUrlChange($author$project$Main$config),
-		onUrlRequest: $danhandrea$elm_router$Router$onUrlRequest($author$project$Main$config),
-		subscriptions: $author$project$Main$subscriptions,
-		update: $author$project$Main$update,
-		view: $author$project$Main$view
-	});
+	{init: $author$project$Main$init, onUrlChange: $author$project$Main$ChangedUrl, onUrlRequest: $author$project$Main$ClickedLink, subscriptions: $author$project$Main$subscriptions, update: $author$project$Main$update, view: $author$project$Main$view});
 _Platform_export({'Main':{'init':$author$project$Main$main(
 	$elm$json$Json$Decode$succeed(_Utils_Tuple0))(0)}});}(this));

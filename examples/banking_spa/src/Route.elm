@@ -9,17 +9,17 @@ import Url exposing (Url)
 
 -- MODEL
 type Route
-  = AllCustomersRoute
-  | AccountRoute String
-  | CustomerRoute String
+  = AllCustomers
+  | Account String
+  | Customer String
 
 -- PARSER
 parser : Parser (Route -> a) a
 parser =
     oneOf
-        [ Parser.map AllCustomersRoute Parser.top
-        , Parser.map CustomerRoute (s "customer" </> Customer.urlParser)
-        , Parser.map AccountRoute (s "account" </> Account.urlParser)
+        [ Parser.map AllCustomers Parser.top
+        , Parser.map Customer (s "customer" </> Customer.urlParser)
+        , Parser.map Account (s "account" </> Account.urlParser)
         ]
       
 fromUrl : Url -> Maybe Route

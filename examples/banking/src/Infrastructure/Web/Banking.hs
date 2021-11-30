@@ -5,7 +5,9 @@ module Infrastructure.Web.Banking
   ( banking
   ) where
 
-import Servant
+import Servant ( Application, type (:<|>)((:<|>)), serve, Server )
+import Network.Wai.Middleware.Cors
+-- import Network.Wai.Middleware.Servant.Options
 
 import qualified View.Api as Api
 import qualified View.Rest.Handlers as Rest
@@ -18,7 +20,9 @@ banking :: AppCache
         -> DbPool
         -> Application
 banking cache dbPool
-    = serve Api.bankingApi server
+    = simpleCors 
+    -- $ provideOptions apiProxy
+    $ serve Api.bankingApi server
   where
     server :: Server Api.BankingApi
     server 
