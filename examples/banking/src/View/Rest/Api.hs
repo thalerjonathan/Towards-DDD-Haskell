@@ -52,9 +52,9 @@ instance ToSchema CommandResponse where
 type GetAllCustomersRest = "rest" :> "customer" :> "all" :> Get '[JSON] [CustomerDetailsDTO]
 type GetCustomerRest     = "rest" :> "customer" :> Capture ":id" Text :> Get '[JSON] CustomerDTO
 type GetAccountRest      = "rest" :> "account" :> Capture ":iban" Text :> Get '[JSON] AccountDTO
-type PostDepositRest     = "rest" :> "account" :> Capture ":iban" Text :> "deposit" :> Capture ":amount" Double :> Post '[JSON] CommandResponse
-type PostWithdrawRest    = "rest" :> "account" :> Capture ":iban" Text :> "withdraw" :> Capture ":amount" Double :> Post '[JSON] CommandResponse
-type PostTransferRest    = "rest" :> "account" :> Capture ":fromIban" Text :> "transfer" :> Capture ":toIban" Text :> Capture ":amount" Double :> Capture ":reference" Text :> Post '[JSON] CommandResponse
+type PostDepositRest     = "rest" :> "account" :> Capture ":iban" Text :> "deposit" :> Capture ":amount" Double :> Post '[JSON] (Either Text TXLineDTO)
+type PostWithdrawRest    = "rest" :> "account" :> Capture ":iban" Text :> "withdraw" :> Capture ":amount" Double :> Post '[JSON] (Either Text TXLineDTO)
+type PostTransferRest    = "rest" :> "account" :> Capture ":fromIban" Text :> "transfer" :> Capture ":toIban" Text :> Capture ":amount" Double :> Capture ":reference" Text :> Post '[JSON] (Either Text TXLineDTO)
 
 type BankingRestApi 
   = GetAllCustomersRest

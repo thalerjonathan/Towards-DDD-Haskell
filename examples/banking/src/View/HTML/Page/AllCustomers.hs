@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module View.HTML.Templates.AllCustomers where
+module View.HTML.Page.AllCustomers where
 
 import Control.Monad (forM_)
 import Text.Blaze.Html5 as H

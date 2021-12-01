@@ -16,6 +16,7 @@ import Control.Monad.IO.Class
 import View.Rest.Api
 import Application.DTO
 
+import Database.Persist.Postgresql
 import Infrastructure.Cache.AppCache 
 import Application.Banking
 import Infrastructure.DB.Pool as Pool
@@ -57,25 +58,17 @@ handleDeposit :: AppCache
               -> DbPool
               -> T.Text 
               -> Double 
-              -> Handler CommandResponse
-handleDeposit cache p iban amount = do
-  ret <- liftIO $ Pool.runWithTX p (deposit cache iban amount)
-  case ret of 
-    (Just (InvalidAccountOperation str)) -> return $ CommandResponse False (Just str)
-    (Just _) -> throwError err404
-    Nothing -> return $ CommandResponse True Nothing
+              -> Handler (Either T.Text TXLineDTO)
+handleDeposit cache p iban amount = 
+  performAccountTx p (deposit cache iban amount) 
 
 handleWithdraw :: AppCache
                -> DbPool
                -> T.Text 
                -> Double 
-               -> Handler CommandResponse
-handleWithdraw cache p iban amount = do
-  ret <- liftIO $ Pool.runWithTX p (withdraw cache iban amount)
-  case ret of 
-    (Just (InvalidAccountOperation str)) -> return $ CommandResponse False (Just str)
-    (Just _) -> throwError err404
-    Nothing -> return $ CommandResponse True Nothing
+               -> Handler (Either T.Text TXLineDTO)
+handleWithdraw cache p iban amount = 
+  performAccountTx p (withdraw cache iban amount) 
 
 handleTransfer :: AppCache
                -> DbPool
@@ -83,13 +76,20 @@ handleTransfer :: AppCache
                -> T.Text 
                -> Double 
                -> T.Text 
-               -> Handler CommandResponse
-handleTransfer cache p fromIban toIban amount reference = do
-  ret <- liftIO $ Pool.runWithTX p $ (transfer cache fromIban toIban amount reference)
-  case ret of 
-    (Just (InvalidAccountOperation str)) -> return $ CommandResponse False (Just str)
-    (Just _) -> throwError err404
-    Nothing -> return $ CommandResponse True Nothing
+               -> Handler (Either T.Text TXLineDTO)
+handleTransfer cache p fromIban toIban amount reference = 
+  performAccountTx p (transfer cache fromIban toIban amount reference) 
 
 handleSwagger :: Handler Swagger
 handleSwagger = return bankingSwagger
+
+
+performAccountTx :: DbPool
+                 -> (SqlBackend -> IO (Either Exception TXLineDTO)) 
+                 -> Handler (Either T.Text TXLineDTO)
+performAccountTx p act = do
+  ret <- liftIO $ Pool.runWithTX p act
+  case ret of 
+    (Left (InvalidAccountOperation str)) -> return $ Left str
+    (Left _)   -> throwError err404
+    (Right tx) -> return $ Right tx

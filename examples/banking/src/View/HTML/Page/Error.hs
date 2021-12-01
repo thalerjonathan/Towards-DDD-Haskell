@@ -1,4 +1,4 @@
-module View.HTML.Templates.Error where
+module View.HTML.Page.Error where
 
 import Data.Text
 import Text.Blaze.Html5 as H

@@ -91,14 +91,14 @@ deposit :: AppCache
         -> T.Text 
         -> Double 
         -> SqlBackend
-        -> IO (Maybe Exception)
+        -> IO (Either Exception TXLineDTO)
 deposit _cache iban amount conn = do
   ma <- DB.accountByIban iban conn
   case ma of 
-    Nothing -> return $ Just AccountNotFound
+    Nothing -> return $ Left AccountNotFound
     (Just (Entity aid a)) -> do
       if isSavings a
-        then return $ Just $ InvalidAccountOperation "Cannot deposit into Savings account!"
+        then return $ Left $ InvalidAccountOperation "Cannot deposit into Savings account!"
         else do
           now <- getCurrentTime
           let newBalance = amount + accountBalance a 
@@ -107,24 +107,24 @@ deposit _cache iban amount conn = do
           txId <- DB.insertTXLine newTxLine conn
           print txId
           DB.updateAccountBalance aid newBalance conn
-          return Nothing
+          return $ Right $ txLineToDTO (Entity txId newTxLine)
 
 withdraw :: AppCache
          -> T.Text 
          -> Double 
          -> SqlBackend
-         -> IO (Maybe Exception)
+         -> IO (Either Exception TXLineDTO)
 withdraw _cache iban amount conn = do
   ma <- DB.accountByIban iban conn
   case ma of 
-    Nothing -> return $ Just AccountNotFound
+    Nothing -> return $ Left AccountNotFound
     (Just (Entity aid a)) -> do
       if isSavings a 
-        then return $ Just $ InvalidAccountOperation "Cannot withdraw from Savings account!"
+        then return $ Left $ InvalidAccountOperation "Cannot withdraw from Savings account!"
         else do 
           let newBalance = accountBalance a - amount
           if newBalance < -1000
-            then return $ Just $ InvalidAccountOperation "Cannot overdraw Giro account by more than -1000.0!"
+            then return $ Left $ InvalidAccountOperation "Cannot overdraw Giro account by more than -1000.0!"
             else do
               now <- getCurrentTime
               let newTxLine  = TXLine aid iban (-amount) "Deposit" "Deposit" now
@@ -134,7 +134,7 @@ withdraw _cache iban amount conn = do
 
               DB.updateAccountBalance aid newBalance conn
 
-              return Nothing
+              return $ Right $ txLineToDTO (Entity txId newTxLine)
 
 transfer :: AppCache 
          -> T.Text 
@@ -142,23 +142,23 @@ transfer :: AppCache
          -> Double 
          -> T.Text 
          -> SqlBackend
-         -> IO (Maybe Exception)
+         -> IO (Either Exception TXLineDTO)
 transfer _cache fromIban toIban amount reference conn = do
   mFrom <- DB.accountByIban fromIban conn
   case mFrom of 
-    Nothing -> return $ Just AccountNotFound
+    Nothing -> return $ Left AccountNotFound
     (Just (Entity fromAid fromAccount)) -> do
       mTo <- DB.accountByIban toIban conn
       case mTo of 
-        Nothing -> return $ Just AccountNotFound
+        Nothing -> return $ Left AccountNotFound
         (Just (Entity toAid toAccount)) -> do
           if not $ sameOwner fromAccount toAccount
             -- not same owner, can only transfer between giros and max 5000 amount
             then do
               if isSavings fromAccount || isSavings  toAccount
-                then return $ Just $ InvalidAccountOperation "Transfer cannot happen with Savings account of different customers!"
+                then return $ Left $ InvalidAccountOperation "Transfer cannot happen with Savings account of different customers!"
                 else if amount > 5000 
-                  then return $ Just $ InvalidAccountOperation "Transfer between different customers cannot exceed 5000€!"
+                  then return $ Left $ InvalidAccountOperation "Transfer between different customers cannot exceed 5000€!"
                   else performTransfer fromAid fromAccount toAid toAccount amount reference conn
             -- same owner, anything goes, no restrictions
             else do
@@ -171,19 +171,19 @@ performTransfer :: AccountId
                 -> Double
                 -> T.Text
                 -> SqlBackend
-                -> IO (Maybe Exception)
+                -> IO (Either Exception TXLineDTO)
 performTransfer fromAid fromAccount toAid toAccount amount reference conn = do
   mfc <- DB.customerByCustomerId (accountOwner fromAccount) conn
   case mfc of 
-    Nothing -> return $ Just CustomerNotFound
+    Nothing -> return $ Left CustomerNotFound
     (Just fromCustomer) -> do
       mtc <- DB.customerByCustomerId (accountOwner toAccount) conn
       case mtc of 
-        Nothing -> return $ Just CustomerNotFound
+        Nothing -> return $ Left CustomerNotFound
         (Just toCustomer) -> do
           let check = checkAccountOverdraft fromAccount amount
           case check of 
-            (Just err) -> return $ Just err
+            (Just err) -> return $ Left err
             _ -> do
               let fromName = customerName fromCustomer
                   toName   = customerName toCustomer
@@ -193,13 +193,13 @@ performTransfer fromAid fromAccount toAid toAccount amount reference conn = do
               let newFromTxLine  = TXLine fromAid (accountIban toAccount) (-amount) toName reference now
                   newToTxLine    = TXLine toAid (accountIban fromAccount) amount fromName reference now
 
-              _ <- DB.insertTXLine newFromTxLine conn
+              fromTxId <- DB.insertTXLine newFromTxLine conn
               _ <- DB.insertTXLine newToTxLine conn
               
               DB.updateAccountBalance fromAid (accountBalance fromAccount - amount) conn
               DB.updateAccountBalance toAid (accountBalance toAccount + amount) conn
 
-              return Nothing
+              return $ Right $ txLineToDTO (Entity fromTxId newFromTxLine)
 
 checkAccountOverdraft :: Account -> Double -> Maybe Exception
 checkAccountOverdraft a amount

@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module View.HTML.Templates.Account where
+module View.HTML.Page.Account where
 
 import Data.Time.Format
 import Data.Text as T

@@ -5,7 +5,7 @@ module Infrastructure.Web.Banking
   ( banking
   ) where
 
-import Servant ( Application, type (:<|>)((:<|>)), serve, Server )
+import Servant ( Application, type (:<|>)((:<|>)), serve, Server, serveDirectoryFileServer )
 import Network.Wai.Middleware.Cors
 -- import Network.Wai.Middleware.Servant.Options
 
@@ -15,6 +15,9 @@ import qualified View.HTML.Controller as Html
 
 import Infrastructure.Cache.AppCache
 import Infrastructure.DB.Pool
+
+staticFiles :: String
+staticFiles = "static"
 
 banking :: AppCache
         -> DbPool
@@ -40,3 +43,4 @@ banking cache dbPool
           :<|> Html.handleWithdraw cache dbPool
           :<|> Html.handleTransfer cache dbPool
           :<|> Html.handleError
+          :<|> serveDirectoryFileServer staticFiles

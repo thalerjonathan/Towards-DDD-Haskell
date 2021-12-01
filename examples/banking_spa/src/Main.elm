@@ -4,18 +4,19 @@ import Browser exposing (Document)
 import Browser.Navigation exposing (Key)
 import Browser.Navigation as Nav
 import Html as H
-import Html.Attributes as A
 import Route
 import Url exposing (Url)
 import Page.Account as Account
 import Page.Customer as Customer
 import Page.AllCustomers as AllCustomers
+
 type Model 
-  = AllCustomers AllCustomers.Model
-  | Customer Customer.Model
-  | Account Account.Model
-  | Loading
-  | NotFound 
+  = AllCustomers Key AllCustomers.Model
+  | Customer Key Customer.Model
+  | Account Key Account.Model
+  | Loading Key
+  | NotFound Key
+
 type Msg
     = GotAllCustomersMsg AllCustomers.Msg
     | GotCustomerMsg Customer.Msg
@@ -24,29 +25,40 @@ type Msg
     | ClickedLink Browser.UrlRequest
 
 init : () -> Url -> Key -> ( Model, Cmd Msg )
-init _ url key =
-  changeRouteTo (Route.fromUrl url) Loading
+init _ url key = changeRouteTo (Route.fromUrl url) (Loading key)
+
+keyFromModel : Model -> Key
+keyFromModel m = 
+  case m of 
+    (AllCustomers k _ ) -> k
+    (Customer k _ ) -> k
+    (Account k _ ) -> k
+    (Loading k ) -> k
+    (NotFound k ) -> k
 
 changeRouteTo : Maybe Route.Route -> Model -> ( Model, Cmd Msg )
-changeRouteTo maybeRoute model =
-  case maybeRoute of 
-    Nothing -> 
-      (NotFound, Cmd.none)
+changeRouteTo maybeRoute model = 
+  let
+    key = keyFromModel model
+  in
+    case maybeRoute of 
+      Nothing -> 
+        (NotFound key, Cmd.none)
 
-    (Just Route.AllCustomers) ->
-      AllCustomers.init 
-        |> updateWith AllCustomers GotAllCustomersMsg model
-    
-    (Just (Route.Customer cid)) ->
-      Customer.init cid
-        |> updateWith Customer GotCustomerMsg model
-    
-    (Just (Route.Account str)) ->
-      Account.init "" ""
-        |> updateWith Account GotAccountMsg model
+      (Just Route.AllCustomers) ->
+        AllCustomers.init 
+          |> updateWith (AllCustomers key) GotAllCustomersMsg model
+      
+      (Just (Route.Customer cid)) ->
+        Customer.init cid
+          |> updateWith (Customer key) GotCustomerMsg model
+      
+      (Just (Route.Account iban customerId customerName)) ->
+        Account.init iban customerId customerName
+          |> updateWith (Account key) GotAccountMsg model
     
 updateWith : (subModel -> Model) -> (subMsg -> Msg) -> Model -> ( subModel, Cmd subMsg ) -> ( Model, Cmd Msg )
-updateWith toModel toMsg model ( subModel, subCmd ) =
+updateWith toModel toMsg _ ( subModel, subCmd ) =
     ( toModel subModel
     , Cmd.map toMsg subCmd
     )
@@ -58,22 +70,8 @@ update msg model =
     ( ClickedLink urlRequest, _ ) ->
       case urlRequest of
         Browser.Internal url ->
-          case url.fragment of
-            Nothing ->
-                -- If we got a link that didn't include a fragment,
-                -- it's from one of those (href "") attributes that
-                -- we have to include to make the RealWorld CSS work.
-                --
-                -- In an application doing path routing instead of
-                -- fragment-based routing, this entire
-                -- `case url.fragment of` expression this comment
-                -- is inside would be unnecessary.
-                ( model, Cmd.none )
-
-            Just _ ->
-                ( model, Cmd.none
-                -- TODO get key from init, Nav.pushUrl "foo" (Url.toString url)
-                )
+          let key = keyFromModel model in
+            ( model, Nav.pushUrl key (Url.toString url))
 
         Browser.External href ->
             ( model
@@ -83,41 +81,41 @@ update msg model =
     ( ChangedUrl url, _ ) ->
       changeRouteTo (Route.fromUrl url) model
 
-    ( GotAllCustomersMsg subMsg, AllCustomers subModel ) ->
+    ( GotAllCustomersMsg subMsg, AllCustomers key subModel ) ->
       AllCustomers.update subMsg subModel 
-        |> updateWith AllCustomers GotAllCustomersMsg model
+        |> updateWith (AllCustomers key) GotAllCustomersMsg model
 
-    ( GotCustomerMsg subMsg, Customer subModel ) ->
+    ( GotCustomerMsg subMsg, Customer key subModel ) ->
       Customer.update subMsg subModel 
-        |> updateWith Customer GotCustomerMsg model
+        |> updateWith (Customer key) GotCustomerMsg model
 
-    ( GotAccountMsg subMsg, Account subModel ) ->
+    ( GotAccountMsg subMsg, Account key subModel ) ->
       Account.update subMsg subModel 
-        |> updateWith Account GotAccountMsg model
+        |> updateWith (Account key) GotAccountMsg model
 
     ( _, _ ) ->
-      -- Disregard messages that arrived for the wrong page.
       ( model, Cmd.none )
 
 -- VIEW
 view : Model -> Document Msg
 view model =
   case model of 
-    Loading -> 
+    Loading _ -> 
       viewPage GotAllCustomersMsg "Banking" [H.h1 [] [ H.text "Loading..." ]]
 
-    NotFound ->
+    NotFound _ ->
       viewPage GotAllCustomersMsg "Banking" [ H.h1 [] [ H.text "Page not found!" ]]
 
-    AllCustomers allCustomers -> 
+    AllCustomers _ allCustomers -> 
       viewPage GotAllCustomersMsg "Banking" (AllCustomers.view allCustomers)
 
-    Customer customer -> 
+    Customer _ customer -> 
       viewPage GotCustomerMsg "Banking" (Customer.view customer)
 
-    Account account ->
+    Account _ account ->
       viewPage GotAccountMsg "Banking" (Account.view account)
  
+viewPage : (a -> msg) -> b -> List (H.Html a) -> { title : b, body : List (H.Html msg) }
 viewPage toMsg title body =
     { title = title
     , body = List.map (H.map toMsg) body
@@ -127,19 +125,19 @@ viewPage toMsg title body =
 subscriptions : Model -> Sub Msg
 subscriptions model = 
   case model of 
-    NotFound ->
+    NotFound _ ->
       Sub.none
 
-    Loading -> 
+    Loading _ -> 
       Sub.none
 
-    AllCustomers allCustomers -> 
+    AllCustomers _ allCustomers -> 
       Sub.map GotAllCustomersMsg (AllCustomers.subscriptions allCustomers)
 
-    Customer customer -> 
+    Customer _ customer -> 
       Sub.map GotCustomerMsg (Customer.subscriptions customer)
 
-    Account account ->
+    Account _ account ->
       Sub.map GotAccountMsg (Account.subscriptions account)
 
 main : Program () Model Msg

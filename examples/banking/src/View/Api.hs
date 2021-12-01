@@ -1,7 +1,5 @@
 {-# LANGUAGE DataKinds          #-}
 {-# LANGUAGE TypeOperators      #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 module View.Api where
 
 import View.Rest.Api
@@ -22,7 +20,8 @@ type BankingApi = (SwaggerApi
                   :<|> PostDepositHtml
                   :<|> PostWithdrawHtml
                   :<|> PostTransferHtml
-                  :<|> GetError)
+                  :<|> GetError
+                  :<|> Raw)
 
 bankingApi :: Proxy BankingApi
 bankingApi = Proxy

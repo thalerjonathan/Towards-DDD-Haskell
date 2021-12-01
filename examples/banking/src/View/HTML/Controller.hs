@@ -10,11 +10,11 @@ import Application.Banking
 import Infrastructure.Cache.AppCache (AppCache)
 
 import View.HTML.Forms
-import View.HTML.Templates.AllCustomers
-import View.HTML.Templates.Customer
-import View.HTML.Templates.Account
-import View.HTML.Templates.Error
-import View.HTML.Templates.Redirect
+import View.HTML.Page.AllCustomers
+import View.HTML.Page.Customer
+import View.HTML.Page.Account
+import View.HTML.Page.Error
+import View.HTML.Page.Redirect
 
 handleAllCustomers :: AppCache
                    -> Pool.DbPool 
@@ -59,9 +59,9 @@ handleDeposit cache p form = do
 
   ret <- liftIO $ Pool.runWithTX p (deposit cache iban amount)
   case ret of 
-    (Just err) -> 
+    (Left err) -> 
       redirectToError $ exceptionToErrorMessage err
-    Nothing -> 
+    (Right _) -> 
       redirectToAccount form
 
 handleWithdraw :: AppCache
@@ -73,9 +73,9 @@ handleWithdraw cache p form = do
       amount = accountFormAmount form
   ret <- liftIO $ Pool.runWithTX p (withdraw cache iban amount)
   case ret of 
-    (Just err) -> 
+    (Left err) -> 
       redirectToError $ exceptionToErrorMessage err
-    Nothing -> 
+    (Right _) -> 
       redirectToAccount form
 
 handleTransfer :: AppCache
@@ -89,9 +89,9 @@ handleTransfer cache p form = do
         reference = transferFormReference form
     ret <- liftIO $ Pool.runWithTX p (transfer cache fromIban toIban amount reference)
     case ret of 
-      (Just err) -> 
+      (Left err) -> 
         redirectToError $ exceptionToErrorMessage err
-      Nothing -> 
+      (Right _) -> 
         redirectToAccount (transferToAccountForm form)
   where
     transferToAccountForm :: TransferForm -> AccountForm

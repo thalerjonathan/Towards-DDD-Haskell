@@ -1,4 +1,4 @@
-module View.HTML.Templates.Redirect where
+module View.HTML.Page.Redirect where
 
 import Data.Text
 import Text.Blaze.Html5 as H
