@@ -5,6 +5,7 @@ import Control.Monad.Except
 import Data.Either.Combinators
 import Infrastructure.Cache.AppCache
 
+import qualified Application.Async as Async
 import qualified Infrastructure.Web.Banking as Banking
 import qualified Infrastructure.Web.Server as Server
 import qualified Infrastructure.DB.Pool as Pool
@@ -13,10 +14,13 @@ import qualified Infrastructure.DB.Config as DbCfg
 import Data.Time
 import Data.Fixed
 
+type AppConfig = DbCfg.DbConfig
+
 dbBankingCfgFile :: String
 dbBankingCfgFile = "db.banking.conf"
 
-type AppConfig = DbCfg.DbConfig
+eventPollInterval :: Int
+eventPollInterval = 10000000
 
 main :: IO ()
 main = do
@@ -26,6 +30,8 @@ main = do
     (Right dbBankingCfg) -> do
       dbPool <- runStdoutLoggingT $ Pool.initPool dbBankingCfg
       cache  <- mkAppCache
+
+      Async.eventProcessor dbPool eventPollInterval
 
       Server.startServer (Banking.banking cache dbPool)
 

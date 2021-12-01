@@ -54,6 +54,8 @@ executable Banking
   -- Modules included in this executable, other than Main.
   other-modules:      Application.Banking
                     , Application.DTO
+                    , Application.DomainEvents
+                    , Application.Async
                     , Domain.Account
                     , Domain.Customer
                     , Domain.AccountRepository

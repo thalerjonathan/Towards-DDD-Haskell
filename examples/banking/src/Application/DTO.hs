@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DeriveGeneric  #-}
 module Application.DTO where
 
 import Data.Typeable (Typeable)

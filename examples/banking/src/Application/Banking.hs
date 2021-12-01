@@ -8,15 +8,21 @@ module Application.Banking
   , getAccount
   , deposit
   , withdraw
-  , transfer
+  , transferTransactional
+  , transferEventual
+  , processDomainEvent
   ) where
 
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
+
 import Data.Time.Clock
 import Data.UUID.V4 (nextRandom)
 import Data.UUID
+import Data.Aeson.Text
 
 import Application.DTO
+import Application.DomainEvents 
 
 import Database.Persist.Postgresql
 import Infrastructure.Cache.AppCache 
@@ -27,6 +33,109 @@ data Exception
   | AccountNotFound
   | InvalidAccountOperation T.Text
   deriving Show
+
+processDomainEvent :: DomainEvent 
+                   -> SqlBackend
+                   -> IO ()
+processDomainEvent (TransferSent evt)   = transferSent evt
+processDomainEvent (TransferFailed evt) = transferFailed evt
+
+transferSent :: TransferSentEvent
+             -> SqlBackend
+             -> IO ()
+transferSent evt conn = do
+  let fromIban  = transferSentEventSendingAccount evt
+      toIban    = transferSentEventReceivingAccount evt
+      amount    = transferSentEventAmount evt
+      reference = transferSentEventReference evt
+
+  mFrom <- DB.accountByIban fromIban conn
+  case mFrom of 
+    Nothing -> transferSentFailed evt "Could not find sending Account"
+    (Just (Entity _ fromAccount)) -> do
+      mTo <- DB.accountByIban toIban conn
+      case mTo of 
+        Nothing -> transferSentFailed evt "Could not find receiving Account"
+        (Just (Entity toAid toAccount)) -> do
+          mfc <- DB.customerByCustomerId (accountOwner fromAccount) conn
+          case mfc of 
+            Nothing -> transferSentFailed evt "Could not find sending customer"
+            (Just fromCustomer) -> do
+              mtc <- DB.customerByCustomerId (accountOwner toAccount) conn
+              case mtc of 
+                Nothing -> transferSentFailed evt "Could not find receiving customer"
+                (Just _) -> do
+                  let fromName = customerName fromCustomer
+
+                  now <- getCurrentTime
+
+                  let newToTxLine = TXLine toAid (accountIban fromAccount) amount fromName reference now
+
+                  _ <- DB.insertTXLine newToTxLine conn
+                  
+                  DB.updateAccountBalance toAid (accountBalance toAccount + amount) conn
+
+                  return ()
+  where
+    transferSentFailed :: TransferSentEvent -> T.Text -> IO ()
+    transferSentFailed evtSent err = do
+      let evtFailed = TransferFailedEvent {
+          transferFailedEventError             = err
+        , transferFailedEventAmount            = transferSentEventAmount evtSent
+        , transferFailedEventReference         = transferSentEventReference evtSent
+        , transferFailedEventSendingCustomer   = transferSentEventSendingCustomer evtSent
+        , transferFailedEventReceivingCustomer = transferSentEventReceivingCustomer evtSent
+        , transferFailedEventSendingAccount    = transferSentEventSendingAccount evtSent
+        , transferFailedEventReceivingAccount  = transferSentEventReceivingAccount evtSent
+        }
+
+      now <- getCurrentTime
+
+      let payload = TL.toStrict $ encodeToLazyText evtFailed
+      let pe = PersistedEvent now "TransferFailed" False False "" payload
+
+      _ <- DB.insertEvent pe conn
+      
+      return ()
+
+
+transferFailed :: TransferFailedEvent
+               -> SqlBackend
+               -> IO ()
+transferFailed evt conn = do
+  let fromIban  = transferFailedEventSendingAccount evt
+      toIban    = transferFailedEventReceivingAccount evt
+      amount    = transferFailedEventAmount evt
+      reference = transferFailedEventReference evt
+
+  mFrom <- DB.accountByIban fromIban conn
+  case mFrom of 
+    Nothing -> return () -- ignore errors, what should we do?
+    (Just (Entity fromAid fromAccount)) -> do
+      mTo <- DB.accountByIban toIban conn
+      case mTo of 
+        Nothing -> return () -- ignore errors, what should we do?
+        (Just (Entity _ toAccount)) -> do
+          mfc <- DB.customerByCustomerId (accountOwner fromAccount) conn
+          case mfc of 
+            Nothing -> return () -- ignore errors, what should we do?
+            (Just _) -> do
+              mtc <- DB.customerByCustomerId (accountOwner toAccount) conn
+              case mtc of 
+                Nothing -> return () -- ignore errors, what should we do?
+                (Just toCustomer) -> do
+                  let toName = customerName toCustomer
+
+                  now <- getCurrentTime
+
+                  let newFromTxLine = TXLine fromAid (accountIban fromAccount) amount toName ("Transfer failed: " <> reference) now
+
+                  _ <- DB.insertTXLine newFromTxLine conn
+                  
+                  DB.updateAccountBalance fromAid (accountBalance toAccount + amount) conn
+
+                  return ()
+
 
 createCustomer :: AppCache
                -> T.Text
@@ -136,14 +245,36 @@ withdraw _cache iban amount conn = do
 
               return $ Right $ txLineToDTO (Entity txId newTxLine)
 
-transfer :: AppCache 
-         -> T.Text 
-         -> T.Text 
-         -> Double 
-         -> T.Text 
-         -> SqlBackend
-         -> IO (Either Exception TXLineDTO)
-transfer _cache fromIban toIban amount reference conn = do
+data TransferType = Transactional | Eventual
+
+transferEventual :: AppCache 
+                 -> T.Text 
+                 -> T.Text 
+                 -> Double 
+                 -> T.Text 
+                 -> SqlBackend
+                 -> IO (Either Exception TXLineDTO)
+transferEventual _cache fromIban toIban amount reference conn = 
+  checkAndPerformTransfer fromIban toIban amount reference conn Eventual 
+
+transferTransactional :: AppCache 
+                      -> T.Text 
+                      -> T.Text 
+                      -> Double 
+                      -> T.Text 
+                      -> SqlBackend
+                      -> IO (Either Exception TXLineDTO)
+transferTransactional _cache fromIban toIban amount reference conn = 
+  checkAndPerformTransfer fromIban toIban amount reference conn Transactional
+
+checkAndPerformTransfer :: T.Text 
+                        -> T.Text 
+                        -> Double 
+                        -> T.Text 
+                        -> SqlBackend
+                        -> TransferType
+                        -> IO (Either Exception TXLineDTO)
+checkAndPerformTransfer fromIban toIban amount reference conn txType = do
   mFrom <- DB.accountByIban fromIban conn
   case mFrom of 
     Nothing -> return $ Left AccountNotFound
@@ -159,20 +290,25 @@ transfer _cache fromIban toIban amount reference conn = do
                 then return $ Left $ InvalidAccountOperation "Transfer cannot happen with Savings account of different customers!"
                 else if amount > 5000 
                   then return $ Left $ InvalidAccountOperation "Transfer between different customers cannot exceed 5000€!"
-                  else performTransfer fromAid fromAccount toAid toAccount amount reference conn
+                  else 
+                    case txType of
+                      Transactional -> performTransferTransactional fromAid fromAccount toAid toAccount amount reference conn
+                      Eventual      -> performTransferEventual fromAid fromAccount toAccount amount reference conn
             -- same owner, anything goes, no restrictions
             else do
-              performTransfer fromAid fromAccount toAid toAccount amount reference conn
+              case txType of
+                      Transactional -> performTransferTransactional fromAid fromAccount toAid toAccount amount reference conn
+                      Eventual      -> performTransferEventual fromAid fromAccount toAccount amount reference conn
 
-performTransfer :: AccountId
-                -> Account
-                -> AccountId
-                -> Account
-                -> Double
-                -> T.Text
-                -> SqlBackend
-                -> IO (Either Exception TXLineDTO)
-performTransfer fromAid fromAccount toAid toAccount amount reference conn = do
+performTransferTransactional :: AccountId
+                             -> Account
+                             -> AccountId
+                             -> Account
+                             -> Double
+                             -> T.Text
+                             -> SqlBackend
+                             -> IO (Either Exception TXLineDTO)
+performTransferTransactional fromAid fromAccount toAid toAccount amount reference conn = do
   mfc <- DB.customerByCustomerId (accountOwner fromAccount) conn
   case mfc of 
     Nothing -> return $ Left CustomerNotFound
@@ -198,6 +334,50 @@ performTransfer fromAid fromAccount toAid toAccount amount reference conn = do
               
               DB.updateAccountBalance fromAid (accountBalance fromAccount - amount) conn
               DB.updateAccountBalance toAid (accountBalance toAccount + amount) conn
+
+              return $ Right $ txLineToDTO (Entity fromTxId newFromTxLine)
+
+performTransferEventual :: AccountId
+                        -> Account
+                        -> Account
+                        -> Double
+                        -> T.Text
+                        -> SqlBackend
+                        -> IO (Either Exception TXLineDTO)
+performTransferEventual fromAid fromAccount toAccount amount reference conn = do
+  mfc <- DB.customerByCustomerId (accountOwner fromAccount) conn
+  case mfc of 
+    Nothing -> return $ Left CustomerNotFound
+    (Just fromCustomer) -> do
+      mtc <- DB.customerByCustomerId (accountOwner toAccount) conn
+      case mtc of 
+        Nothing -> return $ Left CustomerNotFound
+        (Just toCustomer) -> do
+          let check = checkAccountOverdraft fromAccount amount
+          case check of 
+            (Just err) -> return $ Left err
+            _ -> do
+              let toName = customerName toCustomer
+
+              now <- getCurrentTime
+
+              let newFromTxLine  = TXLine fromAid (accountIban toAccount) (-amount) toName reference now
+              let evt = TransferSentEvent {
+                  transferSentEventAmount            = amount
+                , transferSentEventReference         = reference
+                , transferSentEventSendingCustomer   = customerDomainId fromCustomer
+                , transferSentEventReceivingCustomer = customerDomainId toCustomer
+                , transferSentEventSendingAccount    = accountIban fromAccount
+                , transferSentEventReceivingAccount  = accountIban toAccount
+                }
+
+              let payload = TL.toStrict $ encodeToLazyText evt
+              let pe = PersistedEvent now "TransferSent" False False "" payload
+
+              fromTxId <- DB.insertTXLine newFromTxLine conn
+
+              DB.updateAccountBalance fromAid (accountBalance fromAccount - amount) conn
+              _ <- DB.insertEvent pe conn
 
               return $ Right $ txLineToDTO (Entity fromTxId newFromTxLine)
 

@@ -78,7 +78,7 @@ handleTransfer :: AppCache
                -> T.Text 
                -> Handler (Either T.Text TXLineDTO)
 handleTransfer cache p fromIban toIban amount reference = 
-  performAccountTx p (transfer cache fromIban toIban amount reference) 
+  performAccountTx p (transferEventual cache fromIban toIban amount reference) 
 
 handleSwagger :: Handler Swagger
 handleSwagger = return bankingSwagger

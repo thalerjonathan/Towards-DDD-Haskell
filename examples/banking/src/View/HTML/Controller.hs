@@ -87,7 +87,7 @@ handleTransfer cache p form = do
         toIban    = transferFormToIban form
         amount    = transferFormAmount form
         reference = transferFormReference form
-    ret <- liftIO $ Pool.runWithTX p (transfer cache fromIban toIban amount reference)
+    ret <- liftIO $ Pool.runWithTX p (transferEventual cache fromIban toIban amount reference)
     case ret of 
       (Left err) -> 
         redirectToError $ exceptionToErrorMessage err

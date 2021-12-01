@@ -20,9 +20,15 @@ module Infrastructure.DB.Banking
   , AccountId
   , TXLineId
   , AccountType (..)
+  , PersistedEvent (..)
 
   , insertCustomer
   , insertAccount
+  , insertEvent
+
+  , nextEvent
+  , markEventFailed
+  , markEventProcessed
 
   , allCustomers
   , customerById
@@ -50,6 +56,9 @@ derivePersistField "AccountType"
 share [mkPersist sqlSettings]
     $(persistFileWith lowerCaseSettings "db/banking.persistentmodels")
 
+insertEvent :: PersistedEvent -> SqlBackend -> IO (Key PersistedEvent)
+insertEvent pe = executeActionWithoutTX (insert pe)
+
 insertCustomer :: Customer -> SqlBackend -> IO (Key Customer)
 insertCustomer cust = executeActionWithoutTX (insert cust)
 
@@ -58,6 +67,27 @@ insertAccount a = executeActionWithoutTX (insert a)
 
 allCustomers :: SqlBackend -> IO [Entity Customer]
 allCustomers = executeActionWithoutTX (selectList [] [])
+
+nextEvent :: SqlBackend -> IO (Maybe (Entity PersistedEvent))
+nextEvent = executeActionWithoutTX act
+  where
+    act = do
+      ret <- selectList [ PersistedEventProcessed ==. False
+                        , PersistedEventFailed ==. False ] [Desc PersistedEventCreated, LimitTo 1]
+      if Prelude.null ret
+        then return Nothing
+        else return $ Just (Prelude.head ret)
+
+markEventFailed :: PersistedEventId -> Text -> SqlBackend -> IO ()
+markEventFailed pid err = executeActionWithoutTX act
+  where
+    act = update pid [ PersistedEventFailed =. True
+                     , PersistedEventFailedError =. err ]
+
+markEventProcessed :: PersistedEventId -> SqlBackend -> IO ()
+markEventProcessed pid = executeActionWithoutTX act
+  where
+    act = update pid [ PersistedEventProcessed =. True ]
 
 customerById :: Text -> SqlBackend -> IO (Maybe (Entity Customer))
 customerById domainId = executeActionWithoutTX act

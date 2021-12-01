@@ -16,11 +16,15 @@ TODO
 TODO
 
 ### Logging
+TODO
 
 ### REST
 TODO
 
 ### DDD
+TODO
+
+### Eventual Consistency
 TODO
 
 ### TDD

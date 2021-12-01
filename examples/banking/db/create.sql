@@ -20,8 +20,8 @@ DROP TABLE IF EXISTS banking.account;
 
 CREATE TABLE banking.account (
     account_id SERIAL PRIMARY KEY,
-    account_owner_id integer NOT NULL,
-    account_balance numeric(32, 2) NOT NULL,
+    account_owner_id INTEGER NOT NULL,
+    account_balance NUMERIC(32, 2) NOT NULL,
     account_iban VARCHAR(255) UNIQUE,
     account_type VARCHAR(255) NOT NULL,
 
@@ -38,17 +38,32 @@ DROP TABLE IF EXISTS banking.tx;
 
 CREATE TABLE banking.tx (
     tx_id SERIAL PRIMARY KEY,
-    tx_account integer NOT NULL,
+    tx_account INTEGER NOT NULL,
     tx_iban VARCHAR(255) NOT NULL,
-    tx_amount numeric(32, 2) NOT NULL,
+    tx_amount NUMERIC(32, 2) NOT NULL,
     tx_name VARCHAR(255) NOT NULL,
     tx_reference VARCHAR(255) NOT NULL,
-    tx_time timestamp NOT NULL,
+    tx_time TIMESTAMP NOT NULL,
 
     CONSTRAINT fk_account
       FOREIGN KEY(tx_account) 
 	      REFERENCES banking.account(account_id)
         ON DELETE CASCADE
+);
+
+------------------------------------
+-- TX Lines 
+------------------------------------
+DROP TABLE IF EXISTS banking.event;
+
+CREATE TABLE banking.event (
+  event_id SERIAL PRIMARY KEY,
+  event_created TIMESTAMP NOT NULL,
+  event_type VARCHAR(255) NOT NULL,
+  event_processed BOOLEAN NOT NULL,
+  event_failed BOOLEAN NOT NULL,
+  event_failed_error VARCHAR(255) NOT NULL,
+  event_payload VARCHAR(4096) NOT NULL
 );
 
 ---------------------------------------------------------------------------------------
