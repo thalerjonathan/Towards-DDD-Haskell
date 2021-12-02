@@ -57,23 +57,23 @@ transferSent evt conn = do
       case mTo of 
         Nothing -> transferSentFailed evt "Could not find receiving Account"
         (Just (Entity toAid toAccount)) -> do
-          mfc <- DB.customerByCustomerId (accountOwner fromAccount) conn
+          mfc <- DB.customerByCustomerId (accountEntityOwner fromAccount) conn
           case mfc of 
             Nothing -> transferSentFailed evt "Could not find sending customer"
             (Just fromCustomer) -> do
-              mtc <- DB.customerByCustomerId (accountOwner toAccount) conn
+              mtc <- DB.customerByCustomerId (accountEntityOwner toAccount) conn
               case mtc of 
                 Nothing -> transferSentFailed evt "Could not find receiving customer"
                 (Just _) -> do
-                  let fromName = customerName fromCustomer
+                  let fromName = customerEntityName fromCustomer
 
                   now <- getCurrentTime
 
-                  let newToTxLine = TXLine toAid (accountIban fromAccount) amount fromName reference now
+                  let newToTxLine = TXLineEntity toAid ( accountEntityIban fromAccount) amount fromName reference now
 
                   _ <- DB.insertTXLine newToTxLine conn
                   
-                  DB.updateAccountBalance toAid (accountBalance toAccount + amount) conn
+                  DB.updateAccountBalance toAid (accountEntityBalance toAccount + amount) conn
 
                   return ()
   where
@@ -92,7 +92,7 @@ transferSent evt conn = do
       now <- getCurrentTime
 
       let payload = TL.toStrict $ encodeToLazyText evtFailed
-      let pe = PersistedEvent now "TransferFailed" False False "" payload
+      let pe = PersistedEventEntity now "TransferFailed" False False "" payload
 
       _ <- DB.insertEvent pe conn
       
@@ -116,23 +116,23 @@ transferFailed evt conn = do
       case mTo of 
         Nothing -> return () -- ignore errors, what should we do?
         (Just (Entity _ toAccount)) -> do
-          mfc <- DB.customerByCustomerId (accountOwner fromAccount) conn
+          mfc <- DB.customerByCustomerId (accountEntityOwner fromAccount) conn
           case mfc of 
             Nothing -> return () -- ignore errors, what should we do?
             (Just _) -> do
-              mtc <- DB.customerByCustomerId (accountOwner toAccount) conn
+              mtc <- DB.customerByCustomerId (accountEntityOwner toAccount) conn
               case mtc of 
                 Nothing -> return () -- ignore errors, what should we do?
                 (Just toCustomer) -> do
-                  let toName = customerName toCustomer
+                  let toName = customerEntityName toCustomer
 
                   now <- getCurrentTime
 
-                  let newFromTxLine = TXLine fromAid (accountIban fromAccount) amount toName ("Transfer failed: " <> reference) now
+                  let newFromTxLine = TXLineEntity fromAid ( accountEntityIban fromAccount) amount toName ("Transfer failed: " <> reference) now
 
                   _ <- DB.insertTXLine newFromTxLine conn
                   
-                  DB.updateAccountBalance fromAid (accountBalance toAccount + amount) conn
+                  DB.updateAccountBalance fromAid (accountEntityBalance toAccount + amount) conn
 
                   return ()
 
@@ -143,8 +143,7 @@ createCustomer :: AppCache
                -> IO T.Text
 createCustomer _cache name conn = do
   custDomainId <- toText <$> nextRandom
-
-  let cust = Customer custDomainId name
+  let cust = CustomerEntity custDomainId name
   _cid <- DB.insertCustomer cust conn
   return custDomainId
 
@@ -160,8 +159,8 @@ createAccount _cache owner iban balance t conn = do
   case mc of
     Nothing -> return $ Just CustomerNotFound
     (Just (Entity cid _)) -> do
-      let at = read (T.unpack t) :: DB.AccountType
-      let acc = Account cid balance iban at
+      let at = read (T.unpack t) :: DB.AccountEntityType
+      let acc = AccountEntity cid balance iban at
       _aid <- DB.insertAccount acc conn
       return Nothing
 
@@ -210,8 +209,8 @@ deposit _cache iban amount conn = do
         then return $ Left $ InvalidAccountOperation "Cannot deposit into Savings account!"
         else do
           now <- getCurrentTime
-          let newBalance = amount + accountBalance a 
-              newTxLine  = TXLine aid iban amount "Deposit" "Deposit" now
+          let newBalance = amount + accountEntityBalance a 
+              newTxLine  = TXLineEntity aid iban amount "Deposit" "Deposit" now
 
           txId <- DB.insertTXLine newTxLine conn
           print txId
@@ -231,12 +230,12 @@ withdraw _cache iban amount conn = do
       if isSavings a 
         then return $ Left $ InvalidAccountOperation "Cannot withdraw from Savings account!"
         else do 
-          let newBalance = accountBalance a - amount
+          let newBalance = accountEntityBalance a - amount
           if newBalance < -1000
             then return $ Left $ InvalidAccountOperation "Cannot overdraw Giro account by more than -1000.0!"
             else do
               now <- getCurrentTime
-              let newTxLine  = TXLine aid iban (-amount) "Deposit" "Deposit" now
+              let newTxLine  = TXLineEntity aid iban (-amount) "Deposit" "Deposit" now
 
               txId <- DB.insertTXLine newTxLine conn
               print txId
@@ -300,20 +299,20 @@ checkAndPerformTransfer fromIban toIban amount reference conn txType = do
                       Transactional -> performTransferTransactional fromAid fromAccount toAid toAccount amount reference conn
                       Eventual      -> performTransferEventual fromAid fromAccount toAccount amount reference conn
 
-performTransferTransactional :: AccountId
-                             -> Account
-                             -> AccountId
-                             -> Account
+performTransferTransactional :: AccountEntityId
+                             -> AccountEntity
+                             -> AccountEntityId
+                             -> AccountEntity
                              -> Double
                              -> T.Text
                              -> SqlBackend
                              -> IO (Either Exception TXLineDTO)
 performTransferTransactional fromAid fromAccount toAid toAccount amount reference conn = do
-  mfc <- DB.customerByCustomerId (accountOwner fromAccount) conn
+  mfc <- DB.customerByCustomerId (accountEntityOwner fromAccount) conn
   case mfc of 
     Nothing -> return $ Left CustomerNotFound
     (Just fromCustomer) -> do
-      mtc <- DB.customerByCustomerId (accountOwner toAccount) conn
+      mtc <- DB.customerByCustomerId (accountEntityOwner toAccount) conn
       case mtc of 
         Nothing -> return $ Left CustomerNotFound
         (Just toCustomer) -> do
@@ -321,35 +320,35 @@ performTransferTransactional fromAid fromAccount toAid toAccount amount referenc
           case check of 
             (Just err) -> return $ Left err
             _ -> do
-              let fromName = customerName fromCustomer
-                  toName   = customerName toCustomer
+              let fromName = customerEntityName fromCustomer
+                  toName   = customerEntityName toCustomer
 
               now <- getCurrentTime
 
-              let newFromTxLine  = TXLine fromAid (accountIban toAccount) (-amount) toName reference now
-                  newToTxLine    = TXLine toAid (accountIban fromAccount) amount fromName reference now
+              let newFromTxLine  = TXLineEntity fromAid ( accountEntityIban toAccount) (-amount) toName reference now
+                  newToTxLine    = TXLineEntity toAid ( accountEntityIban fromAccount) amount fromName reference now
 
               fromTxId <- DB.insertTXLine newFromTxLine conn
               _ <- DB.insertTXLine newToTxLine conn
               
-              DB.updateAccountBalance fromAid (accountBalance fromAccount - amount) conn
-              DB.updateAccountBalance toAid (accountBalance toAccount + amount) conn
+              DB.updateAccountBalance fromAid (accountEntityBalance fromAccount - amount) conn
+              DB.updateAccountBalance toAid (accountEntityBalance toAccount + amount) conn
 
               return $ Right $ txLineToDTO (Entity fromTxId newFromTxLine)
 
-performTransferEventual :: AccountId
-                        -> Account
-                        -> Account
+performTransferEventual :: AccountEntityId
+                        -> AccountEntity
+                        -> AccountEntity
                         -> Double
                         -> T.Text
                         -> SqlBackend
                         -> IO (Either Exception TXLineDTO)
 performTransferEventual fromAid fromAccount toAccount amount reference conn = do
-  mfc <- DB.customerByCustomerId (accountOwner fromAccount) conn
+  mfc <- DB.customerByCustomerId (accountEntityOwner fromAccount) conn
   case mfc of 
     Nothing -> return $ Left CustomerNotFound
     (Just fromCustomer) -> do
-      mtc <- DB.customerByCustomerId (accountOwner toAccount) conn
+      mtc <- DB.customerByCustomerId (accountEntityOwner toAccount) conn
       case mtc of 
         Nothing -> return $ Left CustomerNotFound
         (Just toCustomer) -> do
@@ -357,75 +356,75 @@ performTransferEventual fromAid fromAccount toAccount amount reference conn = do
           case check of 
             (Just err) -> return $ Left err
             _ -> do
-              let toName = customerName toCustomer
+              let toName = customerEntityName toCustomer
 
               now <- getCurrentTime
 
-              let newFromTxLine  = TXLine fromAid (accountIban toAccount) (-amount) toName reference now
+              let newFromTxLine  = TXLineEntity fromAid (accountEntityIban toAccount) (-amount) toName reference now
               let evt = TransferSentEvent {
                   transferSentEventAmount            = amount
                 , transferSentEventReference         = reference
-                , transferSentEventSendingCustomer   = customerDomainId fromCustomer
-                , transferSentEventReceivingCustomer = customerDomainId toCustomer
-                , transferSentEventSendingAccount    = accountIban fromAccount
-                , transferSentEventReceivingAccount  = accountIban toAccount
+                , transferSentEventSendingCustomer   = customerEntityDomainId fromCustomer
+                , transferSentEventReceivingCustomer = customerEntityDomainId toCustomer
+                , transferSentEventSendingAccount    = accountEntityIban fromAccount
+                , transferSentEventReceivingAccount  = accountEntityIban toAccount
                 }
 
               let payload = TL.toStrict $ encodeToLazyText evt
-              let pe = PersistedEvent now "TransferSent" False False "" payload
+              let pe = PersistedEventEntity now "TransferSent" False False "" payload
 
               fromTxId <- DB.insertTXLine newFromTxLine conn
 
-              DB.updateAccountBalance fromAid (accountBalance fromAccount - amount) conn
+              DB.updateAccountBalance fromAid (accountEntityBalance fromAccount - amount) conn
               _ <- DB.insertEvent pe conn
 
               return $ Right $ txLineToDTO (Entity fromTxId newFromTxLine)
 
-checkAccountOverdraft :: Account -> Double -> Maybe Exception
+checkAccountOverdraft :: AccountEntity -> Double -> Maybe Exception
 checkAccountOverdraft a amount
-  | isSavings a && accountBalance a - amount < 0  = Just $ InvalidAccountOperation "Savings Account cannot have negative balance!"
-  | isGiro a && accountBalance a - amount < -1000 = Just $ InvalidAccountOperation "Cannot overdraw Giro account by more than -1000.0!"
+  | isSavings a && accountEntityBalance a - amount < 0  = Just $ InvalidAccountOperation "Savings Account cannot have negative balance!"
+  | isGiro a && accountEntityBalance a - amount < -1000 = Just $ InvalidAccountOperation "Cannot overdraw Giro account by more than -1000.0!"
   | otherwise = Nothing 
 
-isSavings :: Account -> Bool
-isSavings a = DB.Savings == accountType a
+isSavings :: AccountEntity -> Bool
+isSavings a = DB.Savings == accountEntityType a
 
-isGiro :: Account -> Bool
-isGiro a = DB.Giro == accountType a
+isGiro :: AccountEntity -> Bool
+isGiro a = DB.Giro == accountEntityType a
 
-sameOwner :: Account -> Account -> Bool
-sameOwner a1 a2 = accountOwner a1 == accountOwner a2
+sameOwner :: AccountEntity -> AccountEntity -> Bool
+sameOwner a1 a2 = accountEntityOwner a1 == accountEntityOwner a2
 
-accountEntityToDTO :: Entity Account -> [Entity TXLine] -> AccountDTO 
+accountEntityToDTO :: Entity AccountEntity -> [Entity TXLineEntity] -> AccountDTO 
 accountEntityToDTO a txs = AccountDTO 
   { accountDetails = accountEntityToDetailsDTO a
   , accountTXLines = map txLineToDTO txs
   }
 
-txLineToDTO :: Entity TXLine -> TXLineDTO
+txLineToDTO :: Entity TXLineEntity -> TXLineDTO
 txLineToDTO (Entity _ t) = TXLineDTO
-  { txLineIban      = tXLineIban t
-  , txLineName      = tXLineName t
-  , txLineReference = tXLineReference t
-  , txLineAmount    = tXLineAmount t
-  , txLineTime      = tXLineTime t
+  { txLineIban      = tXLineEntityIban t
+  , txLineName      = tXLineEntityName t
+  , txLineReference = tXLineEntityReference t
+  , txLineAmount    = tXLineEntityAmount t
+  , txLineTime      = tXLineEntityTime t
   }
 
-customerEntityToDetailsDTO :: Entity Customer -> CustomerDetailsDTO
+customerEntityToDetailsDTO :: Entity CustomerEntity -> CustomerDetailsDTO
 customerEntityToDetailsDTO (Entity _ c) = CustomerDetailsDTO 
-  { customerDetailsId   = customerDomainId c
-  , customerDetailsName = customerName c
+  { customerDetailsId   = customerEntityDomainId c
+  , customerDetailsName = customerEntityName c
   }
 
-customerEntityToDTO :: Entity Customer -> [Entity Account] -> CustomerDTO
+customerEntityToDTO :: Entity CustomerEntity -> [Entity AccountEntity] -> CustomerDTO
 customerEntityToDTO c as = CustomerDTO 
   { customerDetails        = customerEntityToDetailsDTO c
   , customerAccountDetails = map accountEntityToDetailsDTO as
   }
 
-accountEntityToDetailsDTO :: Entity Account -> AccountDetailsDTO
+accountEntityToDetailsDTO :: Entity AccountEntity -> AccountDetailsDTO
 accountEntityToDetailsDTO (Entity _ a) = AccountDetailsDTO 
-  { accountDetailIban    = accountIban a
-  , accountDetailBalance = accountBalance a
-  , accountDetailType    = T.pack $ show $ accountType a
+  { accountDetailIban    = accountEntityIban a
+  , accountDetailBalance = accountEntityBalance a
+  , accountDetailType    = T.pack $ show $ accountEntityType a
   }

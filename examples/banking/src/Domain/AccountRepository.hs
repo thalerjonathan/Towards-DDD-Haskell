@@ -1,17 +1,20 @@
 module Domain.AccountRepository where
 
-import Control.Monad.Free
+import           Control.Monad.Free.Church
 
-import Domain.Customer (CustomerId)
-import Domain.Account
+import           Database.Persist.Sql
+import           Domain.Account
+import           Domain.Customer           (CustomerId)
+
+--import qualified Infrastructure.DB.Banking as DB
 
 data AccountRepoLang a
-  = AddAccount Account a 
+  = AddAccount Account a
   | FindAccountsForOwner CustomerId ([Account] -> a)
   | FindAccountByIban Iban (Maybe Account -> a)
-  deriving Functor 
+  deriving Functor
 
-type AccountRepoProgram = Free AccountRepoLang
+type AccountRepoProgram = F AccountRepoLang
 
 addAccount :: Account -> AccountRepoProgram ()
 addAccount a = liftF (AddAccount a ())
@@ -22,14 +25,26 @@ findAccountsForOwner owner = liftF (FindAccountsForOwner owner id)
 findAccountByIban :: Iban -> AccountRepoProgram (Maybe Account)
 findAccountByIban iban = liftF (FindAccountByIban iban id)
 
-interpretAccountRepo :: AccountRepoProgram a -> IO a
-interpretAccountRepo (Pure a) = return a
-interpretAccountRepo (Free (AddAccount _a cont)) = do
-  -- TODO: implement
-  interpretAccountRepo cont
-interpretAccountRepo (Free (FindAccountsForOwner _owner contF)) = do
-  -- TODO: implement
-  interpretAccountRepo (contF [])
-interpretAccountRepo (Free (FindAccountByIban _iban contF)) = do
-  -- TODO: implement
-  interpretAccountRepo (contF Nothing)
+runAccountRepo :: AccountRepoProgram a -> SqlBackend -> IO a
+runAccountRepo prog _ = foldF interpretAccountRepo prog
+  where
+    interpretAccountRepo :: AccountRepoLang a -> IO a
+    interpretAccountRepo (AddAccount _a ret) = do
+      -- TODO: need owner CustomerEntityId
+      -- TODO: need a connection
+      -- let owner   = CustomerEntityId 0
+      --     balance = 0
+      --     iban    = ""
+      --     aType   = Giro
+      -- let accountEntity = AccountEntity owner balance iban aType
+
+      -- DB.insertAccount
+
+      -- TODO: implement
+      return ret
+    interpretAccountRepo (FindAccountsForOwner _owner cont) = do
+      -- TODO: implement
+      return (cont [])
+    interpretAccountRepo (FindAccountByIban _iban cont) = do
+      -- TODO: implement
+      return (cont Nothing)

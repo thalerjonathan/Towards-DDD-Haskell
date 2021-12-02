@@ -1,18 +1,18 @@
 module Main where
 
-import Control.Monad.Logger
-import Control.Monad.Except
-import Data.Either.Combinators
-import Infrastructure.Cache.AppCache
+import           Control.Monad.Except
+import           Control.Monad.Logger
+import           Data.Either.Combinators
+import           Infrastructure.Cache.AppCache
 
-import qualified Application.Async as Async
-import qualified Infrastructure.Web.Banking as Banking
-import qualified Infrastructure.Web.Server as Server
-import qualified Infrastructure.DB.Pool as Pool
-import qualified Infrastructure.DB.Config as DbCfg
+import qualified Application.Async             as Async
+import qualified Infrastructure.DB.Config      as DbCfg
+import qualified Infrastructure.DB.Pool        as Pool
+import qualified Infrastructure.Web.Banking    as Banking
+import qualified Infrastructure.Web.Server     as Server
 
-import Data.Time
-import Data.Fixed
+import           Data.Fixed
+import           Data.Time
 
 type AppConfig = DbCfg.DbConfig
 

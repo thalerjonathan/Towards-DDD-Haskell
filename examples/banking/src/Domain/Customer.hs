@@ -1,20 +1,21 @@
-{-# LANGUAGE Arrows             #-}
+{-# LANGUAGE Arrows #-}
 module Domain.Customer where
 
-import Data.UUID
-import Control.Monad.Free (Free (Pure, Free), liftF)
-import Data.Text (Text)
-import Data.MonadicStreamFunction (MSF, returnA, arrM, feedback)
-import Data.MonadicStreamFunction.InternalCore (unMSF)
+import           Control.Monad.Free.Church
+import           Data.MonadicStreamFunction              (MSF, arrM, feedback,
+                                                          returnA)
+import           Data.MonadicStreamFunction.InternalCore (unMSF)
+import           Data.Text                               as T
+import           Data.UUID
 
 newtype CustomerId = CustomerId UUID deriving Show
 
 data CustomerCommand
-  = GetCustomerId 
+  = GetCustomerId
   | GetName
   deriving Show
 
-data CustomerCommandResult 
+data CustomerCommandResult
   = ReturnCustomerId CustomerId
   | ReturnName Text
   deriving Show
@@ -23,21 +24,16 @@ data CustomerLang a
   = ReadName (Text -> a)
   deriving Functor
 
-type CustomerProgram = Free CustomerLang
+type CustomerProgram = F CustomerLang
 
-data CustomerState 
+data CustomerState
   = CustomerState CustomerId deriving Show
 
 type Customer = MSF CustomerProgram CustomerCommand (Maybe CustomerCommandResult)
 
-execCommand :: Customer -> CustomerCommand -> IO (Customer, Maybe CustomerCommandResult)
-execCommand a cmd = do
-  (ret, a') <- interpret (unMSF a cmd)
-  return (a', ret)
-
-customer :: CustomerId -> Customer
-customer cid = feedback s0 (proc (cmd, s) -> do
-    ret <- arrM (handleCommand cid) -< cmd
+customer :: CustomerId -> T.Text -> Customer
+customer cid cName = feedback s0 (proc (cmd, s) -> do
+    ret <- arrM (handleCommand cid cName) -< cmd
     returnA -< (ret, s))
   where
     s0 = CustomerState cid
@@ -45,17 +41,31 @@ customer cid = feedback s0 (proc (cmd, s) -> do
 readName :: CustomerProgram Text
 readName = liftF (ReadName id)
 
-handleCommand :: CustomerId 
-              -> CustomerCommand 
+getName :: Customer -> CustomerProgram T.Text
+getName c = do
+  (ret, _) <- unMSF c GetName
+  case ret of
+    (Just (ReturnName n)) -> return n
+    _                     -> error "unexpected return in customer"
+
+handleCommand :: CustomerId
+              -> T.Text
+              -> CustomerCommand
               -> CustomerProgram (Maybe CustomerCommandResult)
-handleCommand  cid GetCustomerId = do
+handleCommand cid _ GetCustomerId = do
   return $ Just (ReturnCustomerId cid)
-handleCommand  _ GetName = do
-  name <- readName
-  return $ Just (ReturnName name)
-  
-interpret :: CustomerProgram a -> IO a
-interpret (Pure a) = return a
-interpret (Free (ReadName contF)) = do
-  let name = "Jonathan Thaler"
-  interpret (contF name)
+handleCommand _ cname GetName = do
+  return $ Just (ReturnName cname)
+
+execCommand :: Customer -> CustomerCommand -> IO (Customer, Maybe CustomerCommandResult)
+execCommand a cmd = do
+  (ret, a') <- runCustomerAggregate (unMSF a cmd)
+  return (a', ret)
+
+runCustomerAggregate :: CustomerProgram a -> IO a
+runCustomerAggregate = foldF interpret
+  where
+    interpret :: CustomerLang a -> IO a
+    interpret (ReadName cont) = do
+      let name = "Jonathan Thaler"
+      return $ cont name

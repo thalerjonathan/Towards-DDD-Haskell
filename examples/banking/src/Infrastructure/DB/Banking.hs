@@ -1,26 +1,26 @@
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE EmptyDataDecls             #-}
-{-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE QuasiQuotes                #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE FlexibleInstances          #-}
-module Infrastructure.DB.Banking 
+{-# LANGUAGE UndecidableInstances       #-}
+module Infrastructure.DB.Banking
   ( Entity (..)
-  , Customer (..)
-  , Account (..)
-  , TXLine (..)
-  , CustomerId
-  , AccountId
-  , TXLineId
-  , AccountType (..)
-  , PersistedEvent (..)
+  , CustomerEntity (..)
+  , AccountEntity (..)
+  , TXLineEntity (..)
+  , CustomerEntityId
+  , AccountEntityId
+  , TXLineEntityId
+  , AccountEntityType (..)
+  , PersistedEventEntity (..)
 
   , insertCustomer
   , insertAccount
@@ -40,95 +40,85 @@ module Infrastructure.DB.Banking
   , insertTXLine
   ) where
 
-import Database.Persist.Sql
-import Database.Persist.Quasi
-import Database.Persist.TH
-import Data.Text
-import Data.Time
-import Control.Monad.Reader
+import           Control.Monad.Reader
+import           Data.Maybe
+import           Data.Text
+import           Data.Time
+import           Database.Persist.Quasi
+import           Database.Persist.Sql
+import           Database.Persist.TH
 
-data AccountType 
+data AccountEntityType
   = Giro
   | Savings
   deriving (Eq, Show, Read)
-derivePersistField "AccountType"
+derivePersistField "AccountEntityType"
 
 share [mkPersist sqlSettings]
     $(persistFileWith lowerCaseSettings "db/banking.persistentmodels")
 
-insertEvent :: PersistedEvent -> SqlBackend -> IO (Key PersistedEvent)
+insertEvent :: PersistedEventEntity -> SqlBackend -> IO (Key PersistedEventEntity)
 insertEvent pe = executeActionWithoutTX (insert pe)
 
-insertCustomer :: Customer -> SqlBackend -> IO (Key Customer)
+insertCustomer :: CustomerEntity -> SqlBackend -> IO (Key CustomerEntity)
 insertCustomer cust = executeActionWithoutTX (insert cust)
 
-insertAccount :: Account -> SqlBackend -> IO (Key Account)
+insertAccount :: AccountEntity -> SqlBackend -> IO (Key AccountEntity)
 insertAccount a = executeActionWithoutTX (insert a)
 
-allCustomers :: SqlBackend -> IO [Entity Customer]
+allCustomers :: SqlBackend -> IO [Entity CustomerEntity]
 allCustomers = executeActionWithoutTX (selectList [] [])
 
-nextEvent :: SqlBackend -> IO (Maybe (Entity PersistedEvent))
+nextEvent :: SqlBackend -> IO (Maybe (Entity PersistedEventEntity))
 nextEvent = executeActionWithoutTX act
   where
-    act = do
-      ret <- selectList [ PersistedEventProcessed ==. False
-                        , PersistedEventFailed ==. False ] [Desc PersistedEventCreated, LimitTo 1]
-      if Prelude.null ret
-        then return Nothing
-        else return $ Just (Prelude.head ret)
+    act = listToMaybe <$>
+            selectList [ PersistedEventEntityProcessed ==. False
+                      , PersistedEventEntityFailed ==. False ] [Desc PersistedEventEntityCreated, LimitTo 1]
 
-markEventFailed :: PersistedEventId -> Text -> SqlBackend -> IO ()
+markEventFailed :: PersistedEventEntityId -> Text -> SqlBackend -> IO ()
 markEventFailed pid err = executeActionWithoutTX act
   where
-    act = update pid [ PersistedEventFailed =. True
-                     , PersistedEventFailedError =. err ]
+    act = update pid [ PersistedEventEntityFailed =. True
+                     , PersistedEventEntityFailedError =. err ]
 
-markEventProcessed :: PersistedEventId -> SqlBackend -> IO ()
+markEventProcessed :: PersistedEventEntityId -> SqlBackend -> IO ()
 markEventProcessed pid = executeActionWithoutTX act
   where
-    act = update pid [ PersistedEventProcessed =. True ]
+    act = update pid [ PersistedEventEntityProcessed =. True ]
 
-customerById :: Text -> SqlBackend -> IO (Maybe (Entity Customer))
+customerById :: Text -> SqlBackend -> IO (Maybe (Entity CustomerEntity))
 customerById domainId = executeActionWithoutTX act
   where
-    act = do 
-      ret <- selectList [CustomerDomainId ==. domainId] [LimitTo 1]
-      if Prelude.null ret
-        then return Nothing
-        else return $ Just (Prelude.head ret)
+    act = listToMaybe <$>
+            selectList [CustomerEntityDomainId ==. domainId] [LimitTo 1]
 
-customerByCustomerId :: CustomerId -> SqlBackend -> IO (Maybe Customer)
+customerByCustomerId :: CustomerEntityId -> SqlBackend -> IO (Maybe CustomerEntity)
 customerByCustomerId cid = executeActionWithoutTX (get cid)
 
-accountByIban :: Text -> SqlBackend -> IO (Maybe (Entity Account))
+accountByIban :: Text -> SqlBackend -> IO (Maybe (Entity AccountEntity))
 accountByIban iban = executeActionWithoutTX act
   where
-    act = do 
-      ret <- selectList [AccountIban ==. iban] [LimitTo 1]
-      if Prelude.null ret
-        then return Nothing
-        else return $ Just (Prelude.head ret)
+    act = listToMaybe <$>
+            selectList [AccountEntityIban ==. iban] [LimitTo 1]
 
-accountsOfCustomer :: CustomerId -> SqlBackend -> IO [Entity Account]
+accountsOfCustomer :: CustomerEntityId -> SqlBackend -> IO [Entity AccountEntity]
 accountsOfCustomer cid = executeActionWithoutTX act
   where
-    act = selectList [AccountOwner ==. cid] [] --[LimitTo 1]
+    act = selectList [AccountEntityOwner ==. cid] []
 
-txLinesOfAccount :: AccountId -> SqlBackend -> IO [Entity TXLine]
+txLinesOfAccount :: AccountEntityId -> SqlBackend -> IO [Entity TXLineEntity]
 txLinesOfAccount aid = executeActionWithoutTX act
   where
-    act = selectList [TXLineAccount ==. aid] [] --[LimitTo 1]
+    act = selectList [TXLineEntityAccount ==. aid] [] 
 
-updateAccountBalance :: AccountId -> Double -> SqlBackend -> IO ()
+updateAccountBalance :: AccountEntityId -> Double -> SqlBackend -> IO ()
 updateAccountBalance aid b = executeActionWithoutTX act
   where
-    act = update aid [AccountBalance =. b]
+    act = update aid [AccountEntityBalance =. b]
 
-insertTXLine :: TXLine -> SqlBackend -> IO (Key TXLine)
-insertTXLine tx = executeActionWithoutTX act
-  where
-    act = insert tx
+insertTXLine :: TXLineEntity -> SqlBackend -> IO (Key TXLineEntity)
+insertTXLine tx = executeActionWithoutTX (insert tx)
 
 executeActionWithoutTX :: ReaderT SqlBackend IO a -> SqlBackend -> IO a
 executeActionWithoutTX act = liftIO . runReaderT act

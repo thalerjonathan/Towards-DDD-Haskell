@@ -56,6 +56,8 @@ executable Banking
                     , Application.DTO
                     , Application.DomainEvents
                     , Application.Async
+                    , Application.BankingNew
+                    , Domain.Application
                     , Domain.Account
                     , Domain.Customer
                     , Domain.AccountRepository

@@ -3,10 +3,10 @@ module Infrastructure.DB.Config
   , loadDBCfg
   ) where
 
-import qualified Data.Configurator as Cfg
-import Data.Either.Combinators
+import qualified Data.Configurator       as Cfg
+import           Data.Either.Combinators
 
-data DbConfig = DbConfig 
+data DbConfig = DbConfig
   { dbUser     :: String
   , dbPassword :: String
   , dbName     :: String
@@ -25,7 +25,7 @@ loadDBCfg file = do
   schema <- Cfg.lookup conf "db.schema" :: IO (Maybe String)
   host   <- Cfg.lookup conf "db.host"   :: IO (Maybe String)
   port   <- Cfg.lookup conf "db.port"   :: IO (Maybe Int)
-  
+
   return $ DbConfig <$> maybeToRight "db.user is missing" user
                     <*> maybeToRight "db.pw is missing" pw
                     <*> maybeToRight "db.name is missing" name

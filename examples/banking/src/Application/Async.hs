@@ -2,15 +2,15 @@ module Application.Async
   ( eventProcessor
   ) where
 
-import Data.Text.Encoding as T
-import Control.Concurrent
-import Control.Monad
-import Data.Aeson
+import           Control.Concurrent
+import           Control.Monad
+import           Data.Aeson
+import           Data.Text.Encoding        as T
 
-import Application.Banking
-import Application.DomainEvents
-import Infrastructure.DB.Pool as Pool
-import Infrastructure.DB.Banking as DB
+import           Application.Banking
+import           Application.DomainEvents
+import           Infrastructure.DB.Banking as DB
+import           Infrastructure.DB.Pool    as Pool
 
 eventProcessor :: Pool.DbPool -> Int -> IO ()
 eventProcessor p interval = void $ forkIO $ forever $ do
@@ -20,20 +20,20 @@ eventProcessor p interval = void $ forkIO $ forever $ do
 processNextEvent :: Pool.DbPool -> IO ()
 processNextEvent p = runWithTX p $ \conn -> do
   mpe <- DB.nextEvent conn
-  case mpe of 
+  case mpe of
     Nothing -> return ()
     (Just (Entity pid pe)) -> do
-      case persistedEventType pe of
+      case persistedEventEntityType pe of
         "TransferSent" -> do
-          let mevt = decodeStrict (T.encodeUtf8 $ persistedEventPayload pe) :: Maybe TransferSentEvent
-          case mevt of 
+          let mevt = decodeStrict (T.encodeUtf8 $ persistedEventEntityPayload pe) :: Maybe TransferSentEvent
+          case mevt of
             Nothing -> return ()
             (Just evt) -> do
               processDomainEvent (TransferSent evt) conn
               DB.markEventProcessed pid conn
         "TransferFailed" -> do
-          let mevt = decodeStrict (T.encodeUtf8 $ persistedEventPayload pe) :: Maybe TransferFailedEvent
-          case mevt of 
+          let mevt = decodeStrict (T.encodeUtf8 $ persistedEventEntityPayload pe) :: Maybe TransferFailedEvent
+          case mevt of
             Nothing -> return ()
             (Just evt) -> do
               processDomainEvent (TransferFailed evt) conn

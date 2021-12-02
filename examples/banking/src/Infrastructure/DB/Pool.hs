@@ -1,8 +1,8 @@
-{-# LANGUAGE UndecidableInstances       #-}
-{-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
 module Infrastructure.DB.Pool
   ( DbPool
   , getPool
@@ -11,21 +11,21 @@ module Infrastructure.DB.Pool
   , runNoTX
   , runWithTX
   , runTXWithRollback
-    
+
   , beginTX
   , rollbackTX
   , commitTX
   ) where
 
-import Database.PostgreSQL.Simple
-import Database.Persist.Postgresql
-import Data.Pool(Pool, withResource)
-import Conduit
-import Control.Monad.Logger
-import qualified Data.ByteString.Char8 as C
-import Infrastructure.DB.Config
-import Data.String
-import Control.Monad.Reader
+import           Conduit
+import           Control.Monad.Logger
+import           Control.Monad.Reader
+import qualified Data.ByteString.Char8       as C
+import           Data.Pool                   (Pool, withResource)
+import           Data.String
+import           Database.Persist.Postgresql
+import           Database.PostgreSQL.Simple
+import           Infrastructure.DB.Config
 
 newtype DbPool = P (Pool SqlBackend)
 
@@ -46,11 +46,11 @@ initPool cfg = P <$> createPostgresqlPoolModified connAct connStr poolConnection
       putStrLn "Before Set schema"
       ret <- execute_ conn setSchemaQuery
       putStrLn $ "After Set schema, returned " ++ show ret
-  
-    connStr = C.pack $ 
-      "host="      ++ dbHost cfg ++ 
+
+    connStr = C.pack $
+      "host="      ++ dbHost cfg ++
       " port="     ++ show (dbPort cfg) ++
-      " user="     ++ dbUser cfg ++ 
+      " user="     ++ dbUser cfg ++
       " dbname="   ++ dbName cfg ++
       " password=" ++ dbPassword cfg
 

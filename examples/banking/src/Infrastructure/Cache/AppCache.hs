@@ -1,12 +1,12 @@
 module Infrastructure.Cache.AppCache where
 
-import Data.Cache as Cache
-import GHC.Base (Any)
-import Data.HashMap.Strict as Map
-import Control.Monad.State
-import System.Clock
-import Unsafe.Coerce
-import Data.Maybe
+import           Control.Monad.State
+import           Data.Cache          as Cache
+import           Data.HashMap.Strict as Map
+import           Data.Maybe
+import           GHC.Base            (Any)
+import           System.Clock
+import           Unsafe.Coerce
 
 -- TODO: https://hackage.haskell.org/package/base-4.15.0.0/docs/Data-Typeable.html
 type AppCache = Map.HashMap String (Cache String Any)
@@ -21,8 +21,8 @@ mkAppCache = flip execStateT Map.empty $ do
   where
     createCache :: String -> Maybe Int -> StateT AppCache IO ()
     createCache key dur = do
-      let tspec = fmap (\s -> TimeSpec (fromIntegral s) 0) dur :: Maybe TimeSpec 
-      c <- liftIO $ newCache tspec 
+      let tspec = fmap (\s -> TimeSpec (fromIntegral s) 0) dur :: Maybe TimeSpec
+      c <- liftIO $ newCache tspec
       modify (Map.insert key c)
 
 performCachedAction :: AppCache -> String -> String -> IO a -> IO a

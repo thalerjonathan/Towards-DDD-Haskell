@@ -1,26 +1,30 @@
 module View.HTML.Controller where
 
-import Servant (Handler)
-import Text.Blaze.Html
-import Control.Monad.IO.Class
-import Data.Text as T
+import           Control.Monad.IO.Class
+import           Data.Text                     as T
+import           Servant                       (Handler)
+import           Text.Blaze.Html
 
-import qualified Infrastructure.DB.Pool as Pool
-import Application.Banking
-import Infrastructure.Cache.AppCache (AppCache)
+import           Application.Banking
+import qualified Application.BankingNew as New
+import           Domain.Application as App
+import           Infrastructure.Cache.AppCache (AppCache)
+import qualified Infrastructure.DB.Pool        as Pool
 
-import View.HTML.Forms
-import View.HTML.Page.AllCustomers
-import View.HTML.Page.Customer
-import View.HTML.Page.Account
-import View.HTML.Page.Error
-import View.HTML.Page.Redirect
+import           View.HTML.Forms
+import           View.HTML.Page.Account
+import           View.HTML.Page.AllCustomers
+import           View.HTML.Page.Customer
+import           View.HTML.Page.Error
+import           View.HTML.Page.Redirect
 
 handleAllCustomers :: AppCache
-                   -> Pool.DbPool 
+                   -> Pool.DbPool
                    -> Handler Html
-handleAllCustomers cache p = do
-  cs <- liftIO $ Pool.runWithTX p (getAllCustomers cache)
+handleAllCustomers _cache p = do
+  --cs <- liftIO $ Pool.runWithTX p (getAllCustomers cache)
+  --return (allCustomersHtml cs)
+  cs <- liftIO $ Pool.runWithTX p (App.runApplication New.getAllCustomers)
   return (allCustomersHtml cs)
 
 handleCustomer :: AppCache
@@ -29,10 +33,10 @@ handleCustomer :: AppCache
                -> Handler Html
 handleCustomer cache p customerId = do
   ret <- liftIO $ Pool.runWithTX p (getCustomer cache customerId)
-  case ret of 
-    (Left err) -> 
+  case ret of
+    (Left err) ->
       redirectToError $ exceptionToErrorMessage err
-    (Right c)  -> 
+    (Right c)  ->
       return (customerHtml c)
 
 handleAccount :: AppCache
@@ -43,11 +47,11 @@ handleAccount :: AppCache
               -> Handler Html
 handleAccount cache p accIban customerId customerName = do
   ret <- liftIO $ Pool.runWithTX p (getAccount cache accIban)
-  case ret of 
-    (Left err) -> 
+  case ret of
+    (Left err) ->
       redirectToError $ exceptionToErrorMessage err
-    (Right a)  -> 
-      return (accountHtml customerId customerName a) 
+    (Right a)  ->
+      return (accountHtml customerId customerName a)
 
 handleDeposit :: AppCache
               -> Pool.DbPool
@@ -58,10 +62,10 @@ handleDeposit cache p form = do
       amount = accountFormAmount form
 
   ret <- liftIO $ Pool.runWithTX p (deposit cache iban amount)
-  case ret of 
-    (Left err) -> 
+  case ret of
+    (Left err) ->
       redirectToError $ exceptionToErrorMessage err
-    (Right _) -> 
+    (Right _) ->
       redirectToAccount form
 
 handleWithdraw :: AppCache
@@ -72,10 +76,10 @@ handleWithdraw cache p form = do
   let iban   = accountFormIban form
       amount = accountFormAmount form
   ret <- liftIO $ Pool.runWithTX p (withdraw cache iban amount)
-  case ret of 
-    (Left err) -> 
+  case ret of
+    (Left err) ->
       redirectToError $ exceptionToErrorMessage err
-    (Right _) -> 
+    (Right _) ->
       redirectToAccount form
 
 handleTransfer :: AppCache
@@ -88,10 +92,10 @@ handleTransfer cache p form = do
         amount    = transferFormAmount form
         reference = transferFormReference form
     ret <- liftIO $ Pool.runWithTX p (transferEventual cache fromIban toIban amount reference)
-    case ret of 
-      (Left err) -> 
+    case ret of
+      (Left err) ->
         redirectToError $ exceptionToErrorMessage err
-      (Right _) -> 
+      (Right _) ->
         redirectToAccount (transferToAccountForm form)
   where
     transferToAccountForm :: TransferForm -> AccountForm
@@ -117,7 +121,7 @@ redirectToAccount :: AccountForm -> Handler Html
 redirectToAccount form = return $ redirectToHtml (accountPageLink (accountFormIban form) (accountFormCustomerId form) (accountFormCustomerName form))
 
 accountPageLink :: Text -> Text -> Text -> Text
-accountPageLink accountIban customerId customerName 
-  = "/account?iban=" <> accountIban <> 
-    "&id=" <> customerId <> 
+accountPageLink accountIban customerId customerName
+  = "/account?iban=" <> accountIban <>
+    "&id=" <> customerId <>
     "&name=" <> customerName
