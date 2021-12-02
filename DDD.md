@@ -14,9 +14,7 @@ We can therefore conclude that the very essence of this architecture is ultimate
 
 DDD was conceived by Eric Evans in his seminal book TOOD by putting forward a number of patterns which deal with Strategic and Tactical Design. Strategic Design deals with how to distill various concepts in a business and draw boundaries to distill domains and subdomains and the core domain of the business. Tactical Design then deals with how to actually derive software designs which reflects the Strategic Design, that is the (core) domain(s) as directly as possible in code. The equally seminal book by Vaughn Vernon (Implementing Domain-Driven Design) shows how to implement DDDs Tactical Design patterns in Code using Java. 
 
-DDD as conceived by Evans and as implemented by Vernon (and others, such as Millett and Nilsson in C#) can be said to be applied primarily in OOP and has not found wide use outside of OOP. There exists the book *Domain Modeling Made Functional: Tackle Software Complexity with Domain-Driven Design and F#* by Scott Wlashin, which investigates DDD in the context of F#. A master thesis has been written at the University of Applied Sciences Vorarlberg on *Applying Domain-Driven Design in Elixir*. 
-
-**To my best knowledge DDD as conceived by Evans (and implemented by Vernon) has not been applied to Haskell.** This text, the accompanying *Banking Example* and the resulting *Phoenix Library* is an attempt to explore and bring the use of DDD, more specifically the Tactical Patterns as conceived by Evans and implemented by Vernon, to Haskell. 
+DDD as conceived by Evans and as implemented by Vernon (and others, such as Millett and Nilsson in C#) can be said to be applied primarily in OOP and has not found wide use outside of OOP. **To my best knowledge DDD as conceived by Evans (and implemented by Vernon) has not been applied to Haskell.** This text, the accompanying *Banking Example* and the resulting *Phoenix Library* is an attempt to explore and bring the use of DDD, more specifically the Tactical Patterns as conceived by Evans and implemented by Vernon, to Haskell. 
 
 We can therefore formulate the following research questions:
 - Which Tactical DDD Patterns are valuable to bring to Haskell?
@@ -32,6 +30,24 @@ From this we derive a few initial hypotheses to start with and which form our in
   - Domain Events: a very functional approach of communicating changes in a Domain, which fits naturally to functional programming in Haskell. They should be highly valuable to allow an Aggregate/Domain Model communicate necessary side effects outside of the pure Domain Model. The Domain Events should then be processed and delegated by the Application Layer.
 - The most challenging part is implementing Aggregates due to their immutable identity but mutable properties for which consistency and business rules need to be enforced.
 
-Because the Aggregate Pattern is arguably the most complex one, we start with it right way in the following section.
+## Backgroud
+In this background section we briefly introduce various concepts necessary to fully understand the implementation sections, as well as discussing related work to put ours into context.
 
-## Aggregates
+### Domain-Driven Design
+In this section we cover and describe the Tactical DDD Patterns very briefly. An in-depth discussion of all Tactical Patterns in particular and DDD in general is beyond the scope of this text and we refer to Evans and Vernons excellent Books.
+
+- Value Object
+- Entity
+- Aggregate
+- Repositories
+- Domain Event
+- Domain Service
+- Factories
+
+### Related Work
+There exists the book *Domain Modeling Made Functional: Tackle Software Complexity with Domain-Driven Design and F#* by Scott Wlashin, which investigates DDD in the context of F#. 
+
+A master thesis has been written at the University of Applied Sciences Vorarlberg on *Applying Domain-Driven Design in Elixir*. 
+
+Andor Pénzes has done work on dependently typed DDD based on the Book by Scot Wlashin. His code is publicly available as a [GitHub Repo](https://github.com/andorp/order-taking/)
+
