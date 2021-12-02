@@ -21,7 +21,3 @@ The goal is to implement a simple banking system for bank employees where they c
 - When transferring money between accounts, the money is immediately withdrawn from the sending account, therefore immediately reflected in the balance.
 - Transferring money between accounts always takes some time and does not show up immediately in the receiving account.
 - When transferring fails the money is eventually transferred back to the sending account after some time.
-
-## TODOs
-- implement eventual consistency for transfer: use domain events serialised to the DB ? or use Persistent STM https://dl.acm.org/doi/pdf/10.1145/3473568 ?
-- implement proper domain layer: 3 Layer Cake, Tagless Final, Free Monads, Freeer Monads
