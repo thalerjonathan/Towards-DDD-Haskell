@@ -4,6 +4,7 @@ import           Control.Monad.Free.Church
 import           Data.UUID
 import           Database.Persist.Sql
 import           Domain.Account
+import           Domain.AccountLang
 import           Domain.Customer
 import           Infrastructure.DB.Banking as DB
 

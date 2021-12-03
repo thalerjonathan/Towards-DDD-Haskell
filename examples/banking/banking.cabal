@@ -52,14 +52,15 @@ executable Banking
   main-is:             Main.hs
 
   -- Modules included in this executable, other than Main.
-  other-modules:      Application.Banking
+  other-modules:      Application.BankingAnemic
+                    , Application.BankingDomain
                     , Application.Exceptions
                     , Application.DTO
                     , Application.DomainEvents
                     , Application.Async
-                    , Application.BankingNew
                     , Domain.Application
                     , Domain.Account
+                    , Domain.AccountLang
                     , Domain.Customer
                     , Domain.AccountRepository
                     , Domain.CustomerRepository

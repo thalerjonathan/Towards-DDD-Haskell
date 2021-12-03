@@ -1,4 +1,4 @@
-# Domain-Driven Design with Haskell
+# Towards Domain-Driven Design with Haskell
 
 ## Introduction
 

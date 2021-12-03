@@ -1,4 +1,4 @@
-module View.Rest.Handlers 
+module View.Rest.Handlers
   ( handleAllCustomers
   , handleCustomer
   , handleAccount
@@ -8,18 +8,18 @@ module View.Rest.Handlers
   , handleSwagger
   ) where
 
-import Servant
-import Data.Swagger
-import qualified Data.Text as T
-import Control.Monad.IO.Class
+import           Control.Monad.IO.Class
+import           Data.Swagger
+import qualified Data.Text                     as T
+import           Servant
 
-import View.Rest.Api
-import Application.DTO
+import           Application.DTO
+import           View.Rest.Api
 
-import Database.Persist.Postgresql
-import Infrastructure.Cache.AppCache 
-import Application.Banking
-import Infrastructure.DB.Pool as Pool
+import           Application.BankingAnemic
+import           Database.Persist.Postgresql
+import           Infrastructure.Cache.AppCache
+import           Infrastructure.DB.Pool        as Pool
 
 -- TODO https://www.parsonsmatt.org/2017/06/21/exceptional_servant_handling.html
 
@@ -29,9 +29,9 @@ import Infrastructure.DB.Pool as Pool
 -- TODO: put Servant API definition directly here
 
 handleAllCustomers :: AppCache
-                   -> DbPool 
+                   -> DbPool
                    -> Handler [CustomerDetailsDTO]
-handleAllCustomers cache p = 
+handleAllCustomers cache p =
   liftIO $ Pool.runWithTX p (getAllCustomers cache)
 
 handleCustomer :: AppCache
@@ -40,8 +40,8 @@ handleCustomer :: AppCache
                -> Handler CustomerDTO
 handleCustomer cache p customerId = do
   ret <- liftIO $ Pool.runWithTX p (getCustomer cache customerId)
-  case ret of 
-    (Left _) -> throwError err404
+  case ret of
+    (Left _)     -> throwError err404
     (Right cust) -> return cust
 
 handleAccount :: AppCache
@@ -50,46 +50,46 @@ handleAccount :: AppCache
               -> Handler AccountDTO
 handleAccount cache p iban = do
   ret <- liftIO $ Pool.runWithTX p (getAccount cache iban)
-  case ret of 
-    (Left _) -> throwError err404
+  case ret of
+    (Left _)  -> throwError err404
     (Right a) -> return a
 
 handleDeposit :: AppCache
               -> DbPool
-              -> T.Text 
-              -> Double 
+              -> T.Text
+              -> Double
               -> Handler (Either T.Text TXLineDTO)
-handleDeposit cache p iban amount = 
-  performAccountTx p (deposit cache iban amount) 
+handleDeposit cache p iban amount =
+  performAccountTx p (deposit cache iban amount)
 
 handleWithdraw :: AppCache
                -> DbPool
-               -> T.Text 
-               -> Double 
+               -> T.Text
+               -> Double
                -> Handler (Either T.Text TXLineDTO)
-handleWithdraw cache p iban amount = 
-  performAccountTx p (withdraw cache iban amount) 
+handleWithdraw cache p iban amount =
+  performAccountTx p (withdraw cache iban amount)
 
 handleTransfer :: AppCache
                -> DbPool
-               -> T.Text 
-               -> T.Text 
-               -> Double 
-               -> T.Text 
+               -> T.Text
+               -> T.Text
+               -> Double
+               -> T.Text
                -> Handler (Either T.Text TXLineDTO)
-handleTransfer cache p fromIban toIban amount reference = 
-  performAccountTx p (transferEventual cache fromIban toIban amount reference) 
+handleTransfer cache p fromIban toIban amount reference =
+  performAccountTx p (transferEventual cache fromIban toIban amount reference)
 
 handleSwagger :: Handler Swagger
 handleSwagger = return bankingSwagger
 
 
 performAccountTx :: DbPool
-                 -> (SqlBackend -> IO (Either Exception TXLineDTO)) 
+                 -> (SqlBackend -> IO (Either Exception TXLineDTO))
                  -> Handler (Either T.Text TXLineDTO)
 performAccountTx p act = do
   ret <- liftIO $ Pool.runWithTX p act
-  case ret of 
+  case ret of
     (Left (InvalidAccountOperation str)) -> return $ Left str
-    (Left _)   -> throwError err404
-    (Right tx) -> return $ Right tx
+    (Left _)                             -> throwError err404
+    (Right tx)                           -> return $ Right tx

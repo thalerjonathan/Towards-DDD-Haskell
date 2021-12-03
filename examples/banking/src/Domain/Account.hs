@@ -2,235 +2,107 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Domain.Account where
 
-import           Control.Monad.Free
 import           Data.MonadicStreamFunction
-import           Data.MonadicStreamFunction.InternalCore
-import qualified Data.Text                               as T
-import           Data.Time.Clock
-import           Database.Persist.Sql
-import           Domain.Customer                         (CustomerId,
-                                                          customerIdFromTextUnsafe)
-import qualified Infrastructure.DB.Banking               as DB
-import Control.Monad.Writer.Lazy
+import           Domain.AccountLang
+import           Domain.Customer            (CustomerId,
+                                             customerIdFromTextUnsafe)
+import qualified Infrastructure.DB.Banking  as DB
 
-newtype Iban = Iban T.Text deriving Show
-type Money   = Double
-data TXLine  = TXLine Money Iban T.Text T.Text UTCTime deriving Show
-
-data AccountType = Giro | Savings deriving Show
-
-data AccountCommand
-  = Deposit Money
-  | Withdraw Money
-  | TransferTo Iban Money T.Text T.Text
-  | ReceiveFrom Iban Money T.Text T.Text
-  | GetTXLines
-  | GetBalance
-  | GetOwner
-  | GetIban
-  | GetType
-  deriving Show
-
-data AccountCommandResult
-  = AccountException T.Text
-  | DepositResult (Either T.Text TXLine)
-  | WithdrawResult (Either T.Text TXLine)
-  | ReturnTXLines [TXLine]
-  | ReturnBalance Money
-  | ReturnOwner CustomerId
-  | ReturnIban Iban
-  | ReturnType AccountType
-  deriving Show
-
-data AccountDomainEvent
-  = TransferSent Money T.Text CustomerId CustomerId Iban Iban
-  | TransferFailed T.Text Money T.Text CustomerId CustomerId Iban Iban
-  deriving Show
-
-data AccountLang a
-  = ReadTXLines DB.AccountEntityId ([TXLine] -> a)
-  | NewTXLine Money Iban T.Text T.Text a
-  | EmitEvent AccountDomainEvent a
-  deriving Functor
-
-type AccountProgram = Free AccountLang
-
-data AccountState
-  = AccountState CustomerId Iban [TXLine] deriving Show
-
-type AccountEffects = (WriterT [AccountDomainEvent] AccountProgram)
-
-type Account = MSF 
-                AccountEffects
-                AccountCommand 
-                (Maybe AccountCommandResult)
-
--- TODO: the MSF is useless atm, make it so that its possible to switch into a new behavior
-
--- TODO: switch into different behaviours if Giro or Savings!
 account :: (DB.Entity DB.AccountEntity) -> Account
 account (DB.Entity aid a) = feedback s0 (proc (cmd, s) -> do
-    ret <- arrM (handleCommand aid owner iban b aType) -< cmd
-    returnA -< (ret, s))
+    case DB.accountEntityType a of
+      DB.Giro -> do
+        ret <- arrM (giro aid owner iban b) -< cmd
+        returnA -< (ret, s)
+      DB.Savings -> do
+        ret <- arrM (savings aid owner iban b) -< cmd
+        returnA -< (ret, s))
   where
     owner = customerIdFromTextUnsafe $ DB.accountEntityOwner a
     iban  = Iban $ DB.accountEntityIban a
     b     = (DB.accountEntityBalance a)
-    aType = (case DB.accountEntityType a of
-              DB.Giro    -> Domain.Account.Giro
-              DB.Savings -> Domain.Account.Savings)
-    s0 = AccountState owner iban []
+    s0    = AccountState owner iban []
 
-txLines :: DB.AccountEntityId -> AccountProgram [TXLine]
-txLines aid = liftF (ReadTXLines aid id)
-
-newTxLine :: Money -> Iban -> T.Text -> T.Text -> AccountProgram ()
-newTxLine m i name ref = liftF (NewTXLine m i name ref ())
-
--- emitEvent :: AccountDomainEvent -> AccountProgram ()
--- emitEvent evt = liftF (EmitEvent evt ())
-
-balance :: [TXLine] -> Money
-balance = Prelude.foldr (\(TXLine m _ _ _ _) acc -> acc + m) 0
-
-overdraftLimit :: Double
-overdraftLimit = -1000
-
-execCommand :: Account -> AccountCommand -> AccountProgram (Account, Maybe AccountCommandResult, [AccountDomainEvent])
-execCommand a cmd = do
-  ((ret, a'), domainEvts) <- runWriterT $ unMSF a cmd
-  return (a', ret, domainEvts)
-
-getCommand :: Account -> AccountCommand -> (Maybe AccountCommandResult -> a) -> AccountProgram a
-getCommand a cmd f = do
-  ((ret, _), _) <- runWriterT $ unMSF a cmd
-  return (f ret)
-
-deposit :: Account -> Money -> AccountProgram (Account, Maybe AccountCommandResult, [AccountDomainEvent])
-deposit a amount = execCommand a (Deposit amount)
-
-withdraw :: Account -> Money -> AccountProgram (Account, Maybe AccountCommandResult, [AccountDomainEvent])
-withdraw a amount = execCommand a (Withdraw amount)
-
-
-getIban' :: Account -> AccountProgram Iban
-getIban' a = getCommand a GetIban f
-  where
-    f (Just (ReturnIban i)) = i
-    f _ = error "unexpected return in account GetIban"
-
-getIban :: Account -> AccountProgram Iban
-getIban a = do
-  ((ret, _), _) <- runWriterT $ unMSF a GetIban
-  case ret of
-    (Just (ReturnIban i)) -> return i
-    _                     -> error "unexpected return in account GetIban"
-
-getBalance :: Account -> AccountProgram Double
-getBalance a = do
-  ((ret, _), _) <- runWriterT $ unMSF a GetBalance
-  case ret of
-    (Just (ReturnBalance b)) -> return b
-    _                        -> error "unexpected return in account GetBalance"
-
-getType :: Account -> AccountProgram AccountType
-getType a = do
-  ((ret, _), _) <- runWriterT $ unMSF a GetType
-  case ret of
-    (Just (ReturnType i)) -> return i
-    _                     -> error "unexpected return in account GetType"
-
-getTXLines :: Account -> AccountProgram [TXLine]
-getTXLines a = do
-  ((ret, _), _) <- runWriterT $ unMSF a GetTXLines
-  case ret of
-    (Just (ReturnTXLines ts)) -> return ts
-    _                         -> error "unexpected return in account GetTXLines"
-
-emitEvent :: Monad m => AccountDomainEvent -> WriterT [AccountDomainEvent] m ()
-emitEvent e = tell [e]
-
-handleCommand :: DB.AccountEntityId
-              -> CustomerId
-              -> Iban
-              -> Double
-              -> AccountType
-              -> AccountCommand
-              -> AccountEffects (Maybe AccountCommandResult)
-handleCommand _ _ iban b _ (Withdraw amount)  = do
-  if b - amount < overdraftLimit
+giro :: DB.AccountEntityId
+     -> CustomerId
+     -> Iban
+     -> Double
+     -> AccountCommand
+     -> AccountEffects (Maybe AccountCommandResult)
+giro aid _ iban bal (Withdraw amount) = do
+  let newBalance = bal - amount 
+  if newBalance < overdraftLimit
     then return $ Just $ WithdrawResult $ Left "Cannot overdraw Giro account by more than -1000!"
     else do
-      lift $ newTxLine (-amount) iban "Withdraw" "Withdraw"
-      return Nothing
+      -- TODO: update balance in Aggregate state, so it reflects the balance the next time
+      -- TODO: add TXLine to Aggregate state, so it is reflected in a subsequent call
+      tx <- newTxLine aid (-amount) iban "Withdraw" "Withdraw"
+      changeBalance aid newBalance
+      return $ Just $ WithdrawResult $ Right tx
 
-handleCommand _ _ iban _ _ (Deposit amount) = do
-  lift $ newTxLine amount iban "Deposit" "Deposit"
-  return Nothing
+giro aid _ iban bal (Deposit amount) = do
+  -- TODO: update balance in Aggregate state, so it reflects the balance the next time
+  -- TODO: add TXLine to Aggregate state, so it is reflected in a subsequent call
+  let newBalance = bal + amount 
+  tx <- newTxLine aid amount iban "Deposit" "Deposit"
+  changeBalance aid newBalance
+  return $ Just $ DepositResult $ Right tx
 
-handleCommand _ owner iban _ _ (TransferTo toIban amount name ref) = do
-  -- TODO: wrong data so far, use correct
+giro aid owner iban _ (TransferTo toIban amount name ref) = do
+  -- TODO: check overdraft limit
   emitEvent $ TransferSent amount ref owner owner iban toIban
-  lift $ newTxLine (-amount) toIban name ref
-  return Nothing
-  
-handleCommand _ owner iban _ _ (ReceiveFrom fromIban amount name ref) = do
-  -- TODO: wrong data so far, use correct
-  emitEvent $ TransferFailed "TestError" amount ref owner owner iban fromIban
-  lift $ newTxLine amount fromIban name ref
+  _tx <- newTxLine aid (-amount) toIban name ref
   return Nothing
 
-handleCommand _ _ _ b _ GetBalance = do
+giro aid owner iban _ (ReceiveFrom fromIban amount name ref) = do
+  emitEvent $ TransferFailed "TestError" amount ref owner owner iban fromIban
+  _tx <- newTxLine aid amount fromIban name ref
+  return Nothing
+
+-- TODO: can we combine giro and savings getters somehow?
+giro _ _ _ b GetBalance = do
   return $ Just $ ReturnBalance b
-handleCommand _ owner _ _ _ GetOwner = do
+giro _ owner _ _ GetOwner = do
   return $ Just (ReturnOwner owner)
-handleCommand _ _ iban _ _ GetIban = do
+giro _ _ iban _ GetIban = do
   return $ Just (ReturnIban iban)
-handleCommand _ _ _ _ accType GetType = do
-  return $ Just $ ReturnType accType
-handleCommand aid _ _ _ _ GetTXLines = do
-  txs <- lift $ txLines aid
+giro _ _ _ _ GetType = do
+  return $ Just $ ReturnType Giro
+giro aid _ _ _ GetTXLines = do
+  txs <- txLines aid
   return $ Just $ ReturnTXLines $ txs
 
-{-
-execCommand :: Account -> AccountCommand -> IO (Account, (Maybe AccountCommandResult, [AccountDomainEvent]))
-execCommand a cmd = do
-  ((ret, a'), es) <- runAccountAggregate (unMSF a cmd)
-  return (a', (ret, es))
+savings :: DB.AccountEntityId
+        -> CustomerId
+        -> Iban
+        -> Double
+        -> AccountCommand
+        -> AccountEffects (Maybe AccountCommandResult)
+savings _ _ _ _ (Withdraw _) = do
+  return $ Just $ WithdrawResult $ Left "Cannot withdraw money directly from Savings Account! Use transfer of money into a Giro Account of the same customer."
+savings _ _ _ _ (Deposit _) = do
+  return $ Just $ DepositResult $ Left "Cannot deposit money directly into Savings Account! Use transfer of money from a Giro Account of the same customer."
 
-execCommands :: Account -> [AccountCommand] -> IO ([Maybe AccountCommandResult], [AccountDomainEvent])
-execCommands a cmds = do
-  (ret, es) <- runAccountAggregate (embed a cmds)
-  return (ret, es)
--}
+savings aid owner iban _ (TransferTo toIban amount name ref) = do
+  -- TODO: check overdraft limit
+  emitEvent $ TransferSent amount ref owner owner iban toIban
+  _tx <- newTxLine aid (-amount) toIban name ref
+  return Nothing
 
-runAccountAggregate :: AccountProgram a -> SqlBackend -> IO (a, [AccountDomainEvent])
-runAccountAggregate prog conn = interpret prog []
-  where
-    interpret :: AccountProgram a -> [AccountDomainEvent] -> IO (a, [AccountDomainEvent])
-    interpret (Pure a) acc = return (a, Prelude.reverse acc)
+savings aid owner iban _ (ReceiveFrom fromIban amount name ref) = do
+  emitEvent $ TransferFailed "TestError" amount ref owner owner iban fromIban
+  _tx <- newTxLine aid amount fromIban name ref
+  return Nothing
 
-    interpret (Free (ReadTXLines aid cont)) acc = do
-      txs <- DB.txLinesOfAccount aid conn
-
-      let txVos = map (\(DB.Entity _ tx) ->
-                          TXLine
-                            (DB.txLineEntityAmount tx)
-                            (Iban $ DB.txLineEntityIban tx)
-                            (DB.txLineEntityName tx)
-                            (DB.txLineEntityReference tx)
-                            (DB.txLineEntityTime tx)
-                        ) txs
-
-      interpret (cont txVos) acc
-
-    interpret (Free (NewTXLine m i name ref cont)) acc = do
-      putStrLn "NewTXLine"
-      t <- getCurrentTime
-      let _tx = TXLine m i name ref t
-      interpret cont acc
-
-    interpret (Free (EmitEvent e cont)) acc = do
-      putStrLn $ "EmitEvent" ++ show e
-      interpret cont (e:acc)
-
+-- TODO: can we combine giro and savings getters somehow?
+savings _ _ _ b GetBalance = do
+  return $ Just $ ReturnBalance b
+savings _ owner _ _ GetOwner = do
+  return $ Just (ReturnOwner owner)
+savings _ _ iban _ GetIban = do
+  return $ Just (ReturnIban iban)
+savings _ _ _ _ GetType = do
+  return $ Just $ ReturnType Savings
+savings aid _ _ _ GetTXLines = do
+  txs <- txLines aid
+  return $ Just $ ReturnTXLines $ txs

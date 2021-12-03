@@ -6,7 +6,7 @@ module Domain.Application where
 import           Control.Monad.Free.Church
 
 import           Database.Persist.Sql
-import           Domain.Account
+import           Domain.AccountLang
 import           Domain.AccountRepository
 import           Domain.Customer
 import           Domain.CustomerRepository
@@ -62,4 +62,4 @@ interpretRepo (CustomerRepo r) = runCustomerRepo r
 
 interpretAggregate :: Aggregate a -> SqlBackend -> IO a
 interpretAggregate (CustomerAggregate a) _ = runCustomerAggregate a
-interpretAggregate (AccountAggregate a) conn = fst <$> runAccountAggregate a conn
+interpretAggregate (AccountAggregate a) conn = runAccountAggregate a conn

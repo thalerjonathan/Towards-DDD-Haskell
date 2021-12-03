@@ -43,7 +43,7 @@ accountHtml customerId customerName acc = docTypeHtml $ do
         H.input ! type_ "hidden" ! Text.Blaze.Html5.Attributes.id "iban" ! name "iban" ! value (toValue (accountDetailIban (accountDetails acc)))
 
         H.input ! class_ "btn btn-primary" ! type_ "submit" ! Text.Blaze.Html5.Attributes.id "submit" ! value "Withdraw"
-        H.input ! type_ "number" ! step "0.01" ! Text.Blaze.Html5.Attributes.id "amount" ! value "0.0"
+        H.input ! type_ "number" ! step "0.01" ! Text.Blaze.Html5.Attributes.id "amount" ! name "amount" ! value "0.0"
 
     H.div ! class_ "container-fluid mt-3 p-2 bg-light text-dark rounded-3" $ do
       H.form ! action "/account/transfer" ! method "post" $ do

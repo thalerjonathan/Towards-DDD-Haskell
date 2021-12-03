@@ -24,7 +24,6 @@ module Infrastructure.DB.Banking
   , AccountEntityId
   , TxLineEntityId
 
-
   , insertCustomer
   , insertAccount
   , insertEvent

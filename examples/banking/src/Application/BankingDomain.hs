@@ -1,15 +1,18 @@
-module Application.BankingNew where
+module Application.BankingDomain where
 
 import           Application.DTO
 import           Application.Exceptions
 import           Data.Maybe
 import           Data.Text                 as T
 import           Data.UUID
-import           Domain.Account
+import           Domain.AccountLang
 import           Domain.AccountRepository
 import           Domain.Application
 import           Domain.Customer
 import           Domain.CustomerRepository
+
+-- TODO: create customer
+-- TODO: create account
 
 getAllCustomers :: Application [CustomerDetailsDTO]
 getAllCustomers = do
@@ -54,7 +57,7 @@ deposit i amount = do
   case ma of
     Nothing -> return $ Left AccountNotFound
     (Just a) -> do
-      (_, ret, _) <- runAggregate $ accountAggregate $ Domain.Account.deposit a amount
+      (_, ret, _) <- runAggregate $ accountAggregate $ Domain.AccountLang.deposit a amount
       case ret of
         (Just (DepositResult (Left err))) -> return $ Left $ InvalidAccountOperation err
         (Just (DepositResult (Right tx))) -> return $ Right $ txLineToDTO tx
@@ -68,17 +71,16 @@ withdraw i amount = do
   case ma of
     Nothing -> return $ Left AccountNotFound
     (Just a) -> do
-      (_, ret, _) <- runAggregate $ accountAggregate $ Domain.Account.withdraw a amount
+      (_, ret, _) <- runAggregate $ accountAggregate $ Domain.AccountLang.withdraw a amount
       case ret of
-        (Just (DepositResult (Left err))) -> return $ Left $ InvalidAccountOperation err
-        (Just (DepositResult (Right tx))) -> return $ Right $ txLineToDTO tx
+        (Just (WithdrawResult (Left err))) -> return $ Left $ InvalidAccountOperation err
+        (Just (WithdrawResult (Right tx))) -> return $ Right $ txLineToDTO tx
         _ -> error "Unexpected result of Domain.Account.withdraw"
-
 
 customerToDetailsDTO :: Customer -> CustomerProgram CustomerDetailsDTO
 customerToDetailsDTO c = do
   cname <- getName c
-  cid <- getDomainId c
+  cid   <- getDomainId c
 
   return $ CustomerDetailsDTO
     { customerDetailsId   = T.pack $ show cid

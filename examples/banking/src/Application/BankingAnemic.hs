@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Application.Banking
+module Application.BankingAnemic
   ( Exception (..)
   , createCustomer
   , createAccount
@@ -28,108 +28,6 @@ import           Application.Exceptions
 import           Database.Persist.Postgresql
 import           Infrastructure.Cache.AppCache
 import           Infrastructure.DB.Banking     as DB
-
-processDomainEvent :: DomainEvent
-                   -> SqlBackend
-                   -> IO ()
-processDomainEvent (TransferSent evt)   = transferSent evt
-processDomainEvent (TransferFailed evt) = transferFailed evt
-
-transferSent :: TransferSentEvent
-             -> SqlBackend
-             -> IO ()
-transferSent evt conn = do
-  let fromIban  = transferSentEventSendingAccount evt
-      toIban    = transferSentEventReceivingAccount evt
-      amount    = transferSentEventAmount evt
-      reference = transferSentEventReference evt
-
-  mFrom <- DB.accountByIban fromIban conn
-  case mFrom of
-    Nothing -> transferSentFailed evt "Could not find sending Account"
-    (Just (Entity _ fromAccount)) -> do
-      mTo <- DB.accountByIban toIban conn
-      case mTo of
-        Nothing -> transferSentFailed evt "Could not find receiving Account"
-        (Just (Entity toAid toAccount)) -> do
-          mfc <- DB.customerByDomainId (accountEntityOwner fromAccount) conn
-          case mfc of
-            Nothing -> transferSentFailed evt "Could not find sending customer"
-            (Just (Entity _ fromCustomer)) -> do
-              mtc <- DB.customerByDomainId (accountEntityOwner toAccount) conn
-              case mtc of
-                Nothing -> transferSentFailed evt "Could not find receiving customer"
-                (Just _) -> do
-                  let fromName = customerEntityName fromCustomer
-
-                  now <- getCurrentTime
-
-                  let newToTxLine = TxLineEntity toAid ( accountEntityIban fromAccount) amount fromName reference now
-
-                  _ <- DB.insertTXLine newToTxLine conn
-
-                  DB.updateAccountBalance toAid (accountEntityBalance toAccount + amount) conn
-
-                  return ()
-  where
-    transferSentFailed :: TransferSentEvent -> T.Text -> IO ()
-    transferSentFailed evtSent err = do
-      let evtFailed = TransferFailedEvent {
-          transferFailedEventError             = err
-        , transferFailedEventAmount            = transferSentEventAmount evtSent
-        , transferFailedEventReference         = transferSentEventReference evtSent
-        , transferFailedEventSendingCustomer   = transferSentEventSendingCustomer evtSent
-        , transferFailedEventReceivingCustomer = transferSentEventReceivingCustomer evtSent
-        , transferFailedEventSendingAccount    = transferSentEventSendingAccount evtSent
-        , transferFailedEventReceivingAccount  = transferSentEventReceivingAccount evtSent
-        }
-
-      now <- getCurrentTime
-
-      let payload = TL.toStrict $ encodeToLazyText evtFailed
-      let pe = PersistedEventEntity now "TransferFailed" False False "" payload
-
-      _ <- DB.insertEvent pe conn
-
-      return ()
-
-
-transferFailed :: TransferFailedEvent
-               -> SqlBackend
-               -> IO ()
-transferFailed evt conn = do
-  let fromIban  = transferFailedEventSendingAccount evt
-      toIban    = transferFailedEventReceivingAccount evt
-      amount    = transferFailedEventAmount evt
-      reference = transferFailedEventReference evt
-
-  mFrom <- DB.accountByIban fromIban conn
-  case mFrom of
-    Nothing -> return () -- ignore errors, what should we do?
-    (Just (Entity fromAid fromAccount)) -> do
-      mTo <- DB.accountByIban toIban conn
-      case mTo of
-        Nothing -> return () -- ignore errors, what should we do?
-        (Just (Entity _ toAccount)) -> do
-          mfc <- DB.customerByDomainId (accountEntityOwner fromAccount) conn
-          case mfc of
-            Nothing -> return () -- ignore errors, what should we do?
-            (Just _) -> do
-              mtc <- DB.customerByDomainId (accountEntityOwner toAccount) conn
-              case mtc of
-                Nothing -> return () -- ignore errors, what should we do?
-                (Just (Entity _ toCustomer)) -> do
-                  let toName = customerEntityName toCustomer
-
-                  now <- getCurrentTime
-
-                  let newFromTxLine = TxLineEntity fromAid ( accountEntityIban fromAccount) amount toName ("Transfer failed: " <> reference) now
-
-                  _ <- DB.insertTXLine newFromTxLine conn
-
-                  DB.updateAccountBalance fromAid (accountEntityBalance toAccount + amount) conn
-
-                  return ()
 
 
 createCustomer :: AppCache
@@ -375,6 +273,108 @@ performTransferEventual fromAid fromAccount toAccount amount reference conn = do
 
               return $ Right $ txLineToDTO (Entity fromTxId newFromTxLine)
 
+processDomainEvent :: DomainEvent
+                   -> SqlBackend
+                   -> IO ()
+processDomainEvent (TransferSent evt)   = transferSent evt
+processDomainEvent (TransferFailed evt) = transferFailed evt
+
+transferSent :: TransferSentEvent
+             -> SqlBackend
+             -> IO ()
+transferSent evt conn = do
+  let fromIban  = transferSentEventSendingAccount evt
+      toIban    = transferSentEventReceivingAccount evt
+      amount    = transferSentEventAmount evt
+      reference = transferSentEventReference evt
+
+  mFrom <- DB.accountByIban fromIban conn
+  case mFrom of
+    Nothing -> transferSentFailed evt "Could not find sending Account"
+    (Just (Entity _ fromAccount)) -> do
+      mTo <- DB.accountByIban toIban conn
+      case mTo of
+        Nothing -> transferSentFailed evt "Could not find receiving Account"
+        (Just (Entity toAid toAccount)) -> do
+          mfc <- DB.customerByDomainId (accountEntityOwner fromAccount) conn
+          case mfc of
+            Nothing -> transferSentFailed evt "Could not find sending customer"
+            (Just (Entity _ fromCustomer)) -> do
+              mtc <- DB.customerByDomainId (accountEntityOwner toAccount) conn
+              case mtc of
+                Nothing -> transferSentFailed evt "Could not find receiving customer"
+                (Just _) -> do
+                  let fromName = customerEntityName fromCustomer
+
+                  now <- getCurrentTime
+
+                  let newToTxLine = TxLineEntity toAid ( accountEntityIban fromAccount) amount fromName reference now
+
+                  _ <- DB.insertTXLine newToTxLine conn
+
+                  DB.updateAccountBalance toAid (accountEntityBalance toAccount + amount) conn
+
+                  return ()
+  where
+    transferSentFailed :: TransferSentEvent -> T.Text -> IO ()
+    transferSentFailed evtSent err = do
+      let evtFailed = TransferFailedEvent {
+          transferFailedEventError             = err
+        , transferFailedEventAmount            = transferSentEventAmount evtSent
+        , transferFailedEventReference         = transferSentEventReference evtSent
+        , transferFailedEventSendingCustomer   = transferSentEventSendingCustomer evtSent
+        , transferFailedEventReceivingCustomer = transferSentEventReceivingCustomer evtSent
+        , transferFailedEventSendingAccount    = transferSentEventSendingAccount evtSent
+        , transferFailedEventReceivingAccount  = transferSentEventReceivingAccount evtSent
+        }
+
+      now <- getCurrentTime
+
+      let payload = TL.toStrict $ encodeToLazyText evtFailed
+      let pe = PersistedEventEntity now "TransferFailed" False False "" payload
+
+      _ <- DB.insertEvent pe conn
+
+      return ()
+
+
+transferFailed :: TransferFailedEvent
+               -> SqlBackend
+               -> IO ()
+transferFailed evt conn = do
+  let fromIban  = transferFailedEventSendingAccount evt
+      toIban    = transferFailedEventReceivingAccount evt
+      amount    = transferFailedEventAmount evt
+      reference = transferFailedEventReference evt
+
+  mFrom <- DB.accountByIban fromIban conn
+  case mFrom of
+    Nothing -> return () -- ignore errors, what should we do?
+    (Just (Entity fromAid fromAccount)) -> do
+      mTo <- DB.accountByIban toIban conn
+      case mTo of
+        Nothing -> return () -- ignore errors, what should we do?
+        (Just (Entity _ toAccount)) -> do
+          mfc <- DB.customerByDomainId (accountEntityOwner fromAccount) conn
+          case mfc of
+            Nothing -> return () -- ignore errors, what should we do?
+            (Just _) -> do
+              mtc <- DB.customerByDomainId (accountEntityOwner toAccount) conn
+              case mtc of
+                Nothing -> return () -- ignore errors, what should we do?
+                (Just (Entity _ toCustomer)) -> do
+                  let toName = customerEntityName toCustomer
+
+                  now <- getCurrentTime
+
+                  let newFromTxLine = TxLineEntity fromAid ( accountEntityIban fromAccount) amount toName ("Transfer failed: " <> reference) now
+
+                  _ <- DB.insertTXLine newFromTxLine conn
+
+                  DB.updateAccountBalance fromAid (accountEntityBalance toAccount + amount) conn
+
+                  return ()
+                  
 checkAccountOverdraft :: AccountEntity -> Double -> Maybe Exception
 checkAccountOverdraft a amount
   | isSavings a && accountEntityBalance a - amount < 0  = Just $ InvalidAccountOperation "Savings Account cannot have negative balance!"
