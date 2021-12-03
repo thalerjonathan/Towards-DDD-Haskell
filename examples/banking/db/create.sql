@@ -20,15 +20,15 @@ DROP TABLE IF EXISTS banking.account;
 
 CREATE TABLE banking.account (
     account_id SERIAL PRIMARY KEY,
-    account_owner_id INTEGER NOT NULL,
+    account_owner_domain_id VARCHAR(255) NOT NULL,
     account_balance NUMERIC(32, 2) NOT NULL,
     account_iban VARCHAR(255) UNIQUE,
-    account_type VARCHAR(255) NOT NULL,
+    account_type VARCHAR(255) NOT NULL
 
-    CONSTRAINT fk_account_owner
-      FOREIGN KEY(account_owner_id) 
-	      REFERENCES banking.customer(customer_id)
-        ON DELETE CASCADE
+    -- CONSTRAINT fk_account_owner
+    --   FOREIGN KEY(account_owner_id) 
+	  --     REFERENCES banking.customer(customer_id)
+    --     ON DELETE CASCADE
 );
  
 ------------------------------------
@@ -79,9 +79,9 @@ RETURNING customer_id;
 
 -- GIRO ACCOUNT
 INSERT INTO banking.account
-  (account_iban, account_balance, account_type, account_owner_id)
+  (account_iban, account_balance, account_type, account_owner_domain_id)
 VALUES
-  ('AT12 12345 01234567890', 1300, 'Giro', 1);
+  ('AT12 12345 01234567890', 1300, 'Giro', 'cad6e64d-23a2-4598-8a77-17d6b8e3733b');
 
 INSERT INTO banking.tx
   (tx_account, tx_iban, tx_amount, tx_name, tx_reference, tx_time)
@@ -100,9 +100,9 @@ VALUES
 
 -- SAVINGS ACCOUNT
 INSERT INTO banking.account
-  (account_iban, account_balance, account_type, account_owner_id)
+  (account_iban, account_balance, account_type, account_owner_domain_id)
 VALUES
-  ('AT23 45678 01234567890', 2500, 'Savings', 1);
+  ('AT23 45678 01234567890', 2500, 'Savings', 'cad6e64d-23a2-4598-8a77-17d6b8e3733b');
 
 INSERT INTO banking.tx
   (tx_account, tx_iban, tx_amount, tx_name, tx_reference, tx_time)
@@ -130,9 +130,9 @@ VALUES
 
 -- GIRO ACCOUNT
 INSERT INTO banking.account
-  (account_iban, account_balance, account_type, account_owner_id)
+  (account_iban, account_balance, account_type, account_owner_domain_id)
 VALUES
-  ('AT34 56789 01234567890', 500, 'Giro', 2);
+  ('AT34 56789 01234567890', 500, 'Giro', 'c06f7abf-3735-46cf-9088-a1515f58a79f');
 
 INSERT INTO banking.tx
   (tx_account, tx_iban, tx_amount, tx_name, tx_reference, tx_time)
@@ -151,9 +151,9 @@ VALUES
 
 -- SAVINGS ACCOUNT
 INSERT INTO banking.account
-  (account_iban, account_balance, account_type, account_owner_id)
+  (account_iban, account_balance, account_type, account_owner_domain_id)
 VALUES
-  ('AT45 67890 01234567890', 1500, 'Savings', 2);
+  ('AT45 67890 01234567890', 1500, 'Savings', 'c06f7abf-3735-46cf-9088-a1515f58a79f');
 
 INSERT INTO banking.tx
   (tx_account, tx_iban, tx_amount, tx_name, tx_reference, tx_time)

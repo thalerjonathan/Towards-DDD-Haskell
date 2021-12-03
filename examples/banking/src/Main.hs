@@ -5,7 +5,7 @@ import           Control.Monad.Logger
 import           Data.Either.Combinators
 import           Infrastructure.Cache.AppCache
 
-import qualified Application.Async             as Async
+-- import qualified Application.Async             as Async
 import qualified Infrastructure.DB.Config      as DbCfg
 import qualified Infrastructure.DB.Pool        as Pool
 import qualified Infrastructure.Web.Banking    as Banking
@@ -31,7 +31,7 @@ main = do
       dbPool <- runStdoutLoggingT $ Pool.initPool dbBankingCfg
       cache  <- mkAppCache
 
-      Async.eventProcessor dbPool eventPollInterval
+      -- Async.eventProcessor dbPool eventPollInterval
 
       Server.startServer (Banking.banking cache dbPool)
 

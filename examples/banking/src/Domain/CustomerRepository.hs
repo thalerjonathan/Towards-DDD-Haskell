@@ -1,8 +1,6 @@
 module Domain.CustomerRepository where
 
 import           Control.Monad.Free.Church
-import           Data.Maybe
-import           Data.UUID
 import           Database.Persist.Sql
 import           Domain.Customer
 import           Infrastructure.DB.Banking as DB
@@ -30,10 +28,15 @@ runCustomerRepo prog conn = foldF interpretCustomerRepo prog
     interpretCustomerRepo :: CustomerRepoLang a -> IO a
     interpretCustomerRepo (AddCustomer _c a) = do
       return a
+
     interpretCustomerRepo (AllCustomers cont) = do
       cs <- DB.allCustomers conn
       return $ cont $ map (\(Entity _ c) ->
-        customer (CustomerId $ fromJust $ fromText $ DB.customerEntityDomainId c) (DB.customerEntityName c)) cs
+        customer (customerIdFromTextUnsafe $ DB.customerEntityDomainId c) (DB.customerEntityName c)) cs
 
-    interpretCustomerRepo (FindCustomerById _cid cont) = do
-      return $ cont Nothing
+    interpretCustomerRepo (FindCustomerById cid cont) = do
+      m <- DB.customerByDomainId (customerIdToText cid) conn
+      case m of 
+        Nothing -> return $ cont Nothing
+        (Just (Entity _ c)) -> do
+          return $ cont $ Just $ customer cid (DB.customerEntityName c)

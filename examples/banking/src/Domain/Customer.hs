@@ -2,21 +2,25 @@
 module Domain.Customer where
 
 import           Control.Monad.Free.Church
+import           Data.Maybe
 import           Data.MonadicStreamFunction              (MSF, arrM, feedback,
                                                           returnA)
 import           Data.MonadicStreamFunction.InternalCore (unMSF)
 import           Data.Text                               as T
 import           Data.UUID
 
-newtype CustomerId = CustomerId UUID deriving Show
+newtype CustomerId = CustomerId UUID
+
+instance Show CustomerId where
+  show (CustomerId cid) = show cid
 
 data CustomerCommand
-  = GetCustomerId
+  = GetDomainId
   | GetName
   deriving Show
 
 data CustomerCommandResult
-  = ReturnCustomerId CustomerId
+  = ReturnDomainId CustomerId
   | ReturnName Text
   deriving Show
 
@@ -30,6 +34,12 @@ data CustomerState
   = CustomerState CustomerId deriving Show
 
 type Customer = MSF CustomerProgram CustomerCommand (Maybe CustomerCommandResult)
+
+customerIdFromTextUnsafe :: Text -> CustomerId
+customerIdFromTextUnsafe = CustomerId . fromJust . fromText
+
+customerIdToText :: CustomerId -> Text
+customerIdToText (CustomerId cid) = toText cid
 
 customer :: CustomerId -> T.Text -> Customer
 customer cid cName = feedback s0 (proc (cmd, s) -> do
@@ -48,12 +58,20 @@ getName c = do
     (Just (ReturnName n)) -> return n
     _                     -> error "unexpected return in customer"
 
+getDomainId :: Customer -> CustomerProgram CustomerId
+getDomainId c = do
+  (ret, _) <- unMSF c GetDomainId
+  case ret of
+    (Just (ReturnDomainId n)) -> return n
+    _                         -> error "unexpected return in customer"
+
+
 handleCommand :: CustomerId
               -> T.Text
               -> CustomerCommand
               -> CustomerProgram (Maybe CustomerCommandResult)
-handleCommand cid _ GetCustomerId = do
-  return $ Just (ReturnCustomerId cid)
+handleCommand cid _ GetDomainId = do
+  return $ Just (ReturnDomainId cid)
 handleCommand _ cname GetName = do
   return $ Just (ReturnName cname)
 

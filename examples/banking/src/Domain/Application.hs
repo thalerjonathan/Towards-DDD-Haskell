@@ -6,9 +6,10 @@ module Domain.Application where
 import           Control.Monad.Free.Church
 
 import           Database.Persist.Sql
+import           Domain.Account
 import           Domain.AccountRepository
-import           Domain.CustomerRepository
 import           Domain.Customer
+import           Domain.CustomerRepository
 
 data Repository a
   = AccountRepo (AccountRepoProgram a)
@@ -16,13 +17,14 @@ data Repository a
 
 data Aggregate a
   = CustomerAggregate (CustomerProgram a)
+  | AccountAggregate (AccountProgram a)
 
 data ApplicationLang a
   = forall b. RunRepo (Repository b) (b -> a)
   | forall b. RunAggregate (Aggregate b) (b -> a)
 
 instance Functor ApplicationLang where
-  fmap f (RunRepo scr g) = RunRepo scr (f . g)
+  fmap f (RunRepo scr g)      = RunRepo scr (f . g)
   fmap f (RunAggregate scr g) = RunAggregate scr (f . g)
 
 type Application a = F ApplicationLang a
@@ -42,6 +44,10 @@ runAggregate repo = liftF (RunAggregate repo id)
 customerAggregate :: CustomerProgram a -> Aggregate a
 customerAggregate = CustomerAggregate
 
+accountAggregate :: AccountProgram a -> Aggregate a
+accountAggregate = AccountAggregate
+
+
 runApplication :: Application a -> SqlBackend -> IO a
 runApplication prog conn = foldF interpret prog
   where
@@ -52,8 +58,9 @@ runApplication prog conn = foldF interpret prog
       f <$> interpretAggregate a
 
 interpretRepo :: Repository a -> SqlBackend -> IO a
-interpretRepo (AccountRepo r) = runAccountRepo r
+interpretRepo (AccountRepo r)  = runAccountRepo r
 interpretRepo (CustomerRepo r) = runCustomerRepo r
 
 interpretAggregate :: Aggregate a -> IO a
 interpretAggregate (CustomerAggregate a) = runCustomerAggregate a
+interpretAggregate (AccountAggregate a) = fst <$> runAccountAggregate a

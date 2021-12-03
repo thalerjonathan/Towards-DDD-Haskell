@@ -9,7 +9,7 @@ CustomerEntity sql=customer
 
 AccountEntity sql=account
   Id                     sql=account_id
-  owner CustomerEntityId sql=account_owner_id
+  owner Text             sql=account_owner_domain_id
   balance Double         sql=account_balance
   iban Text              sql=account_iban
   type AccountEntityType sql=account_type

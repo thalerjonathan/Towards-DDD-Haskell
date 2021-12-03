@@ -6,8 +6,8 @@ import           Servant                       (Handler)
 import           Text.Blaze.Html
 
 import           Application.Banking
-import qualified Application.BankingNew as New
-import           Domain.Application as App
+import qualified Application.BankingNew        as New
+import           Domain.Application            as App
 import           Infrastructure.Cache.AppCache (AppCache)
 import qualified Infrastructure.DB.Pool        as Pool
 
@@ -23,7 +23,6 @@ handleAllCustomers :: AppCache
                    -> Handler Html
 handleAllCustomers _cache p = do
   --cs <- liftIO $ Pool.runWithTX p (getAllCustomers cache)
-  --return (allCustomersHtml cs)
   cs <- liftIO $ Pool.runWithTX p (App.runApplication New.getAllCustomers)
   return (allCustomersHtml cs)
 
@@ -31,8 +30,9 @@ handleCustomer :: AppCache
                -> Pool.DbPool
                -> T.Text
                -> Handler Html
-handleCustomer cache p customerId = do
-  ret <- liftIO $ Pool.runWithTX p (getCustomer cache customerId)
+handleCustomer _cache p customerId = do
+  -- ret <- liftIO $ Pool.runWithTX p (getCustomer cache customerId)
+  ret <- liftIO $ Pool.runWithTX p (App.runApplication (New.getCustomer customerId))
   case ret of
     (Left err) ->
       redirectToError $ exceptionToErrorMessage err
@@ -45,8 +45,9 @@ handleAccount :: AppCache
               -> T.Text
               -> T.Text
               -> Handler Html
-handleAccount cache p accIban customerId customerName = do
-  ret <- liftIO $ Pool.runWithTX p (getAccount cache accIban)
+handleAccount _cache p accIban customerId customerName = do
+  -- ret <- liftIO $ Pool.runWithTX p (getAccount cache accIban)
+  ret <- liftIO $ Pool.runWithTX p (App.runApplication (New.getAccount accIban))
   case ret of
     (Left err) ->
       redirectToError $ exceptionToErrorMessage err

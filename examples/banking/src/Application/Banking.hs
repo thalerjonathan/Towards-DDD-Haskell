@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Application.Banking
   ( Exception (..)
   , createCustomer
@@ -13,28 +13,23 @@ module Application.Banking
   , processDomainEvent
   ) where
 
-import qualified Data.Text as T
-import qualified Data.Text.Lazy as TL
+import qualified Data.Text                     as T
+import qualified Data.Text.Lazy                as TL
 
-import Data.Time.Clock
-import Data.UUID.V4 (nextRandom)
-import Data.UUID
-import Data.Aeson.Text
+import           Data.Aeson.Text
+import           Data.Time.Clock
+import           Data.UUID
+import           Data.UUID.V4                  (nextRandom)
 
-import Application.DTO
-import Application.DomainEvents 
+import           Application.DTO
+import           Application.DomainEvents
+import           Application.Exceptions
 
-import Database.Persist.Postgresql
-import Infrastructure.Cache.AppCache 
-import Infrastructure.DB.Banking as DB
+import           Database.Persist.Postgresql
+import           Infrastructure.Cache.AppCache
+import           Infrastructure.DB.Banking     as DB
 
-data Exception
-  = CustomerNotFound
-  | AccountNotFound
-  | InvalidAccountOperation T.Text
-  deriving Show
-
-processDomainEvent :: DomainEvent 
+processDomainEvent :: DomainEvent
                    -> SqlBackend
                    -> IO ()
 processDomainEvent (TransferSent evt)   = transferSent evt
@@ -50,19 +45,19 @@ transferSent evt conn = do
       reference = transferSentEventReference evt
 
   mFrom <- DB.accountByIban fromIban conn
-  case mFrom of 
+  case mFrom of
     Nothing -> transferSentFailed evt "Could not find sending Account"
     (Just (Entity _ fromAccount)) -> do
       mTo <- DB.accountByIban toIban conn
-      case mTo of 
+      case mTo of
         Nothing -> transferSentFailed evt "Could not find receiving Account"
         (Just (Entity toAid toAccount)) -> do
-          mfc <- DB.customerByCustomerId (accountEntityOwner fromAccount) conn
-          case mfc of 
+          mfc <- DB.customerByDomainId (accountEntityOwner fromAccount) conn
+          case mfc of
             Nothing -> transferSentFailed evt "Could not find sending customer"
-            (Just fromCustomer) -> do
-              mtc <- DB.customerByCustomerId (accountEntityOwner toAccount) conn
-              case mtc of 
+            (Just (Entity _ fromCustomer)) -> do
+              mtc <- DB.customerByDomainId (accountEntityOwner toAccount) conn
+              case mtc of
                 Nothing -> transferSentFailed evt "Could not find receiving customer"
                 (Just _) -> do
                   let fromName = customerEntityName fromCustomer
@@ -72,7 +67,7 @@ transferSent evt conn = do
                   let newToTxLine = TXLineEntity toAid ( accountEntityIban fromAccount) amount fromName reference now
 
                   _ <- DB.insertTXLine newToTxLine conn
-                  
+
                   DB.updateAccountBalance toAid (accountEntityBalance toAccount + amount) conn
 
                   return ()
@@ -95,7 +90,7 @@ transferSent evt conn = do
       let pe = PersistedEventEntity now "TransferFailed" False False "" payload
 
       _ <- DB.insertEvent pe conn
-      
+
       return ()
 
 
@@ -109,21 +104,21 @@ transferFailed evt conn = do
       reference = transferFailedEventReference evt
 
   mFrom <- DB.accountByIban fromIban conn
-  case mFrom of 
+  case mFrom of
     Nothing -> return () -- ignore errors, what should we do?
     (Just (Entity fromAid fromAccount)) -> do
       mTo <- DB.accountByIban toIban conn
-      case mTo of 
+      case mTo of
         Nothing -> return () -- ignore errors, what should we do?
         (Just (Entity _ toAccount)) -> do
-          mfc <- DB.customerByCustomerId (accountEntityOwner fromAccount) conn
-          case mfc of 
+          mfc <- DB.customerByDomainId (accountEntityOwner fromAccount) conn
+          case mfc of
             Nothing -> return () -- ignore errors, what should we do?
             (Just _) -> do
-              mtc <- DB.customerByCustomerId (accountEntityOwner toAccount) conn
-              case mtc of 
+              mtc <- DB.customerByDomainId (accountEntityOwner toAccount) conn
+              case mtc of
                 Nothing -> return () -- ignore errors, what should we do?
-                (Just toCustomer) -> do
+                (Just (Entity _ toCustomer)) -> do
                   let toName = customerEntityName toCustomer
 
                   now <- getCurrentTime
@@ -131,7 +126,7 @@ transferFailed evt conn = do
                   let newFromTxLine = TXLineEntity fromAid ( accountEntityIban fromAccount) amount toName ("Transfer failed: " <> reference) now
 
                   _ <- DB.insertTXLine newFromTxLine conn
-                  
+
                   DB.updateAccountBalance fromAid (accountEntityBalance toAccount + amount) conn
 
                   return ()
@@ -155,17 +150,17 @@ createAccount :: AppCache
               -> SqlBackend
               -> IO (Maybe Exception)
 createAccount _cache owner iban balance t conn = do
-  mc <- DB.customerById owner conn
+  mc <- DB.customerByDomainId owner conn
   case mc of
     Nothing -> return $ Just CustomerNotFound
-    (Just (Entity cid _)) -> do
+    (Just (Entity _ _)) -> do
       let at = read (T.unpack t) :: DB.AccountEntityType
-      let acc = AccountEntity cid balance iban at
+      let acc = AccountEntity owner balance iban at
       _aid <- DB.insertAccount acc conn
       return Nothing
 
 getAllCustomers :: AppCache
-                -> SqlBackend 
+                -> SqlBackend
                 -> IO [CustomerDetailsDTO]
 getAllCustomers _cache conn = do
   cs <- DB.allCustomers conn
@@ -176,11 +171,11 @@ getCustomer :: AppCache
             -> SqlBackend
             -> IO (Either Exception CustomerDTO)
 getCustomer _cache cIdStr conn = do
-  mc <- DB.customerById cIdStr conn
-  case mc of 
+  mc <- DB.customerByDomainId cIdStr conn
+  case mc of
     Nothing -> return $ Left CustomerNotFound
-    (Just c@(Entity cid _)) -> do
-      as <- DB.accountsOfCustomer cid conn
+    (Just c@(Entity _ _)) -> do
+      as <- DB.accountsOfCustomer cIdStr conn
       return $ Right $ customerEntityToDTO c as
 
 getAccount :: AppCache
@@ -189,27 +184,27 @@ getAccount :: AppCache
            -> IO (Either Exception AccountDTO)
 getAccount _cache iban conn = do
   ma <- DB.accountByIban iban conn
-  case ma of 
+  case ma of
     Nothing -> return $ Left AccountNotFound
     (Just a@(Entity aid _)) -> do
       txs <- DB.txLinesOfAccount aid conn
       return $ Right $ accountEntityToDTO a txs
 
 deposit :: AppCache
-        -> T.Text 
-        -> Double 
+        -> T.Text
+        -> Double
         -> SqlBackend
         -> IO (Either Exception TXLineDTO)
 deposit _cache iban amount conn = do
   ma <- DB.accountByIban iban conn
-  case ma of 
+  case ma of
     Nothing -> return $ Left AccountNotFound
     (Just (Entity aid a)) -> do
       if isSavings a
         then return $ Left $ InvalidAccountOperation "Cannot deposit into Savings account!"
         else do
           now <- getCurrentTime
-          let newBalance = amount + accountEntityBalance a 
+          let newBalance = amount + accountEntityBalance a
               newTxLine  = TXLineEntity aid iban amount "Deposit" "Deposit" now
 
           txId <- DB.insertTXLine newTxLine conn
@@ -218,18 +213,18 @@ deposit _cache iban amount conn = do
           return $ Right $ txLineToDTO (Entity txId newTxLine)
 
 withdraw :: AppCache
-         -> T.Text 
-         -> Double 
+         -> T.Text
+         -> Double
          -> SqlBackend
          -> IO (Either Exception TXLineDTO)
 withdraw _cache iban amount conn = do
   ma <- DB.accountByIban iban conn
-  case ma of 
+  case ma of
     Nothing -> return $ Left AccountNotFound
     (Just (Entity aid a)) -> do
-      if isSavings a 
+      if isSavings a
         then return $ Left $ InvalidAccountOperation "Cannot withdraw from Savings account!"
-        else do 
+        else do
           let newBalance = accountEntityBalance a - amount
           if newBalance < -1000
             then return $ Left $ InvalidAccountOperation "Cannot overdraw Giro account by more than -1000.0!"
@@ -246,40 +241,40 @@ withdraw _cache iban amount conn = do
 
 data TransferType = Transactional | Eventual
 
-transferEventual :: AppCache 
-                 -> T.Text 
-                 -> T.Text 
-                 -> Double 
-                 -> T.Text 
+transferEventual :: AppCache
+                 -> T.Text
+                 -> T.Text
+                 -> Double
+                 -> T.Text
                  -> SqlBackend
                  -> IO (Either Exception TXLineDTO)
-transferEventual _cache fromIban toIban amount reference conn = 
-  checkAndPerformTransfer fromIban toIban amount reference conn Eventual 
+transferEventual _cache fromIban toIban amount reference conn =
+  checkAndPerformTransfer fromIban toIban amount reference conn Eventual
 
-transferTransactional :: AppCache 
-                      -> T.Text 
-                      -> T.Text 
-                      -> Double 
-                      -> T.Text 
+transferTransactional :: AppCache
+                      -> T.Text
+                      -> T.Text
+                      -> Double
+                      -> T.Text
                       -> SqlBackend
                       -> IO (Either Exception TXLineDTO)
-transferTransactional _cache fromIban toIban amount reference conn = 
+transferTransactional _cache fromIban toIban amount reference conn =
   checkAndPerformTransfer fromIban toIban amount reference conn Transactional
 
-checkAndPerformTransfer :: T.Text 
-                        -> T.Text 
-                        -> Double 
-                        -> T.Text 
+checkAndPerformTransfer :: T.Text
+                        -> T.Text
+                        -> Double
+                        -> T.Text
                         -> SqlBackend
                         -> TransferType
                         -> IO (Either Exception TXLineDTO)
 checkAndPerformTransfer fromIban toIban amount reference conn txType = do
   mFrom <- DB.accountByIban fromIban conn
-  case mFrom of 
+  case mFrom of
     Nothing -> return $ Left AccountNotFound
     (Just (Entity fromAid fromAccount)) -> do
       mTo <- DB.accountByIban toIban conn
-      case mTo of 
+      case mTo of
         Nothing -> return $ Left AccountNotFound
         (Just (Entity toAid toAccount)) -> do
           if not $ sameOwner fromAccount toAccount
@@ -287,9 +282,9 @@ checkAndPerformTransfer fromIban toIban amount reference conn txType = do
             then do
               if isSavings fromAccount || isSavings  toAccount
                 then return $ Left $ InvalidAccountOperation "Transfer cannot happen with Savings account of different customers!"
-                else if amount > 5000 
+                else if amount > 5000
                   then return $ Left $ InvalidAccountOperation "Transfer between different customers cannot exceed 5000€!"
-                  else 
+                  else
                     case txType of
                       Transactional -> performTransferTransactional fromAid fromAccount toAid toAccount amount reference conn
                       Eventual      -> performTransferEventual fromAid fromAccount toAccount amount reference conn
@@ -308,16 +303,16 @@ performTransferTransactional :: AccountEntityId
                              -> SqlBackend
                              -> IO (Either Exception TXLineDTO)
 performTransferTransactional fromAid fromAccount toAid toAccount amount reference conn = do
-  mfc <- DB.customerByCustomerId (accountEntityOwner fromAccount) conn
-  case mfc of 
+  mfc <- DB.customerByDomainId (accountEntityOwner fromAccount) conn
+  case mfc of
     Nothing -> return $ Left CustomerNotFound
-    (Just fromCustomer) -> do
-      mtc <- DB.customerByCustomerId (accountEntityOwner toAccount) conn
-      case mtc of 
+    (Just (Entity _ fromCustomer)) -> do
+      mtc <- DB.customerByDomainId (accountEntityOwner toAccount) conn
+      case mtc of
         Nothing -> return $ Left CustomerNotFound
-        (Just toCustomer) -> do
+        (Just (Entity _ toCustomer)) -> do
           let check = checkAccountOverdraft fromAccount amount
-          case check of 
+          case check of
             (Just err) -> return $ Left err
             _ -> do
               let fromName = customerEntityName fromCustomer
@@ -330,7 +325,7 @@ performTransferTransactional fromAid fromAccount toAid toAccount amount referenc
 
               fromTxId <- DB.insertTXLine newFromTxLine conn
               _ <- DB.insertTXLine newToTxLine conn
-              
+
               DB.updateAccountBalance fromAid (accountEntityBalance fromAccount - amount) conn
               DB.updateAccountBalance toAid (accountEntityBalance toAccount + amount) conn
 
@@ -344,16 +339,16 @@ performTransferEventual :: AccountEntityId
                         -> SqlBackend
                         -> IO (Either Exception TXLineDTO)
 performTransferEventual fromAid fromAccount toAccount amount reference conn = do
-  mfc <- DB.customerByCustomerId (accountEntityOwner fromAccount) conn
-  case mfc of 
+  mfc <- DB.customerByDomainId (accountEntityOwner fromAccount) conn
+  case mfc of
     Nothing -> return $ Left CustomerNotFound
-    (Just fromCustomer) -> do
-      mtc <- DB.customerByCustomerId (accountEntityOwner toAccount) conn
-      case mtc of 
+    (Just (Entity _ fromCustomer)) -> do
+      mtc <- DB.customerByDomainId (accountEntityOwner toAccount) conn
+      case mtc of
         Nothing -> return $ Left CustomerNotFound
-        (Just toCustomer) -> do
+        (Just (Entity _ toCustomer)) -> do
           let check = checkAccountOverdraft fromAccount amount
-          case check of 
+          case check of
             (Just err) -> return $ Left err
             _ -> do
               let toName = customerEntityName toCustomer
@@ -384,7 +379,7 @@ checkAccountOverdraft :: AccountEntity -> Double -> Maybe Exception
 checkAccountOverdraft a amount
   | isSavings a && accountEntityBalance a - amount < 0  = Just $ InvalidAccountOperation "Savings Account cannot have negative balance!"
   | isGiro a && accountEntityBalance a - amount < -1000 = Just $ InvalidAccountOperation "Cannot overdraw Giro account by more than -1000.0!"
-  | otherwise = Nothing 
+  | otherwise = Nothing
 
 isSavings :: AccountEntity -> Bool
 isSavings a = DB.Savings == accountEntityType a
@@ -395,8 +390,8 @@ isGiro a = DB.Giro == accountEntityType a
 sameOwner :: AccountEntity -> AccountEntity -> Bool
 sameOwner a1 a2 = accountEntityOwner a1 == accountEntityOwner a2
 
-accountEntityToDTO :: Entity AccountEntity -> [Entity TXLineEntity] -> AccountDTO 
-accountEntityToDTO a txs = AccountDTO 
+accountEntityToDTO :: Entity AccountEntity -> [Entity TXLineEntity] -> AccountDTO
+accountEntityToDTO a txs = AccountDTO
   { accountDetails = accountEntityToDetailsDTO a
   , accountTXLines = map txLineToDTO txs
   }
@@ -411,19 +406,19 @@ txLineToDTO (Entity _ t) = TXLineDTO
   }
 
 customerEntityToDetailsDTO :: Entity CustomerEntity -> CustomerDetailsDTO
-customerEntityToDetailsDTO (Entity _ c) = CustomerDetailsDTO 
+customerEntityToDetailsDTO (Entity _ c) = CustomerDetailsDTO
   { customerDetailsId   = customerEntityDomainId c
   , customerDetailsName = customerEntityName c
   }
 
 customerEntityToDTO :: Entity CustomerEntity -> [Entity AccountEntity] -> CustomerDTO
-customerEntityToDTO c as = CustomerDTO 
+customerEntityToDTO c as = CustomerDTO
   { customerDetails        = customerEntityToDetailsDTO c
   , customerAccountDetails = map accountEntityToDetailsDTO as
   }
 
 accountEntityToDetailsDTO :: Entity AccountEntity -> AccountDetailsDTO
-accountEntityToDetailsDTO (Entity _ a) = AccountDetailsDTO 
+accountEntityToDetailsDTO (Entity _ a) = AccountDetailsDTO
   { accountDetailIban    = accountEntityIban a
   , accountDetailBalance = accountEntityBalance a
   , accountDetailType    = T.pack $ show $ accountEntityType a

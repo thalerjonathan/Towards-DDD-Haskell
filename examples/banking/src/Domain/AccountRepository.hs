@@ -1,12 +1,11 @@
 module Domain.AccountRepository where
 
 import           Control.Monad.Free.Church
-
+import           Data.UUID
 import           Database.Persist.Sql
 import           Domain.Account
-import           Domain.Customer           (CustomerId)
-
---import qualified Infrastructure.DB.Banking as DB
+import           Domain.Customer
+import           Infrastructure.DB.Banking as DB
 
 data AccountRepoLang a
   = AddAccount Account a
@@ -26,10 +25,10 @@ findAccountByIban :: Iban -> AccountRepoProgram (Maybe Account)
 findAccountByIban iban = liftF (FindAccountByIban iban id)
 
 runAccountRepo :: AccountRepoProgram a -> SqlBackend -> IO a
-runAccountRepo prog _ = foldF interpretAccountRepo prog
+runAccountRepo prog conn = foldF interpret prog
   where
-    interpretAccountRepo :: AccountRepoLang a -> IO a
-    interpretAccountRepo (AddAccount _a ret) = do
+    interpret :: AccountRepoLang a -> IO a
+    interpret (AddAccount _a ret) = do
       -- TODO: need owner CustomerEntityId
       -- TODO: need a connection
       -- let owner   = CustomerEntityId 0
@@ -42,9 +41,13 @@ runAccountRepo prog _ = foldF interpretAccountRepo prog
 
       -- TODO: implement
       return ret
-    interpretAccountRepo (FindAccountsForOwner _owner cont) = do
-      -- TODO: implement
-      return (cont [])
-    interpretAccountRepo (FindAccountByIban _iban cont) = do
-      -- TODO: implement
-      return (cont Nothing)
+    interpret (FindAccountsForOwner (CustomerId cDomainId) cont) = do
+      as <- DB.accountsOfCustomer (toText cDomainId) conn
+      let aggs = map (\e -> account e) as
+      return $ cont aggs
+
+    interpret (FindAccountByIban (Iban i) cont) = do
+      m <- DB.accountByIban i conn
+      case m of 
+        Nothing  -> return (cont Nothing)
+        (Just e) -> return (cont $ Just $ account e)

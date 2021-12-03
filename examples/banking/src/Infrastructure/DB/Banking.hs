@@ -31,7 +31,7 @@ module Infrastructure.DB.Banking
   , markEventProcessed
 
   , allCustomers
-  , customerById
+  , customerByDomainId
   , customerByCustomerId
   , accountByIban
   , accountsOfCustomer
@@ -87,8 +87,8 @@ markEventProcessed pid = executeActionWithoutTX act
   where
     act = update pid [ PersistedEventEntityProcessed =. True ]
 
-customerById :: Text -> SqlBackend -> IO (Maybe (Entity CustomerEntity))
-customerById domainId = executeActionWithoutTX act
+customerByDomainId :: Text -> SqlBackend -> IO (Maybe (Entity CustomerEntity))
+customerByDomainId domainId = executeActionWithoutTX act
   where
     act = listToMaybe <$>
             selectList [CustomerEntityDomainId ==. domainId] [LimitTo 1]
@@ -102,10 +102,10 @@ accountByIban iban = executeActionWithoutTX act
     act = listToMaybe <$>
             selectList [AccountEntityIban ==. iban] [LimitTo 1]
 
-accountsOfCustomer :: CustomerEntityId -> SqlBackend -> IO [Entity AccountEntity]
-accountsOfCustomer cid = executeActionWithoutTX act
+accountsOfCustomer :: Text -> SqlBackend -> IO [Entity AccountEntity]
+accountsOfCustomer domainId = executeActionWithoutTX act
   where
-    act = selectList [AccountEntityOwner ==. cid] []
+    act = selectList [AccountEntityOwner ==. domainId] []
 
 txLinesOfAccount :: AccountEntityId -> SqlBackend -> IO [Entity TXLineEntity]
 txLinesOfAccount aid = executeActionWithoutTX act

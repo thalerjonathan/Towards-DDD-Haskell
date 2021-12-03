@@ -1,6 +1,7 @@
 module Application.BankingNew where
 
 import           Application.DTO
+import           Application.Exceptions
 import           Data.Maybe
 import           Data.Text                 as T
 import           Data.UUID
@@ -10,41 +11,31 @@ import           Domain.Application
 import           Domain.Customer
 import           Domain.CustomerRepository
 
-data Exception
-  = CustomerNotFound
-  | AccountNotFound
-  | InvalidAccountOperation T.Text
-  deriving Show
-
 getAllCustomers :: Application [CustomerDetailsDTO]
 getAllCustomers = do
     cs <- runRepo $ customerRepo $ allCustomers
-    dtos <- runAggregate $ customerAggregate $ (mapM customerToDetailsDTO cs)
+    dtos <- runAggregate $ customerAggregate $ mapM customerToDetailsDTO cs
     return dtos
-  where
-    customerToDetailsDTO :: Customer -> CustomerProgram CustomerDetailsDTO
-    customerToDetailsDTO c = do
-      let cId = ""
-
-      cname <- getName c
-
-      return $ CustomerDetailsDTO
-        { customerDetailsId   = cId
-        , customerDetailsName = cname
-        }
-
 
 getCustomer :: T.Text -> Application (Either Exception CustomerDTO)
 getCustomer cIdStr = do
-  let cid = CustomerId $ fromJust $ fromText cIdStr
+    let cid = CustomerId $ fromJust $ fromText cIdStr
 
-  mc <- runRepo $ customerRepo $ findCustomerById cid
-  case mc of
-    Nothing -> return $ Left CustomerNotFound
-    (Just _c) -> do
-      -- as <- DB.accountsOfCustomer cid conn
-      -- return $ Right $ customerEntityToDTO c as
-      return $ Left CustomerNotFound
+    mc <- runRepo $ customerRepo $ findCustomerById cid
+    case mc of
+      Nothing -> return $ Left CustomerNotFound
+      (Just c) -> do
+        as <- runRepo $ accountRepo $ findAccountsForOwner cid
+
+        custDetails <- runAggregate $ customerAggregate $ customerToDetailsDTO c
+        asDetails   <- runAggregate $ accountAggregate $ mapM accountToDetailsDTO as
+
+        let dto = CustomerDTO {
+            customerDetails        = custDetails
+          , customerAccountDetails = asDetails
+          }
+
+        return $ Right dto
 
 getAccount :: T.Text -> Application (Either Exception AccountDTO)
 getAccount ibanStr = do
@@ -53,7 +44,35 @@ getAccount ibanStr = do
   ma <- runRepo $ accountRepo $ findAccountByIban i
   case ma of
     Nothing -> return $ Left AccountNotFound
-    (Just _acc) -> do
+    (Just a) -> do
       -- txs <- DB.txLinesOfAccount aid conn
-      -- return $ Right $ accountEntityToDTO a txs
-      return $ Left AccountNotFound
+      asDetails <- runAggregate $ accountAggregate $ accountToDetailsDTO a
+
+      let dto = AccountDTO {
+        accountDetails = asDetails
+      , accountTXLines = []
+      }
+
+      return $ Right dto
+
+customerToDetailsDTO :: Customer -> CustomerProgram CustomerDetailsDTO
+customerToDetailsDTO c = do
+  cname <- getName c
+  cid <- getDomainId c
+
+  return $ CustomerDetailsDTO
+    { customerDetailsId   = T.pack $ show cid
+    , customerDetailsName = cname
+    }
+
+accountToDetailsDTO :: Account -> AccountProgram AccountDetailsDTO
+accountToDetailsDTO a = do
+  (Iban i) <- getIban a
+  b        <- getBalance a
+  accType  <- getType a
+
+  return $ AccountDetailsDTO
+    { accountDetailIban    = i
+    , accountDetailBalance = b
+    , accountDetailType    = T.pack $ show $ accType
+    }
