@@ -56,7 +56,9 @@ view model =
       , H.ul [ A.class "list-group" ] (List.map (\acc -> 
           H.li [ A.class "list-group-item d-flex justify-content-between align-items-center" ] [ 
               H.a [ A.href ("/spa/account/" ++ acc.iban ++ "/" ++ c.details.id ++ "/" ++ c.details.name) ] 
-                [ H.text (acc.iban ++ " (" ++ acc.accountType ++ ")") ] ]) c.accountDetails)
+                [ H.text (acc.iban ++ " (" ++ acc.accountType ++ ")") ] 
+            , H.span [ A.class "badge bg-primary rounded-pill" ] [ H.text (String.fromFloat acc.balance) ]
+            ]) c.accountDetails)
       ]
 
 subscriptions : Model -> Sub Msg

@@ -7822,6 +7822,17 @@ var $author$project$Page$Customer$view = function (model) {
 										_List_fromArray(
 											[
 												$elm$html$Html$text(acc.ae + (' (' + (acc.aE + ')')))
+											])),
+										A2(
+										$elm$html$Html$span,
+										_List_fromArray(
+											[
+												$elm$html$Html$Attributes$class('badge bg-primary rounded-pill')
+											]),
+										_List_fromArray(
+											[
+												$elm$html$Html$text(
+												$elm$core$String$fromFloat(acc.aI))
 											]))
 									]));
 						},

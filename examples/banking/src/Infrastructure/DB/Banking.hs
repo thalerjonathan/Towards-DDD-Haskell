@@ -13,14 +13,17 @@
 {-# LANGUAGE UndecidableInstances       #-}
 module Infrastructure.DB.Banking
   ( Entity (..)
+  
   , CustomerEntity (..)
   , AccountEntity (..)
-  , TXLineEntity (..)
-  , CustomerEntityId
-  , AccountEntityId
-  , TXLineEntityId
+  , TxLineEntity (..)
   , AccountEntityType (..)
   , PersistedEventEntity (..)
+  
+  , CustomerEntityId
+  , AccountEntityId
+  , TxLineEntityId
+
 
   , insertCustomer
   , insertAccount
@@ -107,17 +110,17 @@ accountsOfCustomer domainId = executeActionWithoutTX act
   where
     act = selectList [AccountEntityOwner ==. domainId] []
 
-txLinesOfAccount :: AccountEntityId -> SqlBackend -> IO [Entity TXLineEntity]
+txLinesOfAccount :: AccountEntityId -> SqlBackend -> IO [Entity TxLineEntity]
 txLinesOfAccount aid = executeActionWithoutTX act
   where
-    act = selectList [TXLineEntityAccount ==. aid] [] 
+    act = selectList [TxLineEntityAccount ==. aid] [] 
 
 updateAccountBalance :: AccountEntityId -> Double -> SqlBackend -> IO ()
 updateAccountBalance aid b = executeActionWithoutTX act
   where
     act = update aid [AccountEntityBalance =. b]
 
-insertTXLine :: TXLineEntity -> SqlBackend -> IO (Key TXLineEntity)
+insertTXLine :: TxLineEntity -> SqlBackend -> IO (Key TxLineEntity)
 insertTXLine tx = executeActionWithoutTX (insert tx)
 
 executeActionWithoutTX :: ReaderT SqlBackend IO a -> SqlBackend -> IO a

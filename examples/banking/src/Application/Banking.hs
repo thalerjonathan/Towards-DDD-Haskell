@@ -64,7 +64,7 @@ transferSent evt conn = do
 
                   now <- getCurrentTime
 
-                  let newToTxLine = TXLineEntity toAid ( accountEntityIban fromAccount) amount fromName reference now
+                  let newToTxLine = TxLineEntity toAid ( accountEntityIban fromAccount) amount fromName reference now
 
                   _ <- DB.insertTXLine newToTxLine conn
 
@@ -123,7 +123,7 @@ transferFailed evt conn = do
 
                   now <- getCurrentTime
 
-                  let newFromTxLine = TXLineEntity fromAid ( accountEntityIban fromAccount) amount toName ("Transfer failed: " <> reference) now
+                  let newFromTxLine = TxLineEntity fromAid ( accountEntityIban fromAccount) amount toName ("Transfer failed: " <> reference) now
 
                   _ <- DB.insertTXLine newFromTxLine conn
 
@@ -205,7 +205,7 @@ deposit _cache iban amount conn = do
         else do
           now <- getCurrentTime
           let newBalance = amount + accountEntityBalance a
-              newTxLine  = TXLineEntity aid iban amount "Deposit" "Deposit" now
+              newTxLine  = TxLineEntity aid iban amount "Deposit" "Deposit" now
 
           txId <- DB.insertTXLine newTxLine conn
           print txId
@@ -230,7 +230,7 @@ withdraw _cache iban amount conn = do
             then return $ Left $ InvalidAccountOperation "Cannot overdraw Giro account by more than -1000.0!"
             else do
               now <- getCurrentTime
-              let newTxLine  = TXLineEntity aid iban (-amount) "Deposit" "Deposit" now
+              let newTxLine  = TxLineEntity aid iban (-amount) "Deposit" "Deposit" now
 
               txId <- DB.insertTXLine newTxLine conn
               print txId
@@ -320,8 +320,8 @@ performTransferTransactional fromAid fromAccount toAid toAccount amount referenc
 
               now <- getCurrentTime
 
-              let newFromTxLine  = TXLineEntity fromAid ( accountEntityIban toAccount) (-amount) toName reference now
-                  newToTxLine    = TXLineEntity toAid ( accountEntityIban fromAccount) amount fromName reference now
+              let newFromTxLine  = TxLineEntity fromAid ( accountEntityIban toAccount) (-amount) toName reference now
+                  newToTxLine    = TxLineEntity toAid ( accountEntityIban fromAccount) amount fromName reference now
 
               fromTxId <- DB.insertTXLine newFromTxLine conn
               _ <- DB.insertTXLine newToTxLine conn
@@ -355,7 +355,7 @@ performTransferEventual fromAid fromAccount toAccount amount reference conn = do
 
               now <- getCurrentTime
 
-              let newFromTxLine  = TXLineEntity fromAid (accountEntityIban toAccount) (-amount) toName reference now
+              let newFromTxLine  = TxLineEntity fromAid (accountEntityIban toAccount) (-amount) toName reference now
               let evt = TransferSentEvent {
                   transferSentEventAmount            = amount
                 , transferSentEventReference         = reference
@@ -390,19 +390,19 @@ isGiro a = DB.Giro == accountEntityType a
 sameOwner :: AccountEntity -> AccountEntity -> Bool
 sameOwner a1 a2 = accountEntityOwner a1 == accountEntityOwner a2
 
-accountEntityToDTO :: Entity AccountEntity -> [Entity TXLineEntity] -> AccountDTO
+accountEntityToDTO :: Entity AccountEntity -> [Entity TxLineEntity] -> AccountDTO
 accountEntityToDTO a txs = AccountDTO
   { accountDetails = accountEntityToDetailsDTO a
   , accountTXLines = map txLineToDTO txs
   }
 
-txLineToDTO :: Entity TXLineEntity -> TXLineDTO
+txLineToDTO :: Entity TxLineEntity -> TXLineDTO
 txLineToDTO (Entity _ t) = TXLineDTO
-  { txLineIban      = tXLineEntityIban t
-  , txLineName      = tXLineEntityName t
-  , txLineReference = tXLineEntityReference t
-  , txLineAmount    = tXLineEntityAmount t
-  , txLineTime      = tXLineEntityTime t
+  { txLineIban      = txLineEntityIban t
+  , txLineName      = txLineEntityName t
+  , txLineReference = txLineEntityReference t
+  , txLineAmount    = txLineEntityAmount t
+  , txLineTime      = txLineEntityTime t
   }
 
 customerEntityToDetailsDTO :: Entity CustomerEntity -> CustomerDetailsDTO

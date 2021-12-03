@@ -15,7 +15,7 @@ AccountEntity sql=account
   type AccountEntityType sql=account_type
   deriving Show
 
-TXLineEntity sql=tx
+TxLineEntity sql=tx
   Id                      sql=tx_id
   account AccountEntityId sql=tx_account
   iban Text               sql=tx_iban

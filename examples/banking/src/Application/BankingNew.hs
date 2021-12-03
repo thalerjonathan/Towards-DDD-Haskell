@@ -39,21 +39,41 @@ getCustomer cIdStr = do
 
 getAccount :: T.Text -> Application (Either Exception AccountDTO)
 getAccount ibanStr = do
-  let i = Iban ibanStr
-
-  ma <- runRepo $ accountRepo $ findAccountByIban i
+  ma <- runRepo $ accountRepo $ findAccountByIban (Iban ibanStr)
   case ma of
     Nothing -> return $ Left AccountNotFound
     (Just a) -> do
-      -- txs <- DB.txLinesOfAccount aid conn
-      asDetails <- runAggregate $ accountAggregate $ accountToDetailsDTO a
+      ret <- runAggregate $ accountAggregate $ accountToDTO a
+      return $ Right ret
 
-      let dto = AccountDTO {
-        accountDetails = asDetails
-      , accountTXLines = []
-      }
+deposit :: T.Text
+        -> Double
+        -> Application (Either Exception TXLineDTO)
+deposit i amount = do
+  ma <- runRepo $ accountRepo $ findAccountByIban (Iban i)
+  case ma of
+    Nothing -> return $ Left AccountNotFound
+    (Just a) -> do
+      (_, ret, _) <- runAggregate $ accountAggregate $ Domain.Account.deposit a amount
+      case ret of
+        (Just (DepositResult (Left err))) -> return $ Left $ InvalidAccountOperation err
+        (Just (DepositResult (Right tx))) -> return $ Right $ txLineToDTO tx
+        _ -> error "Unexpected result of Domain.Account.deposit"
 
-      return $ Right dto
+withdraw :: T.Text
+         -> Double
+         -> Application (Either Exception TXLineDTO)
+withdraw i amount = do
+  ma <- runRepo $ accountRepo $ findAccountByIban (Iban i)
+  case ma of
+    Nothing -> return $ Left AccountNotFound
+    (Just a) -> do
+      (_, ret, _) <- runAggregate $ accountAggregate $ Domain.Account.withdraw a amount
+      case ret of
+        (Just (DepositResult (Left err))) -> return $ Left $ InvalidAccountOperation err
+        (Just (DepositResult (Right tx))) -> return $ Right $ txLineToDTO tx
+        _ -> error "Unexpected result of Domain.Account.withdraw"
+
 
 customerToDetailsDTO :: Customer -> CustomerProgram CustomerDetailsDTO
 customerToDetailsDTO c = do
@@ -64,6 +84,12 @@ customerToDetailsDTO c = do
     { customerDetailsId   = T.pack $ show cid
     , customerDetailsName = cname
     }
+
+accountToDTO :: Account -> AccountProgram AccountDTO
+accountToDTO  a 
+  = AccountDTO 
+      <$> accountToDetailsDTO a 
+      <*> (Prelude.map txLineToDTO <$> getTXLines a)
 
 accountToDetailsDTO :: Account -> AccountProgram AccountDetailsDTO
 accountToDetailsDTO a = do
@@ -76,3 +102,12 @@ accountToDetailsDTO a = do
     , accountDetailBalance = b
     , accountDetailType    = T.pack $ show $ accType
     }
+
+txLineToDTO :: TXLine -> TXLineDTO
+txLineToDTO (TXLine a (Iban i) n ref t) = TXLineDTO
+  { txLineIban      = i
+  , txLineName      = n
+  , txLineReference = ref
+  , txLineAmount    = a
+  , txLineTime      = t
+  } 

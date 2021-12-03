@@ -47,7 +47,6 @@ customerAggregate = CustomerAggregate
 accountAggregate :: AccountProgram a -> Aggregate a
 accountAggregate = AccountAggregate
 
-
 runApplication :: Application a -> SqlBackend -> IO a
 runApplication prog conn = foldF interpret prog
   where
@@ -55,12 +54,12 @@ runApplication prog conn = foldF interpret prog
     interpret (RunRepo r f)  = do
       f <$> interpretRepo r conn
     interpret (RunAggregate a f) = do
-      f <$> interpretAggregate a
+      f <$> interpretAggregate a conn
 
 interpretRepo :: Repository a -> SqlBackend -> IO a
 interpretRepo (AccountRepo r)  = runAccountRepo r
 interpretRepo (CustomerRepo r) = runCustomerRepo r
 
-interpretAggregate :: Aggregate a -> IO a
-interpretAggregate (CustomerAggregate a) = runCustomerAggregate a
-interpretAggregate (AccountAggregate a) = fst <$> runAccountAggregate a
+interpretAggregate :: Aggregate a -> SqlBackend -> IO a
+interpretAggregate (CustomerAggregate a) _ = runCustomerAggregate a
+interpretAggregate (AccountAggregate a) conn = fst <$> runAccountAggregate a conn
