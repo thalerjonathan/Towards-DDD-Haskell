@@ -54,21 +54,12 @@ data AccountLang a
 
 type AccountProgram = F AccountLang
 
-data AccountState
-  = AccountState CustomerId Iban [TXLine] deriving Show
-
 type AccountEffects = (WriterT [AccountDomainEvent] AccountProgram)
 
 type Account = MSF
                 AccountEffects
                 AccountCommand
                 (Maybe AccountCommandResult)
-
-balance :: [TXLine] -> Money
-balance = Prelude.foldr (\(TXLine m _ _ _ _) acc -> acc + m) 0
-
-overdraftLimit :: Double
-overdraftLimit = -1000
 
 execCommand :: Account -> AccountCommand -> AccountProgram (Account, Maybe AccountCommandResult, [AccountDomainEvent])
 execCommand a cmd = do

@@ -2,33 +2,57 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Domain.Account where
 
+import           Control.Monad.Reader
+import           Control.Monad.State
 import           Data.MonadicStreamFunction
 import           Domain.AccountLang
 import           Domain.Customer            (CustomerId,
                                              customerIdFromTextUnsafe)
 import qualified Infrastructure.DB.Banking  as DB
 
+data AccountRead = AccountRead
+  { accountDBId  :: DB.AccountEntityId
+  , accountOwner :: CustomerId
+  , accountIban  :: Iban
+  } deriving Show
+
+data AccountState = AccountState
+  { accountTXLines :: Maybe  [TXLine]
+  , accountBalance :: Money
+  } deriving Show
+
+type AccountInternalEffects = ReaderT AccountRead (StateT AccountState AccountEffects)
+
 account :: (DB.Entity DB.AccountEntity) -> Account
 account (DB.Entity aid a) = feedback s0 (proc (cmd, s) -> do
-    case DB.accountEntityType a of
-      DB.Giro -> do
-        ret <- arrM (giro aid owner iban b) -< cmd
-        returnA -< (ret, s)
-      DB.Savings -> do
-        ret <- arrM (savings aid owner iban b) -< cmd
-        returnA -< (ret, s))
+      (mCmdRes, s') <- arrM (uncurry foobar) -< (cmd, s)
+      returnA -< (mCmdRes, s')
+  )
+
   where
+    foobar cmd s = do
+      let stateRet = runReaderT (giroTest cmd) r
+          ret = runStateT stateRet s
+      ret
+
+    --behaviour DB.Giro    = giro 
+    --behaviour DB.Savings = savings
+    --beh   = behaviour atype
+    
     owner = customerIdFromTextUnsafe $ DB.accountEntityOwner a
     iban  = Iban $ DB.accountEntityIban a
-    b     = (DB.accountEntityBalance a)
-    s0    = AccountState owner iban []
+    bal   = (DB.accountEntityBalance a)
+    _atype = DB.accountEntityType a
+    
 
-giro :: DB.AccountEntityId
-     -> CustomerId
-     -> Iban
-     -> Double
-     -> AccountCommand
-     -> AccountEffects (Maybe AccountCommandResult)
+    s0    = AccountState Nothing bal
+    r     = AccountRead aid owner iban
+
+giroTest :: AccountCommand -> AccountInternalEffects (Maybe AccountCommandResult)
+giroTest _ = return Nothing
+
+{-
+giro :: AccountCommand -> AccountInternalEffects (Maybe AccountCommandResult)
 giro aid _ iban bal (Withdraw amount) = do
   let newBalance = bal - amount 
   if newBalance < overdraftLimit
@@ -72,12 +96,8 @@ giro aid _ _ _ GetTXLines = do
   txs <- txLines aid
   return $ Just $ ReturnTXLines $ txs
 
-savings :: DB.AccountEntityId
-        -> CustomerId
-        -> Iban
-        -> Double
-        -> AccountCommand
-        -> AccountEffects (Maybe AccountCommandResult)
+
+savings :: AccountCommand -> AccountEffects (Maybe AccountCommandResult)
 savings _ _ _ _ (Withdraw _) = do
   return $ Just $ WithdrawResult $ Left "Cannot withdraw money directly from Savings Account! Use transfer of money into a Giro Account of the same customer."
 savings _ _ _ _ (Deposit _) = do
@@ -106,3 +126,10 @@ savings _ _ _ _ GetType = do
 savings aid _ _ _ GetTXLines = do
   txs <- txLines aid
   return $ Just $ ReturnTXLines $ txs
+
+balance :: [TXLine] -> Money
+balance = Prelude.foldr (\(TXLine m _ _ _ _) acc -> acc + m) 0
+
+overdraftLimit :: Double
+overdraftLimit = -1000
+-}
