@@ -1,18 +1,21 @@
-module Steps.DepositSteps where
+module BDD.Steps.Deposit where
 
-import Data.Text
-import Test.Cucumber.Data.Step
+-- import           Test.Tasty.HUnit
 
-import Control.Monad
-import Control.Monad.State (gets)
+import           Data.Text
+import           Test.Cucumber.Data.Step
 
-import Database.Persist.Postgresql
+import           Control.Monad
+import           Control.Monad.State           (gets)
 
-import Application.DTO
-import Application.Banking
-import Infrastructure.Cache.AppCache
-import Test.Cucumber.Runner (StepAction, StepActionParam (ParamDouble))
-import Control.Monad.IO.Class (liftIO)
+import           Database.Persist.Postgresql
+
+import           Application.BankingAnemic
+import           Application.DTO
+import           Control.Monad.IO.Class        (liftIO)
+import           Infrastructure.Cache.AppCache
+import           Test.Cucumber.Runner          (StepAction,
+                                                StepActionParam (ParamDouble))
 
 data DepositStepData = DepositStepData
  { depositStepDataIban  :: Text
@@ -22,9 +25,9 @@ data DepositStepData = DepositStepData
 
 -- Given my Giro account has a balance of {double}
 givenDepositStep :: StepType
-givenDepositStep = Given 
-                    (Text "my Giro account has a balance of" 
-                      (Param Double StepEnd)) 
+givenDepositStep = Given
+                    (Text "my Giro account has a balance of"
+                      (Param Double StepEnd))
 givenDeposit :: StepAction DepositStepData
 givenDeposit [ParamDouble balance]  = do
   liftIO $ putStrLn "givenDeposit begin"
@@ -39,9 +42,9 @@ givenDeposit _ = fail "Invalid params in givenDeposit"
 
 -- When I deposit {double} into my account
 whenDepositStep :: StepType
-whenDepositStep = When 
-                  (Text "I deposit" 
-                    (Param Double 
+whenDepositStep = When
+                  (Text "I deposit"
+                    (Param Double
                       (Text "into my account" StepEnd)))
 whenDeposit :: StepAction DepositStepData
 whenDeposit [ParamDouble balance] = do
@@ -52,16 +55,16 @@ whenDeposit [ParamDouble balance] = do
 
   ret <- liftIO $ deposit cache iban balance conn
   case ret of
-    Nothing -> liftIO $ putStrLn "whenDeposit end"
-    (Just e) -> do
-      fail $ "whenDeposit failed: could not deposit " ++ show e
+    (Right _) -> liftIO $ putStrLn "whenDeposit end"
+    (Left err) -> do
+      fail $ "whenDeposit failed: could not deposit " ++ show err
 whenDeposit _ = fail "Invalid params in whenDeposit"
 
 -- Then I should have a balance of {double} in my account
 thenDepositStep :: StepType
-thenDepositStep = Then 
-                    (Text "I should have a balance of" 
-                      (Param Double 
+thenDepositStep = Then
+                    (Text "I should have a balance of"
+                      (Param Double
                         (Text "in my account" StepEnd)))
 thenDeposit :: StepAction DepositStepData
 thenDeposit [ParamDouble expectedBalance] = do
@@ -75,6 +78,7 @@ thenDeposit [ParamDouble expectedBalance] = do
     (Left _) -> fail "Account Not Found!"
     (Right a) -> do
       let balance = accountDetailBalance (accountDetails a)
+     --  liftIO $ assertBool "Foobar" (abs (balance - expectedBalance) < 0.01)
       if (abs (balance - expectedBalance) > 0.01)
         then fail $ "Expected balance " ++ show expectedBalance ++ " but was " ++ show balance
         else liftIO $ putStrLn "thenDeposit end"

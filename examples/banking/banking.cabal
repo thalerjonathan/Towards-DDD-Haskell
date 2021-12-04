@@ -144,17 +144,29 @@ executable Banking
 test-suite banking-test
   type:               exitcode-stdio-1.0
 
-  main-is:            Test.hs
+  main-is:            Tests.hs
 
   -- clean up modules... server and handlers certainly not necessary...
-  other-modules:      Application.Banking
+  other-modules:      Application.BankingAnemic
+                    , Application.BankingDomain
+                    , Application.Exceptions
                     , Application.DTO
+                    , Application.DomainEvents
+                    , Domain.Application
+                    , Domain.Account.Api
+                    , Domain.Account.Impl
+                    , Domain.Account.Repository
+                    , Domain.Customer
+                    , Domain.CustomerRepository
                     , Infrastructure.Cache.AppCache
-                    , Infrastructure.DB.Banking
                     , Infrastructure.DB.Config
+                    , Infrastructure.DB.Banking
                     , Infrastructure.DB.Pool
-                    , Steps.DepositSteps
-  
+                    , BDD.Tests
+                    , BDD.Steps.Deposit
+                    , Domain.Tests
+                    , Domain.Account.Tests
+
   hs-source-dirs:     src/
                     , test
 
@@ -169,6 +181,7 @@ test-suite banking-test
                       -Wredundant-constraints
 
   build-depends:      base
+                    , aeson
                     , bytestring
                     , cache
                     , clock
@@ -186,6 +199,8 @@ test-suite banking-test
                     , persistent-template
                     , postgresql-simple
                     , resource-pool
+                    , tasty
+                    , tasty-hunit
                     , text
                     , time
                     , unordered-containers

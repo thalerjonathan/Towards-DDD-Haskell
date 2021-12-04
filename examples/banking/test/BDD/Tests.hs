@@ -1,23 +1,27 @@
-module Main where
+module BDD.Tests
+  ( bdd_tests
+  ) where
 
-import Text.Megaparsec hiding (State)
+import           Test.Tasty
+import           Test.Tasty.HUnit
 
-import Test.Cucumber.Data.Step
-import Test.Cucumber.Parsing.Gherkin
-import Test.Cucumber.Runner
-import Test.Cucumber
+import           Text.Megaparsec               hiding (State)
 
-import Steps.DepositSteps
+import           Test.Cucumber
+import           Test.Cucumber.Data.Step
+import           Test.Cucumber.Parsing.Gherkin
+import           Test.Cucumber.Runner
 
-import Control.Monad
-import Control.Monad.Reader
-import Control.Monad.Logger
-import Control.Monad.Except
-import Data.Either.Combinators
+import           BDD.Steps.Deposit
 
-import Infrastructure.Cache.AppCache
-import Infrastructure.DB.Pool
-import qualified Infrastructure.DB.Config as DbCfg
+import           Control.Monad
+import           Control.Monad.Except
+import           Control.Monad.Logger
+import           Data.Either.Combinators
+
+import           Infrastructure.Cache.AppCache
+import qualified Infrastructure.DB.Config      as DbCfg
+import           Infrastructure.DB.Pool
 
 type AppConfig = DbCfg.DbConfig
 
@@ -28,7 +32,7 @@ depositFeature = "Feature: Depositing money into accounts\n" ++
                   "I want to deposit money into my accounts whenever I need to.\n" ++
                 "Scenario: Deposit money into a Giro account\n" ++
                   "Given my Giro account has a balance of 1234.56\n" ++
-                  "When I deposit 567.89 into my account\n" ++ 
+                  "When I deposit 567.89 into my account\n" ++
                   "Then I should have a balance of 1802.45 in my account\n"
 
 depositSteps :: [(StepType, StepAction DepositStepData)]
@@ -49,8 +53,8 @@ loadConfigs = toExceptT (dbBankingCfgFile ++ ": ") $ DbCfg.loadDBCfg dbBankingCf
       let ret' = mapLeft (str ++) ret
       ExceptT (return ret')
 
-main :: IO ()
-main = do
+depositScenarios :: TestTree
+depositScenarios = testCase "Deposit Scenarios" $ do
   --s <- readFile "test/resources/features/Depositing.feature"
   --print s
   let ret = parse parseGherkin "" depositFeature
@@ -64,12 +68,12 @@ main = do
           dbPool <- runStdoutLoggingT $ initPool dbBankingCfg
           cache  <- mkAppCache
 
-          runFeature 
+          runFeature
             feature
             (\scenarioAction -> do
               putStrLn "Before Scenario"
-              
-              runTXWithRollback dbPool $ \conn -> do 
+
+              runTXWithRollback dbPool $ \conn -> do
                 let s = DepositStepData {
                     depositStepDataIban  = "AT99 99999 9999999999"
                   , depositStepDataCache = cache
@@ -77,6 +81,10 @@ main = do
                   }
 
                 void $ scenarioAction s
-      
+
               putStrLn "After Scenario"
             ) depositSteps
+
+bdd_tests :: TestTree
+bdd_tests = testGroup "BDD Tests"
+              [ depositScenarios ]
