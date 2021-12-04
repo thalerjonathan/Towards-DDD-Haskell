@@ -59,10 +59,10 @@ executable Banking
                     , Application.DomainEvents
                     , Application.Async
                     , Domain.Application
-                    , Domain.Account
-                    , Domain.AccountLang
+                    , Domain.Account.Api
+                    , Domain.Account.Impl
+                    , Domain.Account.Repository
                     , Domain.Customer
-                    , Domain.AccountRepository
                     , Domain.CustomerRepository
                     , Infrastructure.Cache.AppCache
                     , Infrastructure.DB.Config

@@ -1,10 +1,10 @@
-module Domain.AccountRepository where
+module Domain.Account.Repository where
 
 import           Control.Monad.Free.Church
 import           Data.UUID
 import           Database.Persist.Sql
-import           Domain.Account
-import           Domain.AccountLang
+import           Domain.Account.Api
+import           Domain.Account.Impl
 import           Domain.Customer
 import           Infrastructure.DB.Banking as DB
 
@@ -24,6 +24,8 @@ findAccountsForOwner owner = liftF (FindAccountsForOwner owner id)
 
 findAccountByIban :: Iban -> AccountRepoProgram (Maybe Account)
 findAccountByIban iban = liftF (FindAccountByIban iban id)
+
+-- TODO: put run into separate interpreter
 
 runAccountRepo :: AccountRepoProgram a -> SqlBackend -> IO a
 runAccountRepo prog conn = foldF interpret prog

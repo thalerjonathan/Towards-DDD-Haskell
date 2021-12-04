@@ -6,8 +6,8 @@ module Domain.Application where
 import           Control.Monad.Free.Church
 
 import           Database.Persist.Sql
-import           Domain.AccountLang
-import           Domain.AccountRepository
+import           Domain.Account.Api
+import           Domain.Account.Repository
 import           Domain.Customer
 import           Domain.CustomerRepository
 

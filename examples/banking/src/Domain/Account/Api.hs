@@ -1,6 +1,6 @@
 {-# LANGUAGE Arrows           #-}
 {-# LANGUAGE FlexibleContexts #-}
-module Domain.AccountLang where
+module Domain.Account.Api where
 
 import           Control.Monad.Free.Church
 import           Control.Monad.Writer.Lazy
@@ -47,9 +47,9 @@ data AccountDomainEvent
   deriving Show
 
 data AccountLang a
-  = ReadTXLines DB.AccountEntityId ([TXLine] -> a)
-  | NewTXLine DB.AccountEntityId Money Iban T.Text T.Text (TXLine -> a)
-  | ChangeBalance DB.AccountEntityId Money a
+  = FetchTXLines DB.AccountEntityId ([TXLine] -> a)
+  | PersistTXLine DB.AccountEntityId Money Iban T.Text T.Text (TXLine -> a)
+  | UpdateBalance DB.AccountEntityId Money a
   deriving Functor
 
 type AccountProgram = F AccountLang
@@ -114,14 +114,14 @@ getTXLines a = do
 emitEvent :: Monad m => AccountDomainEvent -> WriterT [AccountDomainEvent] m ()
 emitEvent e = tell [e]
 
-txLines :: DB.AccountEntityId -> AccountEffects [TXLine]
-txLines aid = lift $ liftF (ReadTXLines aid id)
+fetchTXLines :: DB.AccountEntityId -> AccountEffects [TXLine]
+fetchTXLines aid = lift $ liftF (FetchTXLines aid id)
 
-persistTxLine :: DB.AccountEntityId -> Money -> Iban -> T.Text -> T.Text -> AccountEffects TXLine
-persistTxLine aid m i name ref = lift $ liftF (NewTXLine aid m i name ref id)
+persistTXLine :: DB.AccountEntityId -> Money -> Iban -> T.Text -> T.Text -> AccountEffects TXLine
+persistTXLine aid m i name ref = lift $ liftF (PersistTXLine aid m i name ref id)
 
-persistBalance :: DB.AccountEntityId -> Money -> AccountEffects ()
-persistBalance aid m = lift $ liftF (ChangeBalance aid m ())
+updateBalance :: DB.AccountEntityId -> Money -> AccountEffects ()
+updateBalance aid m = lift $ liftF (UpdateBalance aid m ())
 
 {-
 execCommand :: Account -> AccountCommand -> IO (Account, (Maybe AccountCommandResult, [AccountDomainEvent]))
@@ -135,11 +135,13 @@ execCommands a cmds = do
   return (ret, es)
 -}
 
+-- TODO: put run into separate interpreter
+
 runAccountAggregate :: AccountProgram a -> SqlBackend -> IO a
 runAccountAggregate prog conn = foldF interpret prog
   where
     interpret :: AccountLang a -> IO a
-    interpret (ReadTXLines aid cont)  = do
+    interpret (FetchTXLines aid cont)  = do
       txs <- DB.txLinesOfAccount aid conn
 
       let txVos = map (\(DB.Entity _ tx) ->
@@ -153,13 +155,13 @@ runAccountAggregate prog conn = foldF interpret prog
 
       return (cont txVos)
 
-    interpret (NewTXLine aid m iban@(Iban i) name ref cont) = do
+    interpret (PersistTXLine aid m iban@(Iban i) name ref cont) = do
       now    <- getCurrentTime
       _txKey <- DB.insertTXLine (DB.TxLineEntity aid i m name ref now) conn
       let tx = TXLine m iban name ref now
 
       return (cont tx)
 
-    interpret (ChangeBalance aid m a) = do
+    interpret (UpdateBalance aid m a) = do
       DB.updateAccountBalance aid m conn
       return a

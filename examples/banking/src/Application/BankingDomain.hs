@@ -5,8 +5,8 @@ import           Application.Exceptions
 import           Data.Maybe
 import           Data.Text                 as T
 import           Data.UUID
-import           Domain.AccountLang
-import           Domain.AccountRepository
+import           Domain.Account.Api
+import           Domain.Account.Repository
 import           Domain.Application
 import           Domain.Customer
 import           Domain.CustomerRepository
@@ -57,7 +57,7 @@ deposit i amount = do
   case ma of
     Nothing -> return $ Left AccountNotFound
     (Just a) -> do
-      (_, ret, _) <- runAggregate $ accountAggregate $ Domain.AccountLang.deposit a amount
+      (_, ret, _) <- runAggregate $ accountAggregate $ Domain.Account.Api.deposit a amount
       case ret of
         (Just (DepositResult (Left err))) -> return $ Left $ InvalidAccountOperation err
         (Just (DepositResult (Right tx))) -> return $ Right $ txLineToDTO tx
@@ -71,7 +71,7 @@ withdraw i amount = do
   case ma of
     Nothing -> return $ Left AccountNotFound
     (Just a) -> do
-      (_, ret, _) <- runAggregate $ accountAggregate $ Domain.AccountLang.withdraw a amount
+      (_, ret, _) <- runAggregate $ accountAggregate $ Domain.Account.Api.withdraw a amount
       case ret of
         (Just (WithdrawResult (Left err))) -> return $ Left $ InvalidAccountOperation err
         (Just (WithdrawResult (Right tx))) -> return $ Right $ txLineToDTO tx
