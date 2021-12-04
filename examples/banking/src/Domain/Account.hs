@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Domain.Account where
 
+import qualified Data.Text as T
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Data.MonadicStreamFunction
@@ -31,7 +32,7 @@ account (DB.Entity aid a) = feedback s0 (proc (cmd, s) -> do
 
   where
     foobar cmd s = do
-      let stateRet = runReaderT (giroTest cmd) r
+      let stateRet = runReaderT (giro cmd) r
           ret = runStateT stateRet s
       ret
 
@@ -48,22 +49,42 @@ account (DB.Entity aid a) = feedback s0 (proc (cmd, s) -> do
     s0    = AccountState Nothing bal
     r     = AccountRead aid owner iban
 
-giroTest :: AccountCommand -> AccountInternalEffects (Maybe AccountCommandResult)
-giroTest _ = return Nothing
 
-{-
+overdraftLimit :: Double
+overdraftLimit = -1000
+
+balance :: MonadState AccountState m => m Money
+balance = gets accountBalance
+
+iban :: MonadReader AccountRead m => m Iban
+iban = asks accountIban
+
+updateBalance :: Money -> AccountInternalEffects() 
+updateBalance _m = do
+  -- TODO: update balance in Aggregate state, so it reflects the balance the next time
+  persistBalance aid newBalance
+  return ()
+
+newTxLine :: Money -> Iban -> T.Text -> T.Text -> AccountInternalEffects TXLine
+newTxLine amount iban name ref = do
+  -- TODO: add TXLine to Aggregate state, so it is reflected in a subsequent call
+  tx <- persistTxLine aid (-amount) iban "Withdraw" "Withdraw"
+  return tx
+
 giro :: AccountCommand -> AccountInternalEffects (Maybe AccountCommandResult)
-giro aid _ iban bal (Withdraw amount) = do
-  let newBalance = bal - amount 
+giro (Withdraw amount) = do
+  b <- balance
+  i <- iban
+  
+  let newBalance = b - amount 
   if newBalance < overdraftLimit
     then return $ Just $ WithdrawResult $ Left "Cannot overdraw Giro account by more than -1000!"
     else do
-      -- TODO: update balance in Aggregate state, so it reflects the balance the next time
-      -- TODO: add TXLine to Aggregate state, so it is reflected in a subsequent call
-      tx <- newTxLine aid (-amount) iban "Withdraw" "Withdraw"
-      changeBalance aid newBalance
+      updateBalance newBalance
+      newTxLine (-amount) i "Withdraw" "Withdraw"
       return $ Just $ WithdrawResult $ Right tx
 
+{-
 giro aid _ iban bal (Deposit amount) = do
   -- TODO: update balance in Aggregate state, so it reflects the balance the next time
   -- TODO: add TXLine to Aggregate state, so it is reflected in a subsequent call
@@ -95,8 +116,9 @@ giro _ _ _ _ GetType = do
 giro aid _ _ _ GetTXLines = do
   txs <- txLines aid
   return $ Just $ ReturnTXLines $ txs
+-}
 
-
+{-
 savings :: AccountCommand -> AccountEffects (Maybe AccountCommandResult)
 savings _ _ _ _ (Withdraw _) = do
   return $ Just $ WithdrawResult $ Left "Cannot withdraw money directly from Savings Account! Use transfer of money into a Giro Account of the same customer."
@@ -130,6 +152,4 @@ savings aid _ _ _ GetTXLines = do
 balance :: [TXLine] -> Money
 balance = Prelude.foldr (\(TXLine m _ _ _ _) acc -> acc + m) 0
 
-overdraftLimit :: Double
-overdraftLimit = -1000
 -}

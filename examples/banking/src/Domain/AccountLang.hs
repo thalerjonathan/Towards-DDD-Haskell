@@ -117,11 +117,11 @@ emitEvent e = tell [e]
 txLines :: DB.AccountEntityId -> AccountEffects [TXLine]
 txLines aid = lift $ liftF (ReadTXLines aid id)
 
-newTxLine :: DB.AccountEntityId -> Money -> Iban -> T.Text -> T.Text -> AccountEffects TXLine
-newTxLine aid m i name ref = lift $ liftF (NewTXLine aid m i name ref id)
+persistTxLine :: DB.AccountEntityId -> Money -> Iban -> T.Text -> T.Text -> AccountEffects TXLine
+persistTxLine aid m i name ref = lift $ liftF (NewTXLine aid m i name ref id)
 
-changeBalance :: DB.AccountEntityId -> Money -> AccountEffects ()
-changeBalance aid m = lift $ liftF (ChangeBalance aid m ())
+persistBalance :: DB.AccountEntityId -> Money -> AccountEffects ()
+persistBalance aid m = lift $ liftF (ChangeBalance aid m ())
 
 {-
 execCommand :: Account -> AccountCommand -> IO (Account, (Maybe AccountCommandResult, [AccountDomainEvent]))
