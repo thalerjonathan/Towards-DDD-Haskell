@@ -13,7 +13,8 @@
 {-# LANGUAGE UndecidableInstances       #-}
 module Infrastructure.DB.Banking
   ( Entity (..)
-  
+  , Key (..)
+
   , CustomerEntity (..)
   , AccountEntity (..)
   , TxLineEntity (..)
@@ -21,7 +22,7 @@ module Infrastructure.DB.Banking
   , PersistedEventEntity (..)
   
   , CustomerEntityId
-  , AccountEntityId
+  , AccountEntityId 
   , TxLineEntityId
 
   , insertCustomer

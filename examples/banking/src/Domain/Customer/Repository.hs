@@ -1,8 +1,9 @@
-module Domain.CustomerRepository where
+module Domain.Customer.Repository where
 
 import           Control.Monad.Free.Church
 import           Database.Persist.Sql
-import           Domain.Customer
+import           Domain.Customer.Customer
+import           Domain.Types
 import           Infrastructure.DB.Banking as DB
 
 data CustomerRepoLang a
@@ -36,7 +37,7 @@ runCustomerRepo prog conn = foldF interpretCustomerRepo prog
 
     interpretCustomerRepo (FindCustomerById cid cont) = do
       m <- DB.customerByDomainId (customerIdToText cid) conn
-      case m of 
+      case m of
         Nothing -> return $ cont Nothing
         (Just (Entity _ c)) -> do
           return $ cont $ Just $ customer cid (DB.customerEntityName c)

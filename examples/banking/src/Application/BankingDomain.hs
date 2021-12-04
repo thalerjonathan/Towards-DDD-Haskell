@@ -3,13 +3,14 @@ module Application.BankingDomain where
 import           Application.DTO
 import           Application.Exceptions
 import           Data.Maybe
-import           Data.Text                 as T
+import           Data.Text                  as T
 import           Data.UUID
 import           Domain.Account.Api
 import           Domain.Account.Repository
 import           Domain.Application
-import           Domain.Customer
-import           Domain.CustomerRepository
+import           Domain.Customer.Customer
+import           Domain.Customer.Repository
+import           Domain.Types
 
 -- TODO: create customer
 -- TODO: create account
@@ -88,9 +89,9 @@ customerToDetailsDTO c = do
     }
 
 accountToDTO :: Account -> AccountProgram AccountDTO
-accountToDTO  a 
-  = AccountDTO 
-      <$> accountToDetailsDTO a 
+accountToDTO  a
+  = AccountDTO
+      <$> accountToDetailsDTO a
       <*> (Prelude.map txLineToDTO <$> getTXLines a)
 
 accountToDetailsDTO :: Account -> AccountProgram AccountDetailsDTO
@@ -112,4 +113,4 @@ txLineToDTO (TXLine a (Iban i) n ref t) = TXLineDTO
   , txLineReference = ref
   , txLineAmount    = a
   , txLineTime      = t
-  } 
+  }

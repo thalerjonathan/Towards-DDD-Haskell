@@ -1,18 +1,12 @@
 {-# LANGUAGE Arrows #-}
-module Domain.Customer where
+module Domain.Customer.Customer where
 
 import           Control.Monad.Free.Church
-import           Data.Maybe
 import           Data.MonadicStreamFunction              (MSF, arrM, feedback,
                                                           returnA)
 import           Data.MonadicStreamFunction.InternalCore (unMSF)
 import           Data.Text                               as T
-import           Data.UUID
-
-newtype CustomerId = CustomerId UUID
-
-instance Show CustomerId where
-  show (CustomerId cid) = show cid
+import           Domain.Types
 
 data CustomerCommand
   = GetDomainId
@@ -34,12 +28,6 @@ data CustomerState
   = CustomerState CustomerId deriving Show
 
 type Customer = MSF CustomerProgram CustomerCommand (Maybe CustomerCommandResult)
-
-customerIdFromTextUnsafe :: Text -> CustomerId
-customerIdFromTextUnsafe = CustomerId . fromJust . fromText
-
-customerIdToText :: CustomerId -> Text
-customerIdToText (CustomerId cid) = toText cid
 
 customer :: CustomerId -> T.Text -> Customer
 customer cid cName = feedback s0 (proc (cmd, s) -> do

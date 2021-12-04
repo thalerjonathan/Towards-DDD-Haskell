@@ -8,8 +8,8 @@ import           Control.Monad.Free.Church
 import           Database.Persist.Sql
 import           Domain.Account.Api
 import           Domain.Account.Repository
-import           Domain.Customer
-import           Domain.CustomerRepository
+import           Domain.Customer.Customer
+import           Domain.Customer.Repository
 
 data Repository a
   = AccountRepo (AccountRepoProgram a)

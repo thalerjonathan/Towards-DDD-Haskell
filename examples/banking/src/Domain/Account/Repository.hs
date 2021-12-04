@@ -5,7 +5,7 @@ import           Data.UUID
 import           Database.Persist.Sql
 import           Domain.Account.Api
 import           Domain.Account.Impl
-import           Domain.Customer
+import           Domain.Types
 import           Infrastructure.DB.Banking as DB
 
 data AccountRepoLang a

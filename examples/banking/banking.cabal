@@ -62,8 +62,9 @@ executable Banking
                     , Domain.Account.Api
                     , Domain.Account.Impl
                     , Domain.Account.Repository
-                    , Domain.Customer
-                    , Domain.CustomerRepository
+                    , Domain.Customer.Customer
+                    , Domain.Customer.Repository
+                    , Domain.Types
                     , Infrastructure.Cache.AppCache
                     , Infrastructure.DB.Config
                     , Infrastructure.DB.Banking
@@ -156,8 +157,9 @@ test-suite banking-test
                     , Domain.Account.Api
                     , Domain.Account.Impl
                     , Domain.Account.Repository
-                    , Domain.Customer
-                    , Domain.CustomerRepository
+                    , Domain.Customer.Customer
+                    , Domain.Customer.Repository
+                    , Domain.Types
                     , Infrastructure.Cache.AppCache
                     , Infrastructure.DB.Config
                     , Infrastructure.DB.Banking

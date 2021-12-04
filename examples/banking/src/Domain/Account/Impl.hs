@@ -4,13 +4,12 @@ module Domain.Account.Impl
   ( account
   ) where
 
-import qualified Data.Text as T
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Data.MonadicStreamFunction
+import qualified Data.Text                  as T
 import           Domain.Account.Api
-import           Domain.Customer            (CustomerId,
-                                             customerIdFromTextUnsafe)
+import           Domain.Types
 import qualified Infrastructure.DB.Banking  as DB
 
 data AccountRead = AccountRead
@@ -26,11 +25,10 @@ data AccountState = AccountState
 
 type AccountInternalEffects = ReaderT AccountRead (StateT AccountState AccountEffects)
 
-account :: (DB.Entity DB.AccountEntity) -> Account
+account :: DB.Entity DB.AccountEntity -> Account
 account (DB.Entity aid a) = feedback s0 (proc (cmd, s) -> do
       (mCmdRes, s') <- arrM (uncurry foobar) -< (cmd, s)
-      returnA -< (mCmdRes, s')
-  )
+      returnA -< (mCmdRes, s'))
 
   where
     foobar cmd s = do
@@ -38,14 +36,14 @@ account (DB.Entity aid a) = feedback s0 (proc (cmd, s) -> do
           ret      = runStateT stateRet s
       ret
 
-    behaviour DB.Giro    = giro 
+    behaviour DB.Giro    = giro
     behaviour DB.Savings = savings
-    
+
     o     = customerIdFromTextUnsafe $ DB.accountEntityOwner a
     i     = Iban $ DB.accountEntityIban a
-    bal   = (DB.accountEntityBalance a)
+    bal   = DB.accountEntityBalance a
     atype = DB.accountEntityType a
-    
+
     s0    = AccountState Nothing bal
     r     = AccountRead aid o i
 
@@ -60,11 +58,11 @@ setBalance :: MonadState AccountState m => Money -> m ()
 setBalance m = modify' (\s -> s { accountBalance = m })
 
 addTXLine :: MonadState AccountState m => TXLine -> m ()
-addTXLine tx 
+addTXLine tx
   = modify' (\s -> case accountTXLines s of
                     Nothing    -> s { accountTXLines = Just [tx]}
                     (Just txs) -> s { accountTXLines = Just (tx : txs)})
-  
+
 
 owner ::  MonadReader AccountRead m => m CustomerId
 owner = asks accountOwner
@@ -74,17 +72,17 @@ iban = asks accountIban
 
 txLines :: AccountInternalEffects [TXLine]
 txLines = do
-  m <- lift $ gets (accountTXLines)
-  case m of 
+  m <- lift $ gets accountTXLines
+  case m of
     Nothing -> do
       aid <- asks accountDBId
       txs <- lift $ lift $ fetchTXLines aid
       lift $ modify' (\s -> s { accountTXLines = Just txs })
       return txs
-    (Just txs) -> 
+    (Just txs) ->
       return txs
 
-changeBalance :: Money -> AccountInternalEffects () 
+changeBalance :: Money -> AccountInternalEffects ()
 changeBalance bal = do
   aid <- asks accountDBId
   setBalance bal
@@ -101,8 +99,8 @@ giro :: AccountCommand -> AccountInternalEffects (Maybe AccountCommandResult)
 giro (Withdraw amount) = do
   b <- balance
   i <- iban
-  
-  let newBalance = b - amount 
+
+  let newBalance = b - amount
   if newBalance < overdraftLimit
     then return $ Just $ WithdrawResult $ Left "Cannot overdraw Giro account by more than -1000!"
     else do
@@ -114,7 +112,7 @@ giro (Deposit amount) = do
   b <- balance
   i <- iban
 
-  let newBalance = b + amount 
+  let newBalance = b + amount
   tx <- newTxLine amount i "Deposit" "Deposit"
   changeBalance newBalance
   return $ Just $ DepositResult $ Right tx
@@ -140,17 +138,16 @@ giro (ReceiveFrom _fromIban _amount _name _ref) = do
   return Nothing
 
 -- TODO: can we combine giro and savings getters somehow?
-giro GetBalance = 
-  (Just . ReturnBalance) <$> balance
-giro GetOwner = 
-  (Just . ReturnOwner) <$> owner
-giro GetIban = 
-  (Just . ReturnIban) <$> iban
-giro GetType = 
+giro GetBalance =
+  Just . ReturnBalance <$> balance
+giro GetOwner =
+  Just . ReturnOwner <$> owner
+giro GetIban =
+  Just . ReturnIban <$> iban
+giro GetType =
   return $ Just $ ReturnType Giro
-giro GetTXLines = do
-  txs <- txLines
-  return $ Just $ ReturnTXLines $ txs
+giro GetTXLines =
+  Just . ReturnTXLines <$> txLines
 
 
 savings :: AccountCommand -> AccountInternalEffects (Maybe AccountCommandResult)
@@ -171,14 +168,13 @@ savings (ReceiveFrom _fromIban _amount _name _ref) = do
   return Nothing
 
 -- TODO: can we combine giro and savings getters somehow?
-savings GetBalance = 
-  (Just . ReturnBalance) <$> balance
-savings GetOwner = 
-  (Just . ReturnOwner) <$> owner
-savings GetIban = 
-  (Just . ReturnIban) <$> iban
-savings GetType = 
+savings GetBalance =
+  Just . ReturnBalance <$> balance
+savings GetOwner =
+  Just . ReturnOwner <$> owner
+savings GetIban =
+  Just . ReturnIban <$> iban
+savings GetType =
   return $ Just $ ReturnType Savings
-savings GetTXLines = do
-  txs <- txLines
-  return $ Just $ ReturnTXLines $ txs
+savings GetTXLines =
+  Just . ReturnTXLines <$> txLines

@@ -1,4 +1,3 @@
-{-# LANGUAGE Arrows           #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Domain.Account.Api where
 
@@ -9,11 +8,10 @@ import           Data.MonadicStreamFunction.InternalCore
 import qualified Data.Text                               as T
 import           Data.Time.Clock
 import           Database.Persist.Sql
-import           Domain.Customer                         (CustomerId)
+import           Domain.Types
 import qualified Infrastructure.DB.Banking               as DB
 
-newtype Iban = Iban T.Text deriving Show
-type Money   = Double
+
 data TXLine  = TXLine Money Iban T.Text T.Text UTCTime deriving Show
 
 data AccountType = Giro | Savings deriving Show
