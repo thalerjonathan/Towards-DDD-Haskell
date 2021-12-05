@@ -164,14 +164,15 @@ test-suite banking-test
                     , Infrastructure.DB.Config
                     , Infrastructure.DB.Banking
                     , Infrastructure.DB.Pool
-                    , BDD.Tests
-                    , BDD.Steps.Deposit
-                    , Domain.Tests
-                    , Domain.Account.Tests
-                    , Domain.Account.Data
-                    , Domain.Account.Runner
-                    , Application.Tests
-                    , Application.Deposit
+                    , Test.BDD.Tests
+                    , Test.BDD.Steps.Deposit
+                    , Test.Domain.Tests
+                    , Test.Domain.Account.Tests
+                    , Test.Domain.Account.Data
+                    , Test.Domain.Account.Runner
+                    , Test.Application.Tests
+                    , Test.Application.Deposit
+                    , Test.Application.Runner
 
   hs-source-dirs:     src/
                     , test

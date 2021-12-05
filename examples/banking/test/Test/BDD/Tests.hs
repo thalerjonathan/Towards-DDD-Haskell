@@ -1,4 +1,4 @@
-module BDD.Tests
+module Test.BDD.Tests
   ( bdd_tests
   ) where
 
@@ -12,7 +12,7 @@ import           Test.Cucumber.Data.Step
 import           Test.Cucumber.Parsing.Gherkin
 import           Test.Cucumber.Runner
 
-import           BDD.Steps.Deposit
+import           Test.BDD.Steps.Deposit
 
 import           Control.Monad
 import           Control.Monad.Except

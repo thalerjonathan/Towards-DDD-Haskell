@@ -1,4 +1,4 @@
-module BDD.Steps.Deposit where
+module Test.BDD.Steps.Deposit where
 
 -- import           Test.Tasty.HUnit
 

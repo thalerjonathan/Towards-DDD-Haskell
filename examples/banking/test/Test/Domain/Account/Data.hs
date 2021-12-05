@@ -1,4 +1,4 @@
-module Domain.Account.Data where
+module Test.Domain.Account.Data where
 
 import           Data.Fixed
 import           Data.Time

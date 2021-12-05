@@ -1,8 +1,8 @@
 module Main where
 
 -- import           BDD.Tests
-import           Domain.Tests
-import           Application.Tests
+import           Test.Domain.Tests
+import           Test.Application.Tests
 import           Test.Tasty
 
 main :: IO ()

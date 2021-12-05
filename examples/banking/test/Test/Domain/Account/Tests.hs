@@ -1,11 +1,11 @@
-module Domain.Account.Tests where
+module Test.Domain.Account.Tests where
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
 import           Domain.Account.Api
-import           Domain.Account.Data
-import           Domain.Account.Runner
+import           Test.Domain.Account.Data
+import           Test.Domain.Account.Runner
 
 account_tests :: TestTree
 account_tests = testGroup "Account Tests"
@@ -66,4 +66,4 @@ given_savings_account_when_deposit_then_exception = testCase "Deposits in Saving
 
 isDepositException :: Maybe AccountCommandResult -> Bool
 isDepositException (Just (DepositResult (Left _))) = True
-isDepositException _ = False
+isDepositException _                               = False

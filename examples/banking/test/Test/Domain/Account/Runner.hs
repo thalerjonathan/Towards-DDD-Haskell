@@ -1,4 +1,4 @@
-module Domain.Account.Runner where
+module Test.Domain.Account.Runner where
 
 import           Control.Monad.Free.Church
 import           Control.Monad.State
@@ -6,7 +6,7 @@ import           Data.Time
 import           Domain.Account.Api
 import           Domain.Types
 
-import           Domain.Account.Data
+import           Test.Domain.Account.Data
 
 testAccountProgram:: AccountProgram a -> a
 testAccountProgram prog = ret
