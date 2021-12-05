@@ -168,6 +168,10 @@ test-suite banking-test
                     , BDD.Steps.Deposit
                     , Domain.Tests
                     , Domain.Account.Tests
+                    , Domain.Account.Data
+                    , Domain.Account.Runner
+                    , Application.Tests
+                    , Application.Deposit
 
   hs-source-dirs:     src/
                     , test

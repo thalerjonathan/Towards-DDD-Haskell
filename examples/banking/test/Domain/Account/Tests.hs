@@ -1,16 +1,11 @@
 module Domain.Account.Tests where
 
-import           Control.Monad.Free.Church
-import           Control.Monad.State
-import           Data.Fixed
-import           Data.Time
-import           Database.Persist.Sql
-import           Domain.Account.Api
-import           Domain.Account.Impl
-import           Domain.Types
-import qualified Infrastructure.DB.Banking as DB
 import           Test.Tasty
 import           Test.Tasty.HUnit
+
+import           Domain.Account.Api
+import           Domain.Account.Data
+import           Domain.Account.Runner
 
 account_tests :: TestTree
 account_tests = testGroup "Account Tests"
@@ -18,57 +13,57 @@ account_tests = testGroup "Account Tests"
                   ]
 
 deposit_tests :: TestTree
-deposit_tests = testCase "Deposit Scenarios" $ do
-  let k = mkAccountKey
-  let e = DB.Entity k (DB.AccountEntity {
-      DB.accountEntityOwner   = "cad6e64d-23a2-4598-8a77-17d6b8e3733b"
-    , DB.accountEntityIban    = "AT12 12345 01234567890"
-    , DB.accountEntityBalance = 0
-    , DB.accountEntityType    = DB.Giro
-    })
-  let a = account e
-  let now = mkUTCTime 2021 03 01 0 0 0
+deposit_tests = testGroup "Deposit Tests"
+                  [ given_initial_account_when_balance_then_return_0
+                  , given_giro_account_when_multipledeposit_then_reflect_newbalance
+                  , given_savings_account_when_deposit_then_exception
+                  ]
 
-  let (bal, (_mBal, _mTxs)) = runState (runAccountPure (getBalance a) [] now) (Nothing, Nothing)
+given_initial_account_when_balance_then_return_0 :: TestTree
+given_initial_account_when_balance_then_return_0 = testCase "Initial Account has balance 0" $ do
+  -- given
+  let a = mkTestAccount Giro
+  -- when
+  let bal = testAccountProgram (getBalance a)
+  -- then
+  assertEqual "Balance not as expected" bal 0
 
-  assertEqual "Balance should be 0" bal 1
+given_giro_account_when_multipledeposit_then_reflect_newbalance :: TestTree
+given_giro_account_when_multipledeposit_then_reflect_newbalance = testCase "Multiple deposits in Giro increase balance" $ do
+  -- given
+  let a       = mkTestAccount Giro
+      amount1 = 123
+      amount2 = 234
 
-mkAccountKey :: DB.Key DB.AccountEntity
-mkAccountKey =
-    case keyFromValues v of
-      (Left err) -> error $ show err
-      (Right k)  -> k
-  where
-    v = [PersistInt64 0]
+  -- when
+  let (a', _, _)  = testAccountProgram (deposit a amount1)
+  let (a'', _, _) = testAccountProgram (deposit a' amount2)
+  let bal         = testAccountProgram (getBalance a)
+  let bal'        = testAccountProgram (getBalance a')
+  let bal''       = testAccountProgram (getBalance a'')
 
-runAccountPure :: AccountProgram a
-               -> [TXLine]
-               -> UTCTime
-               -> State (Maybe Money, Maybe TXLine) a
-runAccountPure prog txs t = foldF interpret prog
-  where
-    interpret :: AccountLang a -> State (Maybe Money, Maybe TXLine) a
-    interpret (FetchTXLines _ cont)  = do
-      return (cont txs)
+  -- then
+  -- TODO: need to check all return values!
+  assertEqual "Balance not as expected" bal 0
+  assertEqual "Balance not as expected" bal' amount1
+  assertEqual "Balance not as expected" bal'' (amount1 + amount2)
 
-    interpret (PersistTXLine _ m iban name ref cont) = do
-      let tx = TXLine m iban name ref t
-      modify (\(bal, _) -> (bal, Just tx))
-      return (cont tx)
+given_savings_account_when_deposit_then_exception :: TestTree
+given_savings_account_when_deposit_then_exception = testCase "Deposits in Savings not allowed, not changed balance" $ do
+  -- given
+  let a       = mkTestAccount Savings
+      amount = 123
 
-    interpret (UpdateBalance _ m a) = do
-      modify (\(_, tx) -> (Just m, tx))
-      return a
+  -- when
+  let (a', ret, _)  = testAccountProgram (deposit a amount)
 
--- https://wiki.haskell.org/Time
--- https://williamyaoh.com/posts/2019-09-16-time-cheatsheet.html
-mkUTCTime :: Integer
-          -> Int
-          -> Int
-          -> Int
-          -> Int
-          -> Pico
-          -> UTCTime
-mkUTCTime year mon day hour mn sec =
-  UTCTime (fromGregorian year mon day)
-          (timeOfDayToTime (TimeOfDay hour mn sec))
+  let balInit     = testAccountProgram (getBalance a)
+  let balAfter    = testAccountProgram (getBalance a')
+
+  -- then
+  assertEqual "Balance not as expected" balInit balAfter
+  assertBool "Expected Deposit Exception" (isDepositException ret)
+
+isDepositException :: Maybe AccountCommandResult -> Bool
+isDepositException (Just (DepositResult (Left _))) = True
+isDepositException _ = False
