@@ -1,5 +1,5 @@
 # Banking System
-The goal is to implement a simple banking system for bank employees where they can view customers, their accounts and transactions, as well as performing the following operations:
+A simple banking system to view customers, their accounts and transactions, as well as performing the following operations:
 
 1. Depositing money into an account.
 2. Withdrawing money from an account.
