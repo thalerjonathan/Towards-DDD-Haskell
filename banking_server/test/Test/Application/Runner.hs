@@ -9,7 +9,7 @@ import           Domain.Customer.Repository
 import           Domain.Types
 
 customerRepoStub :: CustomerRepoLang a -> Identity a
-customerRepoStub (AddCustomer _c a) = do
+customerRepoStub (AddCustomer _cid _cname a) = do
   return a
 customerRepoStub (AllCustomers cont) = do
   return $ cont []

@@ -8,6 +8,8 @@ import           Control.Monad.Free.Church
 import           Application.DomainEvents
 import           Data.Text                  as T
 import           Data.Time.Clock
+import           Data.UUID
+import           Data.UUID.V4               (nextRandom)
 import           Database.Persist.Sql
 import           Domain.Account.Api
 import           Domain.Account.Repository
@@ -35,17 +37,22 @@ data ApplicationLang a
   | forall b. RunAggregate (Aggregate b) (b -> a)
   | PersistDomainEvent DomainEvent a
   | Logging LogLevel T.Text a
+  | NextUUID (UUID -> a)
 
 instance Functor ApplicationLang where
   fmap f (RunRepo scr g)            = RunRepo scr (f . g)
   fmap f (RunAggregate scr g)       = RunAggregate scr (f . g)
   fmap f (PersistDomainEvent evt a) = PersistDomainEvent evt (f a)
   fmap f (Logging lvl txt a)        = Logging lvl txt (f a)
+  fmap f (NextUUID g)               = NextUUID (f . g)
 
 type Application a = F ApplicationLang a
 
 runRepo :: Repository a -> Application a
 runRepo repo = liftF (RunRepo repo id)
+
+nextUUID :: Application UUID
+nextUUID = liftF (NextUUID id)
 
 persistDomainEvent :: DomainEvent -> Application ()
 persistDomainEvent evt = liftF (PersistDomainEvent evt ())
@@ -91,6 +98,9 @@ runApplication prog conn = foldF interpret prog
     interpret (Logging lvl txt a) = do
       putStrLn $ "LOG " ++ show lvl ++ ": " ++ show txt
       return a
+    interpret (NextUUID f) = do
+      -- u <- nextRandom
+      f <$> nextRandom
     interpret (PersistDomainEvent evt a) = do
       now <- getCurrentTime
       let (evtName, payload) = toPayload evt

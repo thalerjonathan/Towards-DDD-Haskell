@@ -1,21 +1,22 @@
 module Domain.Customer.Repository where
 
 import           Control.Monad.Free.Church
+import qualified Data.Text                 as T
 import           Database.Persist.Sql
 import           Domain.Customer.Customer
 import           Domain.Types
 import           Infrastructure.DB.Banking as DB
 
 data CustomerRepoLang a
-  = AddCustomer Customer a
+  = AddCustomer CustomerId T.Text (Customer -> a)
   | AllCustomers ([Customer] -> a)
   | FindCustomerById CustomerId (Maybe Customer -> a)
   deriving Functor
 
 type CustomerRepoProgram = F CustomerRepoLang
 
-addCustomer :: Customer -> CustomerRepoProgram ()
-addCustomer c = liftF (AddCustomer c ())
+addCustomer :: CustomerId -> T.Text -> CustomerRepoProgram Customer
+addCustomer cid cname = liftF (AddCustomer cid cname id)
 
 allCustomers :: CustomerRepoProgram [Customer]
 allCustomers = liftF (AllCustomers id)
@@ -27,17 +28,20 @@ runCustomerRepo :: CustomerRepoProgram a -> SqlBackend -> IO a
 runCustomerRepo prog conn = foldF interpretCustomerRepo prog
   where
     interpretCustomerRepo :: CustomerRepoLang a -> IO a
-    interpretCustomerRepo (AddCustomer _c a) = do
-      return a
+    interpretCustomerRepo (AddCustomer cid cname f) = do
+      let cEntity = CustomerEntity (customerIdToText cid) cname
+      _cDbId <- DB.insertCustomer cEntity conn
+      let c = customer cid cname
+      return $ f c
 
-    interpretCustomerRepo (AllCustomers cont) = do
+    interpretCustomerRepo (AllCustomers f) = do
       cs <- DB.allCustomers conn
-      return $ cont $ map (\(Entity _ c) ->
+      return $ f $ map (\(Entity _ c) ->
         customer (customerIdFromTextUnsafe $ DB.customerEntityDomainId c) (DB.customerEntityName c)) cs
 
-    interpretCustomerRepo (FindCustomerById cid cont) = do
+    interpretCustomerRepo (FindCustomerById cid f) = do
       m <- DB.customerByDomainId (customerIdToText cid) conn
       case m of
-        Nothing -> return $ cont Nothing
+        Nothing -> return $ f Nothing
         (Just (Entity _ c)) -> do
-          return $ cont $ Just $ customer cid (DB.customerEntityName c)
+          return $ f $ Just $ customer cid (DB.customerEntityName c)

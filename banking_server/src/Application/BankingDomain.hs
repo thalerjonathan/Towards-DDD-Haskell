@@ -11,10 +11,29 @@ import           Domain.Customer.Customer
 import           Domain.Customer.Repository
 import           Domain.Types
 
--- TODO: create customer
--- TODO: create account
-
 data TransferType = Transactional | Eventual
+
+createCustomer :: T.Text -> Application T.Text
+createCustomer name = do
+  cId <- CustomerId <$> nextUUID
+  _c <- runRepo $ customerRepo $ addCustomer cId name
+  return $ customerIdToText cId
+
+createAccount :: T.Text
+              -> T.Text
+              -> Double
+              -> T.Text
+              -> Application (Maybe Exception)
+createAccount owner _iban _balance _t = do
+  let cid = customerIdFromTextUnsafe owner
+  mc <- runRepo $ customerRepo $ findCustomerById cid
+  case mc of
+    Nothing -> return $ Just CustomerNotFound
+    (Just _c) -> do
+      --let at = read (T.unpack t) :: DB.AccountEntityType
+      --let acc = AccountEntity owner balance iban at
+      --_aid <- DB.insertAccount acc conn
+      return Nothing
 
 getAllCustomers :: Application [CustomerDetailsDTO]
 getAllCustomers = do
@@ -25,7 +44,6 @@ getAllCustomers = do
 getCustomer :: T.Text -> Application (Either Exception CustomerDTO)
 getCustomer cIdStr = do
     let cid = customerIdFromTextUnsafe cIdStr
-
     mc <- runRepo $ customerRepo $ findCustomerById cid
     case mc of
       Nothing -> return $ Left CustomerNotFound
