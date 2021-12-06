@@ -36,7 +36,9 @@ testApplication prog accRepoInter custRepoInter
       f <$> foldF accRepoInter r
     interpret (RunRepo (CustomerRepo r) f)  = do
       f <$> foldF custRepoInter r
-    interpret (PersistDomainEvent _evt a) = do
+    interpret (Logging _lvl _txt a) = do
+      return a
+    interpret (PersistDomainEvent _evt _a) = do
       undefined
     interpret (RunAggregate (AccountAggregate _a) _f) = do
       undefined

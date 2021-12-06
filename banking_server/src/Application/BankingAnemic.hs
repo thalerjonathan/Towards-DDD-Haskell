@@ -316,9 +316,9 @@ transferSent evt conn = do
 
                   return ()
   where
-    transferSentFailed :: TransferSentEvent -> T.Text -> IO ()
+    transferSentFailed :: TransferSentEventData -> T.Text -> IO ()
     transferSentFailed evtSent err = do
-      let evtFailed = TransferFailedEvent {
+      let evtFailed = TransferFailedEventData {
           transferFailedEventError             = err
         , transferFailedEventAmount            = transferSentEventAmount evtSent
         , transferFailedEventReference         = transferSentEventReference evtSent
@@ -338,7 +338,7 @@ transferSent evt conn = do
       return ()
 
 
-transferFailed :: TransferFailedEvent
+transferFailed :: TransferFailedEventData
                -> SqlBackend
                -> IO ()
 transferFailed evt conn = do
@@ -349,19 +349,19 @@ transferFailed evt conn = do
 
   mFrom <- DB.accountByIban fromIban conn
   case mFrom of
-    Nothing -> return () -- ignore errors, what should we do?
+    Nothing -> putStrLn "Processing TransferFailed event failed: could not find sending Account!"
     (Just (Entity fromAid fromAccount)) -> do
       mTo <- DB.accountByIban toIban conn
       case mTo of
-        Nothing -> return () -- ignore errors, what should we do?
+        Nothing -> putStrLn "Processing TransferFailed event failed: could not find receiving Account!"
         (Just (Entity _ toAccount)) -> do
           mfc <- DB.customerByDomainId (accountEntityOwner fromAccount) conn
           case mfc of
-            Nothing -> return () -- ignore errors, what should we do?
+            Nothing -> putStrLn "Processing TransferFailed event failed: could not find sending Customer!"
             (Just _) -> do
               mtc <- DB.customerByDomainId (accountEntityOwner toAccount) conn
               case mtc of
-                Nothing -> return () -- ignore errors, what should we do?
+                Nothing -> putStrLn "Processing TransferFailed event failed: could not find receiving Customer!"
                 (Just (Entity _ toCustomer)) -> do
                   let toName = customerEntityName toCustomer
 

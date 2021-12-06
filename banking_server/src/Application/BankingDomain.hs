@@ -3,9 +3,7 @@ module Application.BankingDomain where
 import           Application.DTO
 import           Application.DomainEvents   as DomainEvents
 import           Application.Exceptions
-import           Data.Maybe
 import           Data.Text                  as T
-import           Data.UUID
 import           Domain.Account.Api
 import           Domain.Account.Repository
 import           Domain.Application
@@ -112,29 +110,38 @@ checkAndPerformTransfer fromIban toIban amount reference txType = do
       case mTo of
         Nothing -> return $ Left AccountNotFound
         (Just toAccount) -> do
-          case txType of
-            Transactional -> performTransferTransactional fromAccount toAccount amount reference
-            Eventual      -> performTransferEventual fromAccount toAccount amount reference
-
-          -- TODO: put this into a domain service
-          {-
-          if not $ sameOwner fromAccount toAccount
-            -- not same owner, can only transfer between giros and max 5000 amount
-            then do
-              if isSavings fromAccount || isSavings  toAccount
-                then return $ Left $ InvalidAccountOperation "Transfer cannot happen with Savings account of different customers!"
-                else if amount > 5000
-                  then return $ Left $ InvalidAccountOperation "Transfer between different customers cannot exceed 5000€!"
-                  else
-                    case txType of
-                      Transactional -> performTransferTransactional fromAccount toAccount amount reference
-                      Eventual      -> performTransferEventual fromAccount toAccount amount reference
-            -- same owner, anything goes, no restrictions
-            else do
+          -- NOTE: this check is similar to a domain service 
+          check <- runAggregate $ accountAggregate $ checkTransfer fromAccount toAccount amount
+          case check of 
+            (Just err) -> do
+              return $ Left $ InvalidAccountOperation err
+            _ ->
               case txType of
-                      Transactional -> performTransferTransactional fromAccount toAccount amount reference
-                      Eventual      -> performTransferEventual fromAccount toAccount amount reference
-            -}
+                Transactional -> performTransferTransactional fromAccount toAccount amount reference
+                Eventual      -> performTransferEventual fromAccount toAccount amount reference
+
+-- NOTE: this can be seen as Domain Service functionality
+checkTransfer :: Account
+              -> Account
+              -> Double
+              -> AccountProgram (Maybe T.Text)
+checkTransfer fromAccount toAccount amount = do
+  fromOwner <- getOwner fromAccount
+  toOwner   <- getOwner toAccount
+
+  -- same owner, anything goes, no restrictions
+  if fromOwner == toOwner
+    then return Nothing
+    -- not same owner, can only transfer between giros and max 5000 amount
+    else do
+      fromType <- getType fromAccount
+      toType   <- getType toAccount
+      
+      if fromType == Savings || toType == Savings
+        then return $ Just "Transfer cannot happen with Savings account of different customers!"
+        else if amount > 5000
+          then return $ Just "Transfer between different customers cannot exceed 5000€!"
+          else return Nothing
 
 performTransferTransactional :: Account
                              -> Account
@@ -162,14 +169,12 @@ performTransferTransactional fromAccount toAccount amount reference = do
             (TransferToResult (Right fromTxLine)) -> do
               (_, retFrom, _) <- runAggregate $ accountAggregate $ receiveFrom toAccount fromIban amount fromName reference
               case retFrom of
-                (ReceiveFromResult (Right _)) -> do
+                (ReceiveFromResult _) -> do
                   return $ Right $ txLineToDTO fromTxLine
-                (ReceiveFromResult (Left err)) ->
-                  return $ Left err
                 _ ->
                   error "unexpected result"
             (TransferToResult (Left err)) ->
-              return $ Left err
+              return $ Left $ InvalidAccountOperation err
             _ ->
               error "unexpected result"
 
@@ -183,18 +188,18 @@ performTransferEventual fromAccount toAccount amount reference = do
   mfc       <- runRepo $ customerRepo $ findCustomerById fromOwner
   case mfc of
     Nothing -> return $ Left CustomerNotFound
-    (Just fromCustomer) -> do
+    (Just _) -> do
       toOwner <- runAggregate $ accountAggregate $ getOwner toAccount
       mtc     <- runRepo $ customerRepo $ findCustomerById toOwner
       case mtc of
         Nothing -> return $ Left CustomerNotFound
         (Just toCustomer) -> do
-          toName        <- runAggregate $ accountAggregate $ getName toCustomer
-          (Iban toIban) <- runAggregate $ accountAggregate $ getIban toAccount
+          toName <- runAggregate $ customerAggregate $ getName toCustomer
+          toIban@(Iban toIbanTx) <- runAggregate $ accountAggregate $ getIban toAccount
 
           (_, ret, _) <- runAggregate $ accountAggregate $ transferTo fromAccount toIban amount toName reference
           case ret of
-            (Just (TransferToResult (Right txLine))) -> do
+            (TransferToResult (Right txLine)) -> do
               (Iban fromIban) <- runAggregate $ accountAggregate $ getIban fromAccount
 
               let evtData = TransferSentEventData {
@@ -203,11 +208,103 @@ performTransferEventual fromAccount toAccount amount reference = do
                 , transferSentEventSendingCustomer   = customerIdToText fromOwner
                 , transferSentEventReceivingCustomer = customerIdToText toOwner
                 , transferSentEventSendingAccount    = fromIban
-                , transferSentEventReceivingAccount  = toIban
+                , transferSentEventReceivingAccount  = toIbanTx
                 }
 
               persistDomainEvent (DomainEvents.TransferSent evtData)
               return $ Right $ txLineToDTO txLine
+            _ ->
+              error "Unexpected result"
+
+processDomainEvent :: DomainEvent -> Application ()
+processDomainEvent (DomainEvents.TransferSent evt)   = transferSent evt
+processDomainEvent (DomainEvents.TransferFailed evt) = transferFailed evt
+
+transferSent :: TransferSentEventData -> Application ()
+transferSent evt = do
+  let fromIban  = transferSentEventSendingAccount evt
+      toIban    = transferSentEventReceivingAccount evt
+      amount    = transferSentEventAmount evt
+      reference = transferSentEventReference evt
+
+  mFrom <- runRepo $ accountRepo $ findAccountByIban (Iban fromIban)
+  case mFrom of
+    Nothing -> transferSentFailed evt "Could not find sending Account"
+    (Just fromAccount) -> do
+      mTo <- runRepo $ accountRepo $ findAccountByIban (Iban toIban)
+      case mTo of
+        Nothing -> transferSentFailed evt "Could not find receiving Account"
+        (Just toAccount) -> do
+          fromOwner <- runAggregate $ accountAggregate $ getOwner fromAccount
+          mfc <- runRepo $ customerRepo $ findCustomerById fromOwner
+          case mfc of
+            Nothing -> transferSentFailed evt "Could not find sending customer"
+            (Just _) -> do
+              toOwner <- runAggregate $ accountAggregate $ getOwner toAccount
+              mtc     <- runRepo $ customerRepo $ findCustomerById toOwner
+              case mtc of
+                Nothing -> transferSentFailed evt "Could not find receiving customer"
+                (Just fromCustomer) -> do
+                  fromName <- runAggregate $ customerAggregate $ getName fromCustomer
+
+                  (_, retFrom, _) <- runAggregate $ accountAggregate $ receiveFrom toAccount (Iban fromIban) amount fromName reference
+                  case retFrom of
+                    (ReceiveFromResult _) -> do
+                      return ()
+                    _ ->
+                      error "unexpected result"
+  where
+    transferSentFailed :: TransferSentEventData -> T.Text -> Application ()
+    transferSentFailed evtSentData err = do
+      let evtFailedData = TransferFailedEventData {
+          transferFailedEventError             = err
+        , transferFailedEventAmount            = transferSentEventAmount evtSentData
+        , transferFailedEventReference         = transferSentEventReference evtSentData
+        , transferFailedEventSendingCustomer   = transferSentEventSendingCustomer evtSentData
+        , transferFailedEventReceivingCustomer = transferSentEventReceivingCustomer evtSentData
+        , transferFailedEventSendingAccount    = transferSentEventSendingAccount evtSentData
+        , transferFailedEventReceivingAccount  = transferSentEventReceivingAccount evtSentData
+        }
+
+      persistDomainEvent (DomainEvents.TransferFailed evtFailedData)
+
+transferFailed :: TransferFailedEventData -> Application ()
+transferFailed evt = do
+  let fromIban  = transferFailedEventSendingAccount evt
+      toIban    = transferFailedEventReceivingAccount evt
+      amount    = transferFailedEventAmount evt
+      reference = transferFailedEventReference evt
+
+  mFrom <- runRepo $ accountRepo $ findAccountByIban (Iban fromIban)
+  case mFrom of
+    Nothing -> logError "Processing TransferFailed event failed: could not find sending Account!"
+    (Just fromAccount) -> do
+      mTo <- runRepo $ accountRepo $ findAccountByIban (Iban toIban)
+      case mTo of
+        Nothing -> logError "Processing TransferFailed event failed: could not find receiving Account!"
+        (Just toAccount) -> do
+          fromOwner <- runAggregate $ accountAggregate $ getOwner fromAccount
+          mfc <- runRepo $ customerRepo $ findCustomerById fromOwner
+          case mfc of
+            Nothing -> logError "Processing TransferFailed event failed: could not find sending Customer!"
+            (Just _) -> do
+              toOwner <- runAggregate $ accountAggregate $ getOwner toAccount
+              mtc     <- runRepo $ customerRepo $ findCustomerById toOwner
+              case mtc of
+                Nothing -> logError "Processing TransferFailed event failed: could not find receiving Customer!"
+                (Just toCustomer) -> do
+                  toName <- runAggregate $ customerAggregate $ getName toCustomer
+
+                  (_, retFrom, _) <- runAggregate $ accountAggregate $ receiveFrom fromAccount (Iban fromIban) amount toName ("Transfer failed: " <> reference)
+                  case retFrom of
+                    (ReceiveFromResult _) -> do
+                      return ()
+                    _ ->
+                      error "unexpected result"
+
+-------------------------------------------------------------------------------
+-- Aggregate to DTO mappers
+-------------------------------------------------------------------------------
 
 customerToDetailsDTO :: Customer -> CustomerProgram CustomerDetailsDTO
 customerToDetailsDTO c = do

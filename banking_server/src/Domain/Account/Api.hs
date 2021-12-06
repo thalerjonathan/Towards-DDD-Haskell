@@ -14,7 +14,7 @@ import qualified Infrastructure.DB.Banking               as DB
 
 data TXLine  = TXLine Money Iban T.Text T.Text UTCTime deriving Show
 
-data AccountType = Giro | Savings deriving Show
+data AccountType = Giro | Savings deriving (Show, Eq)
 
 data AccountCommand
   = Deposit Money

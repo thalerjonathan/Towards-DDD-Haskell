@@ -90,12 +90,14 @@ handleTransfer :: AppCache
                -> Pool.DbPool
                -> TransferForm
                -> Handler Html
-handleTransfer cache p form = do
+handleTransfer _cache p form = do
     let fromIban  = transferFormFromIban form
         toIban    = transferFormToIban form
         amount    = transferFormAmount form
         reference = transferFormReference form
-    ret <- liftIO $ Pool.runWithTX p (transferEventual cache fromIban toIban amount reference)
+
+    -- ret <- liftIO $ Pool.runWithTX p (transferEventual cache fromIban toIban amount reference)
+    ret <- liftIO $ Pool.runWithTX p (App.runApplication (Banking.transferEventual fromIban toIban amount reference))
     case ret of
       (Left err) ->
         redirectToError $ exceptionToErrorMessage err

@@ -25,14 +25,14 @@ processNextEvent p = runWithTX p $ \conn -> do
     (Just (Entity pid pe)) -> do
       case persistedEventEntityType pe of
         "TransferSent" -> do
-          let mevt = decodeStrict (T.encodeUtf8 $ persistedEventEntityPayload pe) :: Maybe TransferSentEvent
+          let mevt = decodeStrict (T.encodeUtf8 $ persistedEventEntityPayload pe) :: Maybe TransferSentEventData
           case mevt of
             Nothing -> return ()
             (Just evt) -> do
               processDomainEvent (TransferSent evt) conn
               DB.markEventProcessed pid conn
         "TransferFailed" -> do
-          let mevt = decodeStrict (T.encodeUtf8 $ persistedEventEntityPayload pe) :: Maybe TransferFailedEvent
+          let mevt = decodeStrict (T.encodeUtf8 $ persistedEventEntityPayload pe) :: Maybe TransferFailedEventData
           case mevt of
             Nothing -> return ()
             (Just evt) -> do

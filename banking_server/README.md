@@ -3,7 +3,6 @@ The server implementing the simple Banking Domain
 
 ## TODOs
 - finish implementation with DDD
-  - implement transfer
   - implement add customer / account
 - Put interpreters in mock module, bcs its a mock
 - refactor Anemic Banking Application service: this doesn't have to be that bad

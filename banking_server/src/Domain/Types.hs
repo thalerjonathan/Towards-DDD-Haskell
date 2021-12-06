@@ -4,7 +4,7 @@ import           Data.Maybe
 import qualified Data.Text  as T
 import           Data.UUID
 
-newtype CustomerId = CustomerId UUID
+newtype CustomerId = CustomerId UUID deriving Eq
 
 instance Show CustomerId where
   show (CustomerId cid) = show cid
