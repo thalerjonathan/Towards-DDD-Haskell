@@ -16,7 +16,7 @@ module Application.BankingAnemic
 import qualified Data.Text                     as T
 import qualified Data.Text.Lazy                as TL
 
-import           Data.Aeson.Text
+import           Data.Aeson.Text                as Aeson
 import           Data.Time.Clock
 import           Data.UUID
 import           Data.UUID.V4                  (nextRandom)
@@ -254,7 +254,7 @@ performTransferEventual fromAid fromAccount toAccount amount reference conn = do
               now <- getCurrentTime
 
               let newFromTxLine  = TxLineEntity fromAid (accountEntityIban toAccount) (-amount) toName reference now
-              let evt = TransferSentEvent {
+              let evt = TransferSentEventData {
                   transferSentEventAmount            = amount
                 , transferSentEventReference         = reference
                 , transferSentEventSendingCustomer   = customerEntityDomainId fromCustomer
@@ -279,7 +279,7 @@ processDomainEvent :: DomainEvent
 processDomainEvent (TransferSent evt)   = transferSent evt
 processDomainEvent (TransferFailed evt) = transferFailed evt
 
-transferSent :: TransferSentEvent
+transferSent :: TransferSentEventData
              -> SqlBackend
              -> IO ()
 transferSent evt conn = do

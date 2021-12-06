@@ -32,6 +32,8 @@ data AccountCommandResult
   = AccountException T.Text
   | DepositResult (Either T.Text TXLine)
   | WithdrawResult (Either T.Text TXLine)
+  | TransferToResult (Either T.Text TXLine)
+  | ReceiveFromResult TXLine
   | ReturnTXLines [TXLine]
   | ReturnBalance Money
   | ReturnOwner CustomerId
@@ -57,57 +59,70 @@ type AccountEffects = (WriterT [AccountDomainEvent] AccountProgram)
 type Account = MSF
                 AccountEffects
                 AccountCommand
-                (Maybe AccountCommandResult)
+                AccountCommandResult
 
-execCommand :: Account -> AccountCommand -> AccountProgram (Account, Maybe AccountCommandResult, [AccountDomainEvent])
+execCommand :: Account -> AccountCommand -> AccountProgram (Account, AccountCommandResult, [AccountDomainEvent])
 execCommand a cmd = do
   ((ret, a'), domainEvts) <- runWriterT $ unMSF a cmd
   return (a', ret, domainEvts)
 
-getCommand :: Account -> AccountCommand -> (Maybe AccountCommandResult -> a) -> AccountProgram a
+getCommand :: Account -> AccountCommand -> (AccountCommandResult -> a) -> AccountProgram a
 getCommand a cmd f = do
   ((ret, _), _) <- runWriterT $ unMSF a cmd
   return (f ret)
 
-deposit :: Account -> Money -> AccountProgram (Account, Maybe AccountCommandResult, [AccountDomainEvent])
+deposit :: Account -> Money -> AccountProgram (Account, AccountCommandResult, [AccountDomainEvent])
 deposit a amount = execCommand a (Deposit amount)
 
-withdraw :: Account -> Money -> AccountProgram (Account, Maybe AccountCommandResult, [AccountDomainEvent])
+withdraw :: Account -> Money -> AccountProgram (Account, AccountCommandResult, [AccountDomainEvent])
 withdraw a amount = execCommand a (Withdraw amount)
+
+transferTo :: Account -> Iban -> Money -> T.Text -> T.Text -> AccountProgram (Account, AccountCommandResult, [AccountDomainEvent])
+transferTo a toIban amount name ref = execCommand a (TransferTo toIban amount name ref)
+
+receiveFrom :: Account -> Iban -> Money -> T.Text -> T.Text -> AccountProgram (Account, AccountCommandResult, [AccountDomainEvent])
+receiveFrom a fromIban amount name ref = execCommand a (ReceiveFrom fromIban amount name ref)
 
 getIban' :: Account -> AccountProgram Iban
 getIban' a = getCommand a GetIban f
   where
-    f (Just (ReturnIban i)) = i
-    f _                     = error "unexpected return in account GetIban"
+    f (ReturnIban i) = i
+    f _              = error "unexpected return in account GetIban"
+
+getOwner :: Account -> AccountProgram CustomerId
+getOwner a = do
+  ((ret, _), _) <- runWriterT $ unMSF a GetOwner
+  case ret of
+    (ReturnOwner o) -> return o
+    _               -> error "unexpected return in account GetOwner"
 
 getIban :: Account -> AccountProgram Iban
 getIban a = do
   ((ret, _), _) <- runWriterT $ unMSF a GetIban
   case ret of
-    (Just (ReturnIban i)) -> return i
-    _                     -> error "unexpected return in account GetIban"
+    (ReturnIban i) -> return i
+    _              -> error "unexpected return in account GetIban"
 
 getBalance :: Account -> AccountProgram Double
 getBalance a = do
   ((ret, _), _) <- runWriterT $ unMSF a GetBalance
   case ret of
-    (Just (ReturnBalance b)) -> return b
-    _                        -> error "unexpected return in account GetBalance"
+    (ReturnBalance b) -> return b
+    _                 -> error "unexpected return in account GetBalance"
 
 getType :: Account -> AccountProgram AccountType
 getType a = do
   ((ret, _), _) <- runWriterT $ unMSF a GetType
   case ret of
-    (Just (ReturnType i)) -> return i
-    _                     -> error "unexpected return in account GetType"
+    (ReturnType i) -> return i
+    _              -> error "unexpected return in account GetType"
 
 getTXLines :: Account -> AccountProgram [TXLine]
 getTXLines a = do
   ((ret, _), _) <- runWriterT $ unMSF a GetTXLines
   case ret of
-    (Just (ReturnTXLines ts)) -> return ts
-    _                         -> error "unexpected return in account GetTXLines"
+    (ReturnTXLines ts) -> return ts
+    _                  -> error "unexpected return in account GetTXLines"
 
 emitEvent :: Monad m => AccountDomainEvent -> WriterT [AccountDomainEvent] m ()
 emitEvent e = tell [e]
@@ -120,20 +135,6 @@ persistTXLine aid m i name ref = lift $ liftF (PersistTXLine aid m i name ref id
 
 updateBalance :: DB.AccountEntityId -> Money -> AccountEffects ()
 updateBalance aid m = lift $ liftF (UpdateBalance aid m ())
-
-{-
-execCommand :: Account -> AccountCommand -> IO (Account, (Maybe AccountCommandResult, [AccountDomainEvent]))
-execCommand a cmd = do
-  ((ret, a'), es) <- runAccountAggregate (unMSF a cmd)
-  return (a', (ret, es))
-
-execCommands :: Account -> [AccountCommand] -> IO ([Maybe AccountCommandResult], [AccountDomainEvent])
-execCommands a cmds = do
-  (ret, es) <- runAccountAggregate (embed a cmds)
-  return (ret, es)
--}
-
--- TODO: put run into separate interpreter
 
 runAccountAggregate :: AccountProgram a -> SqlBackend -> IO a
 runAccountAggregate prog conn = foldF interpret prog

@@ -95,18 +95,18 @@ newTxLine m i name ref = do
   addTXLine tx
   return tx
 
-giro :: AccountCommand -> AccountInternalEffects (Maybe AccountCommandResult)
+giro :: AccountCommand -> AccountInternalEffects AccountCommandResult
 giro (Withdraw amount) = do
   b <- balance
   i <- iban
 
   let newBalance = b - amount
   if newBalance < overdraftLimit
-    then return $ Just $ WithdrawResult $ Left "Cannot overdraw Giro account by more than -1000!"
+    then return $ WithdrawResult $ Left "Cannot overdraw Giro account by more than -1000!"
     else do
       changeBalance newBalance
       tx <- newTxLine (-amount) i "Withdraw" "Withdraw"
-      return $ Just $ WithdrawResult $ Right tx
+      return $ WithdrawResult $ Right tx
 
 giro (Deposit amount) = do
   b <- balance
@@ -115,66 +115,77 @@ giro (Deposit amount) = do
   let newBalance = b + amount
   tx <- newTxLine amount i "Deposit" "Deposit"
   changeBalance newBalance
-  return $ Just $ DepositResult $ Right tx
+  return $ DepositResult $ Right tx
 
-giro (TransferTo _toIban _amount _name _ref) = do
-  -- TODO: implement. check overdraft limit
-  -- TODO: update balance
-  {-
-  fromIban <- owner
-  toIban   <- owner
-  emitEvent $ TransferSent amount ref owner owner iban toIban
-  _tx <- newTxLine (-amount) toIban name ref
-  -}
-  return Nothing
+giro (TransferTo toIban amount name ref) = do
+  b <- balance
+  
+  let newBalance = b - amount
+  if newBalance < overdraftLimit
+    then return $ TransferToResult $ Left "Cannot overdraw Giro account by more than -1000!"
+    else do
+      changeBalance newBalance
+      tx <- newTxLine (-amount) toIban name ref
+      -- emitEvent $ TransferSent amount ref owner owner iban toIban
+      return $ TransferToResult $ Right tx
 
-giro (ReceiveFrom _fromIban _amount _name _ref) = do
-  -- TODO: implement
-  -- TODO: update balance
-  {-
-  emitEvent $ TransferFailed "TestError" amount ref owner owner iban fromIban
-  _tx <- newTxLine aid amount fromIban name ref
-  -}
-  return Nothing
+giro (ReceiveFrom fromIban amount name ref) = do
+  b <- balance
+  let newBalance = b + amount
+
+  changeBalance newBalance
+  tx <- newTxLine amount fromIban name ref
+  -- emitEvent $ TransferSent amount ref owner owner iban toIban
+  return $ ReceiveFromResult tx
 
 -- TODO: can we combine giro and savings getters somehow?
 giro GetBalance =
-  Just . ReturnBalance <$> balance
+  ReturnBalance <$> balance
 giro GetOwner =
-  Just . ReturnOwner <$> owner
+  ReturnOwner <$> owner
 giro GetIban =
-  Just . ReturnIban <$> iban
+  ReturnIban <$> iban
 giro GetType =
-  return $ Just $ ReturnType Giro
+  return $ ReturnType Giro
 giro GetTXLines =
-  Just . ReturnTXLines <$> txLines
+  ReturnTXLines <$> txLines
 
 
-savings :: AccountCommand -> AccountInternalEffects (Maybe AccountCommandResult)
+savings :: AccountCommand -> AccountInternalEffects AccountCommandResult
 savings (Withdraw _) = do
-  return $ Just $ WithdrawResult $ Left "Cannot withdraw money directly from Savings Account! Use transfer of money into a Giro Account of the same customer."
+  return $ WithdrawResult $ Left "Cannot withdraw money directly from Savings Account! Use transfer of money into a Giro Account of the same customer."
 
 savings (Deposit _) = do
-  return $ Just $ DepositResult $ Left "Cannot deposit money directly into Savings Account! Use transfer of money from a Giro Account of the same customer."
+  return $ DepositResult $ Left "Cannot deposit money directly into Savings Account! Use transfer of money from a Giro Account of the same customer."
 
-savings (TransferTo _toIban _amount _name _ref) = do
-  -- TODO: implement. check overdraft limit
-  -- TODO: update balance
-  return Nothing
+savings (TransferTo toIban amount name ref) = do
+  b <- balance
+  
+  let newBalance = b - amount
+  if newBalance < 0
+    then return $ TransferToResult $ Left "Cannot overdraw Savings account by more than -1000!"
+    else do
+      changeBalance newBalance
+      tx <- newTxLine (-amount) toIban name ref
+      -- emitEvent $ TransferSent amount ref owner owner iban toIban
+      return $ TransferToResult $ Right tx
 
-savings (ReceiveFrom _fromIban _amount _name _ref) = do
-  -- TODO: implement
-  -- TODO: update balance
-  return Nothing
+savings (ReceiveFrom fromIban amount name ref) = do
+  b <- balance
+  let newBalance = b + amount
 
--- TODO: can we combine giro and savings getters somehow?
+  changeBalance newBalance
+  tx <- newTxLine amount fromIban name ref
+  -- emitEvent $ TransferSent amount ref owner owner iban toIban
+  return $ ReceiveFromResult tx
+
 savings GetBalance =
-  Just . ReturnBalance <$> balance
+  ReturnBalance <$> balance
 savings GetOwner =
-  Just . ReturnOwner <$> owner
+  ReturnOwner <$> owner
 savings GetIban =
-  Just . ReturnIban <$> iban
+  ReturnIban <$> iban
 savings GetType =
-  return $ Just $ ReturnType Savings
+  return $ ReturnType Savings
 savings GetTXLines =
-  Just . ReturnTXLines <$> txLines
+  ReturnTXLines <$> txLines

@@ -62,8 +62,8 @@ given_savings_account_when_deposit_then_exception = testCase "Deposits in Saving
 
   -- then
   assertEqual "Balance not as expected" balInit balAfter
-  assertBool "Expected Deposit Exception" (isDepositException ret)
+  assertBool "Expected Deposit Exception" (depositException ret)
 
-isDepositException :: Maybe AccountCommandResult -> Bool
-isDepositException (Just (DepositResult (Left _))) = True
-isDepositException _                               = False
+depositException :: AccountCommandResult -> Bool
+depositException (DepositResult (Left _)) = True
+depositException _                        = False
