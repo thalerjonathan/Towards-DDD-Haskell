@@ -3,14 +3,18 @@ module Test.Application.Runner where
 
 import           Control.Monad.Free.Church
 import           Control.Monad.Identity
+import           Data.Maybe
+import           Data.UUID
 import           Domain.Account.Repository
 import           Domain.Application
+import           Domain.Customer.Customer
 import           Domain.Customer.Repository
 import           Domain.Types
 
 customerRepoStub :: CustomerRepoLang a -> Identity a
-customerRepoStub (AddCustomer _cid _cname a) = do
-  return a
+customerRepoStub (AddCustomer cid cname f) = do
+  let c = customer cid cname
+  return $ f c
 customerRepoStub (AllCustomers cont) = do
   return $ cont []
 customerRepoStub (FindCustomerById _ cont) = do
@@ -36,6 +40,9 @@ testApplication prog accRepoInter custRepoInter
       f <$> foldF accRepoInter r
     interpret (RunRepo (CustomerRepo r) f)  = do
       f <$> foldF custRepoInter r
+    interpret (NextUUID f) = do
+      let uuid = fromJust $ fromText "176c8054-ec71-4a84-9d5b-abe85a6d955c"
+      return $ f uuid
     interpret (Logging _lvl _txt a) = do
       return a
     interpret (PersistDomainEvent _evt _a) = do

@@ -24,15 +24,14 @@ createAccount :: T.Text
               -> Double
               -> T.Text
               -> Application (Maybe Exception)
-createAccount owner _iban _balance _t = do
+createAccount owner iban balance t = do
   let cid = customerIdFromTextUnsafe owner
   mc <- runRepo $ customerRepo $ findCustomerById cid
   case mc of
     Nothing -> return $ Just CustomerNotFound
     (Just _c) -> do
-      --let at = read (T.unpack t) :: DB.AccountEntityType
-      --let acc = AccountEntity owner balance iban at
-      --_aid <- DB.insertAccount acc conn
+      let aType = read (T.unpack t) :: AccountType
+      _a <- runRepo $ accountRepo $ addAccount cid balance (Iban iban) aType
       return Nothing
 
 getAllCustomers :: Application [CustomerDetailsDTO]

@@ -6,18 +6,18 @@ import           Database.Persist.Sql
 import           Domain.Account.Api
 import           Domain.Account.Impl
 import           Domain.Types
-import           Infrastructure.DB.Banking as DB
+import qualified Infrastructure.DB.Banking as DB
 
 data AccountRepoLang a
-  = AddAccount Account a
+  = AddAccount CustomerId Money Iban AccountType (Account -> a)
   | FindAccountsForOwner CustomerId ([Account] -> a)
   | FindAccountByIban Iban (Maybe Account -> a)
   deriving Functor
 
 type AccountRepoProgram = F AccountRepoLang
 
-addAccount :: Account -> AccountRepoProgram ()
-addAccount a = liftF (AddAccount a ())
+addAccount :: CustomerId -> Money -> Iban -> AccountType -> AccountRepoProgram Account
+addAccount owner balance iban aType = liftF (AddAccount owner balance iban aType id)
 
 findAccountsForOwner:: CustomerId -> AccountRepoProgram [Account]
 findAccountsForOwner owner = liftF (FindAccountsForOwner owner id)
@@ -25,25 +25,19 @@ findAccountsForOwner owner = liftF (FindAccountsForOwner owner id)
 findAccountByIban :: Iban -> AccountRepoProgram (Maybe Account)
 findAccountByIban iban = liftF (FindAccountByIban iban id)
 
--- TODO: put run into separate interpreter
-
 runAccountRepo :: AccountRepoProgram a -> SqlBackend -> IO a
 runAccountRepo prog conn = foldF interpret prog
   where
     interpret :: AccountRepoLang a -> IO a
-    interpret (AddAccount _a ret) = do
-      -- TODO: need owner CustomerEntityId
-      -- TODO: need a connection
-      -- let owner   = CustomerEntityId 0
-      --     balance = 0
-      --     iban    = ""
-      --     aType   = Giro
-      -- let accountEntity = AccountEntity owner balance iban aType
+    interpret (AddAccount owner balance (Iban iban) aType f) = do
+      let aTypeDb = case aType of
+                      Giro    -> DB.Giro
+                      Savings -> DB.Savings
 
-      -- DB.insertAccount
+      let accountEntity = DB.AccountEntity (customerIdToText owner) balance iban aTypeDb
+      aid <- DB.insertAccount accountEntity conn
 
-      -- TODO: implement
-      return ret
+      return $ f $ account (Entity aid accountEntity)
     interpret (FindAccountsForOwner (CustomerId cDomainId) cont) = do
       as <- DB.accountsOfCustomer (toText cDomainId) conn
       let aggs = map (\e -> account e) as
@@ -51,6 +45,6 @@ runAccountRepo prog conn = foldF interpret prog
 
     interpret (FindAccountByIban (Iban i) cont) = do
       m <- DB.accountByIban i conn
-      case m of 
+      case m of
         Nothing  -> return (cont Nothing)
         (Just e) -> return (cont $ Just $ account e)
