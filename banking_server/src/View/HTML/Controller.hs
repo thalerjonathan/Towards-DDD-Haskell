@@ -1,15 +1,14 @@
 module View.HTML.Controller where
 
-import           Control.Monad.IO.Class
-import           Data.Text                     as T
-import           Servant                       (Handler)
-import           Text.Blaze.Html
-
 import           Application.BankingAnemic
 import qualified Application.BankingDomain     as Banking
 import           Application.Layer             as App
+import           Control.Monad.Except
+import           Data.Text                     as T
 import           Infrastructure.Cache.AppCache (AppCache)
 import qualified Infrastructure.DB.Pool        as Pool
+import           Servant                       (Handler)
+import           Text.Blaze.Html
 
 import           View.HTML.Forms
 import           View.HTML.Page.Account
@@ -32,7 +31,7 @@ handleCustomer :: AppCache
                -> Handler Html
 handleCustomer _cache p customerId = do
   -- ret <- liftIO $ Pool.runWithTX p (getCustomer cache customerId)
-  ret <- liftIO $ Pool.runWithTX p (App.runApplication (Banking.getCustomer customerId))
+  ret <- liftIO $ Pool.runWithTX p (App.runApplication (runExceptT $ Banking.getCustomer customerId))
   case ret of
     (Left err) ->
       redirectToError $ exceptionToErrorMessage err
@@ -47,7 +46,7 @@ handleAccount :: AppCache
               -> Handler Html
 handleAccount _cache p accIban customerId customerName = do
   -- ret <- liftIO $ Pool.runWithTX p (getAccount cache accIban)
-  ret <- liftIO $ Pool.runWithTX p (App.runApplication (Banking.getAccount accIban))
+  ret <- liftIO $ Pool.runWithTX p (App.runApplication (runExceptT $ Banking.getAccount accIban))
   case ret of
     (Left err) ->
       redirectToError $ exceptionToErrorMessage err
@@ -63,7 +62,7 @@ handleDeposit _cache p form = do
       amount = accountFormAmount form
 
   --ret <- liftIO $ Pool.runWithTX p (deposit cache iban amount)
-  ret <- liftIO $ Pool.runWithTX p (App.runApplication (Banking.deposit iban amount))
+  ret <- liftIO $ Pool.runWithTX p (App.runApplication (runExceptT $ Banking.deposit iban amount))
   case ret of
     (Left err) ->
       redirectToError $ exceptionToErrorMessage err
@@ -79,7 +78,7 @@ handleWithdraw _cache p form = do
       amount = accountFormAmount form
 
   -- ret <- liftIO $ Pool.runWithTX p (withdraw cache iban amount)
-  ret <- liftIO $ Pool.runWithTX p (App.runApplication (Banking.withdraw iban amount))
+  ret <- liftIO $ Pool.runWithTX p (App.runApplication (runExceptT $ Banking.withdraw iban amount))
   case ret of
     (Left err) ->
       redirectToError $ exceptionToErrorMessage err
@@ -97,7 +96,7 @@ handleTransfer _cache p form = do
         reference = transferFormReference form
 
     -- ret <- liftIO $ Pool.runWithTX p (transferEventual cache fromIban toIban amount reference)
-    ret <- liftIO $ Pool.runWithTX p (App.runApplication (Banking.transferEventual fromIban toIban amount reference))
+    ret <- liftIO $ Pool.runWithTX p (App.runApplication (runExceptT $ Banking.transferEventual fromIban toIban amount reference))
     case ret of
       (Left err) ->
         redirectToError $ exceptionToErrorMessage err

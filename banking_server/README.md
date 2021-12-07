@@ -3,10 +3,9 @@ The server implementing the simple Banking Domain
 
 ## TODOs
 - refactoring
-  - use proper Exceptions
-    - loading of configs (IO exceptions?)
-    - application layers
-  - Anemic Banking Application service: this doesn't have to be that bad
+  - Anemic Banking Application service
+    - restructure domain rules into functions
+    - exception handling
 
 - testing
   - implement easy way to write composable mocks (with Free Monads should be easy, accept incomplete patterns)
