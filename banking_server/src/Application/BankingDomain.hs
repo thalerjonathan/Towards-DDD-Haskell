@@ -2,28 +2,31 @@ module Application.BankingDomain where
 
 import           Application.DTO
 import           Application.DomainEvents   as DomainEvents
+import           Application.Layer
 import           Application.Exceptions
+import           Control.Monad.Except
 import           Data.Text                  as T
 import           Domain.Account.Api
 import           Domain.Account.Repository
-import           Domain.Application
 import           Domain.Customer.Customer
 import           Domain.Customer.Repository
 import           Domain.Types
 
 data TransferType = Transactional | Eventual
 
+type Application = ExceptT Exception ApplicationLayer
+
 createCustomer :: T.Text -> Application T.Text
 createCustomer name = do
-  cId <- CustomerId <$> nextUUID
-  _c <- runRepo $ customerRepo $ addCustomer cId name
+  cId <- lift $ CustomerId <$> nextUUID
+  _c <- lift $ runRepo $ customerRepo $ addCustomer cId name
   return $ customerIdToText cId
 
 createAccount :: T.Text
               -> T.Text
               -> Double
               -> T.Text
-              -> Application (Maybe Exception)
+              -> ApplicationLayer (Maybe Exception)
 createAccount owner iban balance t = do
   let cid = customerIdFromTextUnsafe owner
   mc <- runRepo $ customerRepo $ findCustomerById cid
@@ -34,13 +37,13 @@ createAccount owner iban balance t = do
       _a <- runRepo $ accountRepo $ addAccount cid balance (Iban iban) aType
       return Nothing
 
-getAllCustomers :: Application [CustomerDetailsDTO]
+getAllCustomers :: ApplicationLayer [CustomerDetailsDTO]
 getAllCustomers = do
     cs <- runRepo $ customerRepo $ allCustomers
     dtos <- runAggregate $ customerAggregate $ mapM customerToDetailsDTO cs
     return dtos
 
-getCustomer :: T.Text -> Application (Either Exception CustomerDTO)
+getCustomer :: T.Text -> ApplicationLayer (Either Exception CustomerDTO)
 getCustomer cIdStr = do
     let cid = customerIdFromTextUnsafe cIdStr
     mc <- runRepo $ customerRepo $ findCustomerById cid
@@ -59,7 +62,7 @@ getCustomer cIdStr = do
 
         return $ Right dto
 
-getAccount :: T.Text -> Application (Either Exception AccountDTO)
+getAccount :: T.Text -> ApplicationLayer (Either Exception AccountDTO)
 getAccount ibanStr = do
   ma <- runRepo $ accountRepo $ findAccountByIban (Iban ibanStr)
   case ma of
@@ -70,7 +73,7 @@ getAccount ibanStr = do
 
 deposit :: T.Text
         -> Double
-        -> Application (Either Exception TXLineDTO)
+        -> ApplicationLayer (Either Exception TXLineDTO)
 deposit i amount = do
   ma <- runRepo $ accountRepo $ findAccountByIban (Iban i)
   case ma of
@@ -84,7 +87,7 @@ deposit i amount = do
 
 withdraw :: T.Text
          -> Double
-         -> Application (Either Exception TXLineDTO)
+         -> ApplicationLayer (Either Exception TXLineDTO)
 withdraw i amount = do
   ma <- runRepo $ accountRepo $ findAccountByIban (Iban i)
   case ma of
@@ -100,7 +103,7 @@ transferEventual :: T.Text
                  -> T.Text
                  -> Double
                  -> T.Text
-                 -> Application (Either Exception TXLineDTO)
+                 -> ApplicationLayer (Either Exception TXLineDTO)
 transferEventual fromIban toIban amount reference =
   checkAndPerformTransfer fromIban toIban amount reference Eventual
 
@@ -108,7 +111,7 @@ transferTransactional :: T.Text
                       -> T.Text
                       -> Double
                       -> T.Text
-                      -> Application (Either Exception TXLineDTO)
+                      -> ApplicationLayer (Either Exception TXLineDTO)
 transferTransactional fromIban toIban amount reference =
   checkAndPerformTransfer fromIban toIban amount reference Transactional
 
@@ -117,7 +120,7 @@ checkAndPerformTransfer :: T.Text
                         -> Double
                         -> T.Text
                         -> TransferType
-                        -> Application (Either Exception TXLineDTO)
+                        -> ApplicationLayer (Either Exception TXLineDTO)
 checkAndPerformTransfer fromIban toIban amount reference txType = do
   mFrom <- runRepo $ accountRepo $ findAccountByIban (Iban fromIban)
   case mFrom of
@@ -127,9 +130,9 @@ checkAndPerformTransfer fromIban toIban amount reference txType = do
       case mTo of
         Nothing -> return $ Left AccountNotFound
         (Just toAccount) -> do
-          -- NOTE: this check is similar to a domain service 
+          -- NOTE: this check is similar to a domain service
           check <- runAggregate $ accountAggregate $ checkTransfer fromAccount toAccount amount
-          case check of 
+          case check of
             (Just err) -> do
               return $ Left $ InvalidAccountOperation err
             _ ->
@@ -153,7 +156,7 @@ checkTransfer fromAccount toAccount amount = do
     else do
       fromType <- getType fromAccount
       toType   <- getType toAccount
-      
+
       if fromType == Savings || toType == Savings
         then return $ Just "Transfer cannot happen with Savings account of different customers!"
         else if amount > 5000
@@ -164,7 +167,7 @@ performTransferTransactional :: Account
                              -> Account
                              -> Double
                              -> T.Text
-                             -> Application (Either Exception TXLineDTO)
+                             -> ApplicationLayer (Either Exception TXLineDTO)
 performTransferTransactional fromAccount toAccount amount reference = do
   fromOwner <- runAggregate $ accountAggregate $ getOwner fromAccount
   mfc       <- runRepo $ customerRepo $ findCustomerById fromOwner
@@ -199,7 +202,7 @@ performTransferEventual :: Account
                         -> Account
                         -> Double
                         -> T.Text
-                        -> Application (Either Exception TXLineDTO)
+                        -> ApplicationLayer (Either Exception TXLineDTO)
 performTransferEventual fromAccount toAccount amount reference = do
   fromOwner <- runAggregate $ accountAggregate $ getOwner fromAccount
   mfc       <- runRepo $ customerRepo $ findCustomerById fromOwner
@@ -233,11 +236,11 @@ performTransferEventual fromAccount toAccount amount reference = do
             _ ->
               error "Unexpected result"
 
-processDomainEvent :: DomainEvent -> Application ()
+processDomainEvent :: DomainEvent -> ApplicationLayer ()
 processDomainEvent (DomainEvents.TransferSent evt)   = transferSent evt
 processDomainEvent (DomainEvents.TransferFailed evt) = transferFailed evt
 
-transferSent :: TransferSentEventData -> Application ()
+transferSent :: TransferSentEventData -> ApplicationLayer ()
 transferSent evt = do
   let fromIban  = transferSentEventSendingAccount evt
       toIban    = transferSentEventReceivingAccount evt
@@ -271,7 +274,7 @@ transferSent evt = do
                     _ ->
                       error "unexpected result"
   where
-    transferSentFailed :: TransferSentEventData -> T.Text -> Application ()
+    transferSentFailed :: TransferSentEventData -> T.Text -> ApplicationLayer ()
     transferSentFailed evtSentData err = do
       let evtFailedData = TransferFailedEventData {
           transferFailedEventError             = err
@@ -285,7 +288,7 @@ transferSent evt = do
 
       persistDomainEvent (DomainEvents.TransferFailed evtFailedData)
 
-transferFailed :: TransferFailedEventData -> Application ()
+transferFailed :: TransferFailedEventData -> ApplicationLayer ()
 transferFailed evt = do
   let fromIban  = transferFailedEventSendingAccount evt
       toIban    = transferFailedEventReceivingAccount evt

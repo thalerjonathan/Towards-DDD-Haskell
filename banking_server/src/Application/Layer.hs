@@ -1,7 +1,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE FlexibleInstances         #-}
-module Domain.Application where
+module Application.Layer where
 
 import           Control.Monad.Free.Church
 
@@ -32,44 +32,44 @@ data Aggregate a
   = CustomerAggregate (CustomerProgram a)
   | AccountAggregate (AccountProgram a)
 
-data ApplicationLang a
+data ApplicationLayerLang a
   = forall b. RunRepo (Repository b) (b -> a)
   | forall b. RunAggregate (Aggregate b) (b -> a)
   | PersistDomainEvent DomainEvent a
   | Logging LogLevel T.Text a
   | NextUUID (UUID -> a)
 
-instance Functor ApplicationLang where
+instance Functor ApplicationLayerLang where
   fmap f (RunRepo scr g)            = RunRepo scr (f . g)
   fmap f (RunAggregate scr g)       = RunAggregate scr (f . g)
   fmap f (PersistDomainEvent evt a) = PersistDomainEvent evt (f a)
   fmap f (Logging lvl txt a)        = Logging lvl txt (f a)
   fmap f (NextUUID g)               = NextUUID (f . g)
 
-type Application a = F ApplicationLang a
+type ApplicationLayer = F ApplicationLayerLang
 
-runRepo :: Repository a -> Application a
+runRepo :: Repository a -> ApplicationLayer a
 runRepo repo = liftF (RunRepo repo id)
 
-nextUUID :: Application UUID
+nextUUID :: ApplicationLayer UUID
 nextUUID = liftF (NextUUID id)
 
-persistDomainEvent :: DomainEvent -> Application ()
+persistDomainEvent :: DomainEvent -> ApplicationLayer ()
 persistDomainEvent evt = liftF (PersistDomainEvent evt ())
 
-logging :: LogLevel -> T.Text -> Application ()
+logging :: LogLevel -> T.Text -> ApplicationLayer ()
 logging lvl txt = liftF (Logging lvl txt ())
 
-logDebug :: T.Text -> Application ()
+logDebug :: T.Text -> ApplicationLayer ()
 logDebug = logging Debug
 
-logInfo :: T.Text -> Application ()
+logInfo :: T.Text -> ApplicationLayer ()
 logInfo = logging Info
 
-logWarn:: T.Text -> Application ()
+logWarn:: T.Text -> ApplicationLayer ()
 logWarn = logging Warn
 
-logError :: T.Text -> Application ()
+logError :: T.Text -> ApplicationLayer ()
 logError = logging Error
 
 accountRepo :: AccountRepoProgram a -> Repository a
@@ -78,7 +78,7 @@ accountRepo = AccountRepo
 customerRepo :: CustomerRepoProgram a -> Repository a
 customerRepo = CustomerRepo
 
-runAggregate :: Aggregate a -> Application a
+runAggregate :: Aggregate a -> ApplicationLayer a
 runAggregate repo = liftF (RunAggregate repo id)
 
 customerAggregate :: CustomerProgram a -> Aggregate a
@@ -87,10 +87,10 @@ customerAggregate = CustomerAggregate
 accountAggregate :: AccountProgram a -> Aggregate a
 accountAggregate = AccountAggregate
 
-runApplication :: Application a -> SqlBackend -> IO a
+runApplication :: ApplicationLayer a -> SqlBackend -> IO a
 runApplication prog conn = foldF interpret prog
   where
-    interpret :: ApplicationLang a -> IO a
+    interpret :: ApplicationLayerLang a -> IO a
     interpret (RunRepo r f)  = do
       f <$> interpretRepo r conn
     interpret (RunAggregate a f) = do

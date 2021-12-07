@@ -52,13 +52,13 @@ executable Banking
   main-is:             Main.hs
 
   -- Modules included in this executable, other than Main.
-  other-modules:      Application.BankingAnemic
+  other-modules:      Application.Layer
+                    , Application.BankingAnemic
                     , Application.BankingDomain
                     , Application.Exceptions
                     , Application.DTO
                     , Application.DomainEvents
                     , Application.Async
-                    , Domain.Application
                     , Domain.Account.Api
                     , Domain.Account.Impl
                     , Domain.Account.Repository
@@ -148,12 +148,12 @@ test-suite banking-test
   main-is:            Tests.hs
 
   -- clean up modules... server and handlers certainly not necessary...
-  other-modules:      Application.BankingAnemic
+  other-modules:      Application.Layer
+                    , Application.BankingAnemic
                     , Application.BankingDomain
                     , Application.Exceptions
                     , Application.DTO
                     , Application.DomainEvents
-                    , Domain.Application
                     , Domain.Account.Api
                     , Domain.Account.Impl
                     , Domain.Account.Repository

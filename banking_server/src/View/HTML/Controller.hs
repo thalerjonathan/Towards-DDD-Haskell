@@ -7,7 +7,7 @@ import           Text.Blaze.Html
 
 import           Application.BankingAnemic
 import qualified Application.BankingDomain     as Banking
-import           Domain.Application            as App
+import           Application.Layer             as App
 import           Infrastructure.Cache.AppCache (AppCache)
 import qualified Infrastructure.DB.Pool        as Pool
 
