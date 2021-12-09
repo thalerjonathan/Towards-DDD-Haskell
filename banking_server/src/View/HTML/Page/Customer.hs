@@ -11,7 +11,7 @@ customerHtml :: CustomerDTO -> Html
 customerHtml c = docTypeHtml $ do
   H.head $ do
     H.meta ! charset "charset=utf-8"
-    H.meta ! name "viewport" ! content "wwidth=device-width, initial-scale=1"
+    H.meta ! name "viewport" ! content "width=device-width, initial-scale=1"
     H.link ! href "https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" ! rel "stylesheet" 
     H.title "Banking"
   body $ do
