@@ -9,12 +9,12 @@ data Exception
   | InvalidAccountOperation T.Text
   deriving Show
 
-guardJust :: Monad m => Maybe ex -> ExceptT ex m ()
-guardJust Nothing   = return ()
-guardJust (Just ex) = throwError ex 
+guardWith :: Monad m => Maybe ex -> ExceptT ex m ()
+guardWith Nothing   = return ()
+guardWith (Just ex) = throwError ex 
 
-tryJust :: Monad m => m (Maybe a) -> (a -> ex) -> ExceptT ex m ()
-tryJust act f = do
+guardWithM :: Monad m => m (Maybe a) -> (a -> ex) -> ExceptT ex m ()
+guardWithM act f = do
   ret <- lift act
   case ret of
     Nothing  -> return ()

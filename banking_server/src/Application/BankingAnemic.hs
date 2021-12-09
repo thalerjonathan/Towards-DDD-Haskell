@@ -111,12 +111,12 @@ withdraw _cache iban amount conn = do
   if isSavings a
     then throwError $ InvalidAccountOperation "Cannot withdraw from Savings account!"
     else do
-      guardJust (checkAccountOverdraft a amount)
+      guardWith (checkAccountOverdraft a amount)
 
-      now <- liftIO $ getCurrentTime
+      now <- liftIO getCurrentTime
       let newTxLine  = TxLineEntity aid iban (-amount) "Deposit" "Deposit" now
           newBalance = accountEntityBalance a - amount
-          
+
       txId <- liftIO $  DB.insertTXLine newTxLine conn
       liftIO $ DB.updateAccountBalance aid newBalance conn
       return $ txLineToDTO (Entity txId newTxLine)
@@ -179,13 +179,13 @@ performTransferTransactional :: AccountEntityId
 performTransferTransactional fromAid fromAccount toAid toAccount amount reference conn = do
   (Entity _ fromCustomer) <- tryMaybe (DB.customerByDomainId (accountEntityOwner fromAccount) conn) CustomerNotFound
   (Entity _ toCustomer)   <- tryMaybe (DB.customerByDomainId (accountEntityOwner toAccount) conn) CustomerNotFound
-  
-  guardJust (checkAccountOverdraft fromAccount amount)
+
+  guardWith (checkAccountOverdraft fromAccount amount)
 
   let fromName = customerEntityName fromCustomer
       toName   = customerEntityName toCustomer
 
-  now <- liftIO $ getCurrentTime
+  now <- liftIO getCurrentTime
 
   let newFromTxLine  = TxLineEntity fromAid ( accountEntityIban toAccount) (-amount) toName reference now
       newToTxLine    = TxLineEntity toAid ( accountEntityIban fromAccount) amount fromName reference now
@@ -208,8 +208,8 @@ performTransferEventual :: AccountEntityId
 performTransferEventual fromAid fromAccount toAccount amount reference conn = do
   (Entity _ fromCustomer) <- tryMaybe (DB.customerByDomainId (accountEntityOwner fromAccount) conn) CustomerNotFound
   (Entity _ toCustomer)   <- tryMaybe (DB.customerByDomainId (accountEntityOwner toAccount) conn) CustomerNotFound
-    
-  guardJust (checkAccountOverdraft fromAccount amount)
+
+  guardWith (checkAccountOverdraft fromAccount amount)
 
   let toName = customerEntityName toCustomer
 
@@ -238,8 +238,8 @@ performTransferEventual fromAid fromAccount toAccount amount reference conn = do
 processDomainEvent :: DomainEvent
                    -> SqlBackend
                    -> Application ()
-processDomainEvent (TransferSent evt)  conn = (runExceptT $ transferSent evt conn) >> return ()
-processDomainEvent (TransferFailed evt) conn = (runExceptT $ transferFailed evt conn) >> return ()
+processDomainEvent (TransferSent evt)  conn = void (runExceptT (transferSent evt conn))
+processDomainEvent (TransferFailed evt) conn = void (runExceptT (transferFailed evt conn))
 
 transferSent :: TransferSentEventData
              -> SqlBackend
@@ -256,16 +256,16 @@ transferSent evt conn = do
 
     (Entity toAid toAccount) <- tryMaybeM
                                   (DB.accountByIban toIban conn)
-                                  (transferSentFailed evt "Could not find receiving Account") 
+                                  (transferSentFailed evt "Could not find receiving Account")
 
     (Entity _ fromCustomer) <- tryMaybeM
                                 (DB.customerByDomainId (accountEntityOwner fromAccount) conn)
                                 (transferSentFailed evt "Could not find sending customer")
-            
+
     _ <- tryMaybeM
           (DB.customerByDomainId (accountEntityOwner toAccount) conn)
           (transferSentFailed evt "Could not find receiving customer")
-      
+
     now <- liftIO getCurrentTime
 
     let fromName    = customerEntityName fromCustomer
@@ -304,7 +304,7 @@ transferFailed evt conn = do
       amount    = transferFailedEventAmount evt
       reference = transferFailedEventReference evt
 
-  (Entity fromAid fromAccount) <- tryMaybeM 
+  (Entity fromAid fromAccount) <- tryMaybeM
                                     (DB.accountByIban fromIban conn)
                                     (putStrLn "Processing TransferFailed event failed: could not find sending Account!")
 
@@ -312,7 +312,7 @@ transferFailed evt conn = do
                             (DB.accountByIban toIban conn)
                             (putStrLn "Processing TransferFailed event failed: could not find receiving Account!")
 
-  _ <- tryMaybeM 
+  _ <- tryMaybeM
         (DB.customerByDomainId (accountEntityOwner fromAccount) conn)
         (putStrLn "Processing TransferFailed event failed: could not find sending Customer!")
 

@@ -38,9 +38,8 @@ createAccount owner iban balance t = do
 getAllCustomers :: Application [CustomerDetailsDTO]
 getAllCustomers = do
   cs   <- runRepo $ customerRepo $ allCustomers
-  dtos <- runAggregate $ customerAggregate $ mapM customerToDetailsDTO cs
-  return dtos
-
+  runAggregate $ customerAggregate $ mapM customerToDetailsDTO cs
+  
 getCustomer :: T.Text -> ApplicationExcept Exception CustomerDTO
 getCustomer cIdStr = do
   let cid = customerIdFromTextUnsafe cIdStr
@@ -107,8 +106,9 @@ checkAndPerformTransfer :: T.Text
 checkAndPerformTransfer fromIban toIban amount reference txType = do
   fromAccount <- tryMaybe (runRepo $ accountRepo $ findAccountByIban (Iban fromIban)) AccountNotFound 
   toAccount   <- tryMaybe (runRepo $ accountRepo $ findAccountByIban (Iban toIban)) AccountNotFound
+
   -- NOTE: this check is similar to a domain service
-  tryJust (runAggregate $ accountAggregate $ checkTransfer fromAccount toAccount amount) InvalidAccountOperation
+  guardWithM (runAggregate $ accountAggregate $ checkTransfer fromAccount toAccount amount) InvalidAccountOperation
 
   case txType of
     Transactional -> performTransferTransactional fromAccount toAccount amount reference
@@ -200,8 +200,8 @@ performTransferEventual fromAccount toAccount amount reference = do
       error "Unexpected result"
 
 processDomainEvent :: DomainEvent -> Application ()
-processDomainEvent (DomainEvents.TransferSent evt)   = (runExceptT $ transferSent evt) >> return ()
-processDomainEvent (DomainEvents.TransferFailed evt) = (runExceptT $ transferFailed evt) >> return ()
+processDomainEvent (DomainEvents.TransferSent evt)   = void (runExceptT (transferSent evt))
+processDomainEvent (DomainEvents.TransferFailed evt) = void (runExceptT (transferFailed evt))
 
 transferSent :: TransferSentEventData -> ApplicationExcept () ()
 transferSent evt = do
@@ -318,7 +318,7 @@ accountToDetailsDTO a = do
   return $ AccountDetailsDTO
     { accountDetailIban    = i
     , accountDetailBalance = b
-    , accountDetailType    = T.pack $ show $ accType
+    , accountDetailType    = T.pack $ show accType
     }
 
 txLineToDTO :: TXLine -> TXLineDTO
