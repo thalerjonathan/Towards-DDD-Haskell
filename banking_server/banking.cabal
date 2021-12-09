@@ -101,6 +101,7 @@ executable Banking
                     , dunai
                     , either
                     , free
+                    , hashable
                     , http-api-data
                     , lens
                     , monad-logger
@@ -198,6 +199,7 @@ test-suite banking-test
                     , dunai
                     , either
                     , free
+                    , hashable
                     , megaparsec
                     , monad-logger
                     , mtl

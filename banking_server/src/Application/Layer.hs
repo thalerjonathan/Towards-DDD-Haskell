@@ -6,16 +6,17 @@ module Application.Layer where
 import           Control.Monad.Free.Church
 
 import           Application.DomainEvents
-import           Data.Text                  as T
+import           Data.Text                     as T
 import           Data.Time.Clock
 import           Data.UUID
-import           Data.UUID.V4               (nextRandom)
+import           Data.UUID.V4                  (nextRandom)
 import           Database.Persist.Sql
 import           Domain.Account.Api
 import           Domain.Account.Repository
 import           Domain.Customer.Customer
 import           Domain.Customer.Repository
-import           Infrastructure.DB.Banking  as DB
+import           Infrastructure.Cache.AppCache
+import           Infrastructure.DB.Banking     as DB
 
 data LogLevel
   = Debug
@@ -87,19 +88,18 @@ customerAggregate = CustomerAggregate
 accountAggregate :: AccountProgram a -> Aggregate a
 accountAggregate = AccountAggregate
 
-runApplication :: ApplicationLayer a -> SqlBackend -> IO a
-runApplication prog conn = foldF interpret prog
+runApplication :: ApplicationLayer a -> AppCache -> SqlBackend -> IO a
+runApplication prog cache conn = foldF interpret prog
   where
     interpret :: ApplicationLayerLang a -> IO a
     interpret (RunRepo r f)  = do
-      f <$> interpretRepo r conn
+      f <$> interpretRepo r conn cache
     interpret (RunAggregate a f) = do
       f <$> interpretAggregate a conn
     interpret (Logging lvl txt a) = do
       putStrLn $ "LOG " ++ show lvl ++ ": " ++ show txt
       return a
     interpret (NextUUID f) = do
-      -- u <- nextRandom
       f <$> nextRandom
     interpret (PersistDomainEvent evt a) = do
       now <- getCurrentTime
@@ -108,7 +108,7 @@ runApplication prog conn = foldF interpret prog
       _ <- DB.insertEvent pe conn
       return a
 
-interpretRepo :: Repository a -> SqlBackend -> IO a
+interpretRepo :: Repository a -> SqlBackend -> AppCache -> IO a
 interpretRepo (AccountRepo r)  = runAccountRepo r
 interpretRepo (CustomerRepo r) = runCustomerRepo r
 

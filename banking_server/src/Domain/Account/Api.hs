@@ -141,6 +141,7 @@ runAccountAggregate prog conn = foldF interpret prog
   where
     interpret :: AccountLang a -> IO a
     interpret (FetchTXLines aid cont)  = do
+      -- TODO: load from TxLineCache region
       txs <- DB.txLinesOfAccount aid conn
 
       let txVos = map (\(DB.Entity _ tx) ->
@@ -155,6 +156,7 @@ runAccountAggregate prog conn = foldF interpret prog
       return (cont txVos)
 
     interpret (PersistTXLine aid m iban@(Iban i) name ref cont) = do
+      -- TODO: easies solution: evict TxLineCache region 
       now    <- getCurrentTime
       _txKey <- DB.insertTXLine (DB.TxLineEntity aid i m name ref now) conn
       let tx = TXLine m iban name ref now
@@ -162,5 +164,6 @@ runAccountAggregate prog conn = foldF interpret prog
       return (cont tx)
 
     interpret (UpdateBalance aid m a) = do
+      -- TODO: easies solution: evict AccountCache region!
       DB.updateAccountBalance aid m conn
       return a

@@ -5,7 +5,7 @@ import           Control.Monad.Logger
 import           Data.Either.Combinators
 import           Infrastructure.Cache.AppCache
 
-import qualified Application.Async             as Async
+-- import qualified Application.Async             as Async
 import qualified Infrastructure.DB.Config      as DbCfg
 import qualified Infrastructure.DB.Pool        as Pool
 import qualified Infrastructure.Web.Banking    as Banking
@@ -31,19 +31,13 @@ main = do
       dbPool <- runStdoutLoggingT $ Pool.initPool dbBankingCfg
       cache  <- mkAppCache
 
-      Async.eventProcessor dbPool eventPollInterval
+      -- Async.eventProcessor dbPool eventPollInterval
 
       Server.startServer (Banking.banking cache dbPool)
 
--- TODO: https://www.fpcomplete.com/blog/2016/11/exceptions-best-practices-haskell/
--- TODO: https://www.fpcomplete.com/blog/2018/04/async-exception-handling-haskell/
--- TODO: https://www.fpcomplete.com/haskell/tutorial/exceptions/
--- TODO: https://markkarpov.com/tutorial/exceptions.html
--- TODO: https://hackage.haskell.org/package/base-4.15.0.0/docs/Control-Exception.html
 loadConfigs :: ExceptT String IO AppConfig
 loadConfigs = do
-    dbBankingCfg <- toExceptT (dbBankingCfgFile ++ ": ") $ DbCfg.loadDBCfg dbBankingCfgFile
-    return dbBankingCfg
+    toExceptT (dbBankingCfgFile ++ ": ") $ DbCfg.loadDBCfg dbBankingCfgFile
   where
     toExceptT :: String -> IO (Either String a) -> ExceptT String IO a
     toExceptT str act = do

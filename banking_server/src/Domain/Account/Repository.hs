@@ -6,7 +6,8 @@ import           Database.Persist.Sql
 import           Domain.Account.Api
 import           Domain.Account.Impl
 import           Domain.Types
-import qualified Infrastructure.DB.Banking as DB
+import           Infrastructure.Cache.AppCache
+import qualified Infrastructure.DB.Banking     as DB
 
 data AccountRepoLang a
   = AddAccount CustomerId Money Iban AccountType (Account -> a)
@@ -25,26 +26,29 @@ findAccountsForOwner owner = liftF (FindAccountsForOwner owner id)
 findAccountByIban :: Iban -> AccountRepoProgram (Maybe Account)
 findAccountByIban iban = liftF (FindAccountByIban iban id)
 
-runAccountRepo :: AccountRepoProgram a -> SqlBackend -> IO a
-runAccountRepo prog conn = foldF interpret prog
+runAccountRepo :: AccountRepoProgram a -> SqlBackend -> AppCache -> IO a
+runAccountRepo prog conn cache = foldF interpret prog
   where
     interpret :: AccountRepoLang a -> IO a
     interpret (AddAccount owner balance (Iban iban) aType f) = do
       let aTypeDb = case aType of
                       Giro    -> DB.Giro
                       Savings -> DB.Savings
-
       let accountEntity = DB.AccountEntity (customerIdToText owner) balance iban aTypeDb
       aid <- DB.insertAccount accountEntity conn
-
+      -- TODO: easies solution: evict AccountCache region 
       return $ f $ account (Entity aid accountEntity)
+
     interpret (FindAccountsForOwner (CustomerId cDomainId) cont) = do
-      as <- DB.accountsOfCustomer (toText cDomainId) conn
-      let aggs = map (\e -> account e) as
-      return $ cont aggs
+      let act = DB.accountsOfCustomer (toText cDomainId) conn
+      as <- performCachedAction cache AccountCache ("owner_" ++ show cDomainId) act
+      --as <- DB.accountsOfCustomer (toText cDomainId) conn
+      return $ cont $ map account as
 
     interpret (FindAccountByIban (Iban i) cont) = do
-      m <- DB.accountByIban i conn
+      let act = DB.accountByIban i conn
+      m <- performCachedAction cache AccountCache ("iban_" ++ show i) act
+      -- m <- DB.accountByIban i conn
       case m of
         Nothing  -> return (cont Nothing)
         (Just e) -> return (cont $ Just $ account e)
