@@ -30,7 +30,7 @@ createAccount :: T.Text
               -> ApplicationExcept Exception ()
 createAccount owner iban balance t = do
   let cid = customerIdFromTextUnsafe owner
-  _ <- throwMaybe CustomerNotFound (runRepo $ customerRepo $ findCustomerById cid)
+  _ <- tryMaybe (runRepo $ customerRepo $ findCustomerById cid) CustomerNotFound
   let aType = read (T.unpack t) :: AccountType
   _ <- lift $ runRepo $ accountRepo $ addAccount cid balance (Iban iban) aType
   return ()
@@ -44,7 +44,7 @@ getAllCustomers = do
 getCustomer :: T.Text -> ApplicationExcept Exception CustomerDTO
 getCustomer cIdStr = do
   let cid = customerIdFromTextUnsafe cIdStr
-  c  <- throwMaybe CustomerNotFound (runRepo $ customerRepo $ findCustomerById cid)
+  c  <- tryMaybe (runRepo $ customerRepo $ findCustomerById cid) CustomerNotFound
   as <- lift $ runRepo $ accountRepo $ findAccountsForOwner cid
 
   custDetails <- lift $ runAggregate $ customerAggregate $ customerToDetailsDTO c
@@ -57,14 +57,14 @@ getCustomer cIdStr = do
 
 getAccount :: T.Text -> ApplicationExcept Exception AccountDTO
 getAccount ibanStr = do
-  a   <- throwMaybe AccountNotFound (runRepo $ accountRepo $ findAccountByIban (Iban ibanStr))
+  a   <- tryMaybe (runRepo $ accountRepo $ findAccountByIban (Iban ibanStr)) AccountNotFound
   lift $ runAggregate $ accountAggregate $ accountToDTO a
 
 deposit :: T.Text
         -> Double
         -> ApplicationExcept Exception TXLineDTO
 deposit ibanStr amount = do
-  a <- throwMaybe AccountNotFound (runRepo $ accountRepo $ findAccountByIban (Iban ibanStr))
+  a <- tryMaybe (runRepo $ accountRepo $ findAccountByIban (Iban ibanStr)) AccountNotFound
   (_, ret, _) <- lift $ runAggregate $ accountAggregate $ Domain.Account.Api.deposit a amount
   case ret of
     (DepositResult (Left err)) -> throwError $ InvalidAccountOperation err
@@ -75,7 +75,7 @@ withdraw :: T.Text
          -> Double
          -> ApplicationExcept Exception TXLineDTO
 withdraw ibanStr amount = do
-  a <- throwMaybe AccountNotFound (runRepo $ accountRepo $ findAccountByIban (Iban ibanStr))
+  a <- tryMaybe (runRepo $ accountRepo $ findAccountByIban (Iban ibanStr)) AccountNotFound
   (_, ret, _) <- lift $ runAggregate $ accountAggregate $ Domain.Account.Api.withdraw a amount
   case ret of
     (WithdrawResult (Left err)) -> throwError $ InvalidAccountOperation err
@@ -105,10 +105,11 @@ checkAndPerformTransfer :: T.Text
                         -> TransferType
                         -> ApplicationExcept Exception TXLineDTO
 checkAndPerformTransfer fromIban toIban amount reference txType = do
-  fromAccount <- throwMaybe AccountNotFound (runRepo $ accountRepo $ findAccountByIban (Iban fromIban))
-  toAccount   <- throwMaybe AccountNotFound (runRepo $ accountRepo $ findAccountByIban (Iban toIban))
+  fromAccount <- tryMaybe (runRepo $ accountRepo $ findAccountByIban (Iban fromIban)) AccountNotFound 
+  toAccount   <- tryMaybe (runRepo $ accountRepo $ findAccountByIban (Iban toIban)) AccountNotFound
   -- NOTE: this check is similar to a domain service
-  throwJust InvalidAccountOperation (runAggregate $ accountAggregate $ checkTransfer fromAccount toAccount amount)
+  tryJust (runAggregate $ accountAggregate $ checkTransfer fromAccount toAccount amount) InvalidAccountOperation
+
   case txType of
     Transactional -> performTransferTransactional fromAccount toAccount amount reference
     Eventual      -> performTransferEventual fromAccount toAccount amount reference
@@ -143,9 +144,9 @@ performTransferTransactional :: Account
                              -> ApplicationExcept Exception TXLineDTO
 performTransferTransactional fromAccount toAccount amount reference = do
   fromOwner    <- lift $ runAggregate $ accountAggregate $ getOwner fromAccount
-  fromCustomer <- throwMaybe CustomerNotFound (runRepo $ customerRepo $ findCustomerById fromOwner)
+  fromCustomer <- tryMaybe (runRepo $ customerRepo $ findCustomerById fromOwner) CustomerNotFound
   toOwner      <- lift $ runAggregate $ accountAggregate $ getOwner toAccount
-  toCustomer   <- throwMaybe CustomerNotFound (runRepo $ customerRepo $ findCustomerById toOwner)
+  toCustomer   <- tryMaybe (runRepo $ customerRepo $ findCustomerById toOwner) CustomerNotFound
 
   fromName <- lift $ runAggregate $ customerAggregate $ getName fromCustomer
   toName   <- lift $ runAggregate $ customerAggregate $ getName toCustomer
@@ -173,9 +174,9 @@ performTransferEventual :: Account
                         -> ApplicationExcept Exception TXLineDTO
 performTransferEventual fromAccount toAccount amount reference = do
   fromOwner  <- lift $ runAggregate $ accountAggregate $ getOwner fromAccount
-  _          <- throwMaybe CustomerNotFound (runRepo $ customerRepo $ findCustomerById fromOwner)
+  _          <- tryMaybe (runRepo $ customerRepo $ findCustomerById fromOwner) CustomerNotFound
   toOwner    <- lift $ runAggregate $ accountAggregate $ getOwner toAccount
-  toCustomer <- throwMaybe CustomerNotFound (runRepo $ customerRepo $ findCustomerById toOwner)
+  toCustomer <- tryMaybe (runRepo $ customerRepo $ findCustomerById toOwner) CustomerNotFound
   toName     <- lift $ runAggregate $ customerAggregate $ getName toCustomer
   toIban@(Iban toIbanTx) <- lift $ runAggregate $ accountAggregate $ getIban toAccount
 
@@ -198,7 +199,7 @@ performTransferEventual fromAccount toAccount amount reference = do
     _ ->
       error "Unexpected result"
 
-processDomainEvent :: DomainEvent -> ApplicationLayer ()
+processDomainEvent :: DomainEvent -> Application ()
 processDomainEvent (DomainEvents.TransferSent evt)   = (runExceptT $ transferSent evt) >> return ()
 processDomainEvent (DomainEvents.TransferFailed evt) = (runExceptT $ transferFailed evt) >> return ()
 
@@ -209,23 +210,23 @@ transferSent evt = do
         amount    = transferSentEventAmount evt
         reference = transferSentEventReference evt
 
-    fromAccount <- throwMaybeAction
+    fromAccount <- tryMaybeM
                     (runRepo $ accountRepo $ findAccountByIban (Iban fromIban))
                     (transferSentFailed evt "Could not find sending Account")
 
-    toAccount <- throwMaybeAction
+    toAccount <- tryMaybeM
                     (runRepo $ accountRepo $ findAccountByIban (Iban toIban))
                     (transferSentFailed evt "Could not find sending Account")
 
     fromOwner <- lift $ runAggregate $ accountAggregate $ getOwner fromAccount
 
-    _ <- throwMaybeAction
+    _ <- tryMaybeM
           (runRepo $ customerRepo $ findCustomerById fromOwner)
           (transferSentFailed evt "Could not find sending customer")
 
     toOwner <- lift $ runAggregate $ accountAggregate $ getOwner toAccount
 
-    fromCustomer <- throwMaybeAction
+    fromCustomer <- tryMaybeM
                       (runRepo $ customerRepo $ findCustomerById toOwner)
                       (transferSentFailed evt "Could not find receiving customer")
 
@@ -259,23 +260,23 @@ transferFailed evt = do
       amount    = transferFailedEventAmount evt
       reference = transferFailedEventReference evt
 
-  fromAccount <- throwMaybeAction
+  fromAccount <- tryMaybeM
                   (runRepo $ accountRepo $ findAccountByIban (Iban fromIban))
                   (logError "Processing TransferFailed event failed: could not find sending Account!")
 
-  toAccount <- throwMaybeAction
+  toAccount <- tryMaybeM
                   (runRepo $ accountRepo $ findAccountByIban (Iban toIban))
                   (logError "Processing TransferFailed event failed: could not find receiving Account!")
 
   fromOwner <- lift $ runAggregate $ accountAggregate $ getOwner fromAccount
 
-  _ <- throwMaybeAction
+  _ <- tryMaybeM
         (runRepo $ customerRepo $ findCustomerById fromOwner)
         (logError "Processing TransferFailed event failed: could not find sending Customer!")
 
   toOwner <- lift $ runAggregate $ accountAggregate $ getOwner toAccount
 
-  toCustomer <- throwMaybeAction
+  toCustomer <- tryMaybeM
                   (runRepo $ customerRepo $ findCustomerById toOwner)
                   (logError "Processing TransferFailed event failed: could not find receiving Customer!")
 

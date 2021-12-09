@@ -9,22 +9,26 @@ data Exception
   | InvalidAccountOperation T.Text
   deriving Show
 
-throwJust :: Monad m => (a -> ex) -> m (Maybe a) -> ExceptT ex m ()
-throwJust f act = do
+guardJust :: Monad m => Maybe ex -> ExceptT ex m ()
+guardJust Nothing   = return ()
+guardJust (Just ex) = throwError ex 
+
+tryJust :: Monad m => m (Maybe a) -> (a -> ex) -> ExceptT ex m ()
+tryJust act f = do
   ret <- lift act
   case ret of
     Nothing  -> return ()
     (Just a) -> throwError $ f a
 
-throwMaybe :: Monad m => ex -> m (Maybe a) -> ExceptT ex m a
-throwMaybe ex act = do
+tryMaybe :: Monad m => m (Maybe a) -> ex -> ExceptT ex m a
+tryMaybe act ex = do
   ret <- lift act
   case ret of
     Nothing  -> throwError ex
     (Just a) -> return a
 
-throwMaybeAction :: Monad m => m (Maybe a) -> m ex -> ExceptT ex m a
-throwMaybeAction act consume = do
+tryMaybeM :: Monad m => m (Maybe a) -> m ex -> ExceptT ex m a
+tryMaybeM act consume = do
   ret <- lift act
   case ret of
     Nothing  -> do

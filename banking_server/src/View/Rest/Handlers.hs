@@ -32,7 +32,7 @@ handleCustomer :: AppCache
                -> T.Text
                -> Handler CustomerDTO
 handleCustomer cache p customerId = do
-  ret <- liftIO $ Pool.runWithTX p (\conn -> runExceptT $ getCustomer cache customerId conn)
+  ret <- liftIO $ Pool.runWithTX p (runExceptT . getCustomer cache customerId)
   case ret of
     (Left _)     -> throwError err404
     (Right cust) -> return cust
@@ -42,7 +42,7 @@ handleAccount :: AppCache
               -> T.Text
               -> Handler AccountDTO
 handleAccount cache p iban = do
-  ret <- liftIO $ Pool.runWithTX p (getAccount cache iban)
+  ret <- liftIO $ Pool.runWithTX p (runExceptT . getAccount cache iban)
   case ret of
     (Left _)  -> throwError err404
     (Right a) -> return a
@@ -53,7 +53,7 @@ handleDeposit :: AppCache
               -> Double
               -> Handler (Either T.Text TXLineDTO)
 handleDeposit cache p iban amount =
-  performAccountTx p (deposit cache iban amount)
+  performAccountTx p (runExceptT . deposit cache iban amount)
 
 handleWithdraw :: AppCache
                -> DbPool
@@ -61,7 +61,7 @@ handleWithdraw :: AppCache
                -> Double
                -> Handler (Either T.Text TXLineDTO)
 handleWithdraw cache p iban amount =
-  performAccountTx p (withdraw cache iban amount)
+  performAccountTx p (runExceptT . withdraw cache iban amount)
 
 handleTransfer :: AppCache
                -> DbPool
@@ -71,7 +71,7 @@ handleTransfer :: AppCache
                -> T.Text
                -> Handler (Either T.Text TXLineDTO)
 handleTransfer cache p fromIban toIban amount reference =
-  performAccountTx p (transferEventual cache fromIban toIban amount reference)
+  performAccountTx p (runExceptT . transferEventual cache fromIban toIban amount reference)
 
 handleSwagger :: Handler Swagger
 handleSwagger = return bankingSwagger
