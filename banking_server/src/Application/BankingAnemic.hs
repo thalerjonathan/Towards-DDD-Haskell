@@ -16,24 +16,26 @@ module Application.BankingAnemic
 import qualified Data.Text                     as T
 import qualified Data.Text.Lazy                as TL
 
-import           Data.Aeson.Text                as Aeson
-import           Data.Time.Clock
-import           Data.UUID
-import           Data.UUID.V4                  (nextRandom)
-
 import           Application.DTO
 import           Application.DomainEvents
 import           Application.Exceptions
+import           Control.Monad.Except
+import           Data.Aeson.Text               as Aeson
+import           Data.Time.Clock
+import           Data.UUID
+import           Data.UUID.V4                  (nextRandom)
 
 import           Database.Persist.Postgresql
 import           Infrastructure.Cache.AppCache
 import           Infrastructure.DB.Banking     as DB
 
+type Application          = IO
+type ApplicationExcept ex = ExceptT ex Application
 
 createCustomer :: AppCache
                -> T.Text
                -> SqlBackend
-               -> IO T.Text
+               -> Application T.Text
 createCustomer _cache name conn = do
   custDomainId <- toText <$> nextRandom
   let cust = CustomerEntity custDomainId name
@@ -46,20 +48,17 @@ createAccount :: AppCache
               -> Double
               -> T.Text
               -> SqlBackend
-              -> IO (Maybe Exception)
+              -> ApplicationExcept Exception ()
 createAccount _cache owner iban balance t conn = do
-  mc <- DB.customerByDomainId owner conn
-  case mc of
-    Nothing -> return $ Just CustomerNotFound
-    (Just (Entity _ _)) -> do
-      let at = read (T.unpack t) :: DB.AccountEntityType
-      let acc = AccountEntity owner balance iban at
-      _aid <- DB.insertAccount acc conn
-      return Nothing
+  _ <- throwMaybe CustomerNotFound (liftIO $ DB.customerByDomainId owner conn)
+  let at = read (T.unpack t) :: DB.AccountEntityType
+  let acc = AccountEntity owner balance iban at
+  _aid <- liftIO $ DB.insertAccount acc conn
+  return ()
 
 getAllCustomers :: AppCache
                 -> SqlBackend
-                -> IO [CustomerDetailsDTO]
+                -> Application [CustomerDetailsDTO]
 getAllCustomers _cache conn = do
   cs <- DB.allCustomers conn
   return $ map customerEntityToDetailsDTO cs
@@ -67,14 +66,11 @@ getAllCustomers _cache conn = do
 getCustomer :: AppCache
             -> T.Text
             -> SqlBackend
-            -> IO (Either Exception CustomerDTO)
+            -> ApplicationExcept Exception CustomerDTO
 getCustomer _cache cIdStr conn = do
-  mc <- DB.customerByDomainId cIdStr conn
-  case mc of
-    Nothing -> return $ Left CustomerNotFound
-    (Just c@(Entity _ _)) -> do
-      as <- DB.accountsOfCustomer cIdStr conn
-      return $ Right $ customerEntityToDTO c as
+  c  <- throwMaybe CustomerNotFound (liftIO $ DB.customerByDomainId cIdStr conn)
+  as <- liftIO $ DB.accountsOfCustomer cIdStr conn
+  return $ customerEntityToDTO c as
 
 getAccount :: AppCache
            -> T.Text
@@ -374,7 +370,7 @@ transferFailed evt conn = do
                   DB.updateAccountBalance fromAid (accountEntityBalance toAccount + amount) conn
 
                   return ()
-                  
+
 checkAccountOverdraft :: AccountEntity -> Double -> Maybe Exception
 checkAccountOverdraft a amount
   | isSavings a && accountEntityBalance a - amount < 0  = Just $ InvalidAccountOperation "Savings Account cannot have negative balance!"

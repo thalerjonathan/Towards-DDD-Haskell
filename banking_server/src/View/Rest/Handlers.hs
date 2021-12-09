@@ -8,7 +8,7 @@ module View.Rest.Handlers
   , handleSwagger
   ) where
 
-import           Control.Monad.IO.Class
+import           Control.Monad.Except
 import           Data.Swagger
 import qualified Data.Text                     as T
 import           Servant
@@ -21,13 +21,6 @@ import           Database.Persist.Postgresql
 import           Infrastructure.Cache.AppCache
 import           Infrastructure.DB.Pool        as Pool
 
--- TODO https://www.parsonsmatt.org/2017/06/21/exceptional_servant_handling.html
-
--- TODO: use template haskell to annotate functions with REST endpoints just like in Spring
--- and generate the REST API and all code for handling it automatically
--- https://wiki.haskell.org/A_practical_Template_Haskell_Tutorial#:~:text=Template%20Haskell%20(TH)%20is%20the,the%20results%20of%20their%20execution.
--- TODO: put Servant API definition directly here
-
 handleAllCustomers :: AppCache
                    -> DbPool
                    -> Handler [CustomerDetailsDTO]
@@ -39,7 +32,7 @@ handleCustomer :: AppCache
                -> T.Text
                -> Handler CustomerDTO
 handleCustomer cache p customerId = do
-  ret <- liftIO $ Pool.runWithTX p (getCustomer cache customerId)
+  ret <- liftIO $ Pool.runWithTX p (\conn -> runExceptT $ getCustomer cache customerId conn)
   case ret of
     (Left _)     -> throwError err404
     (Right cust) -> return cust

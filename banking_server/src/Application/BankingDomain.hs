@@ -2,8 +2,8 @@ module Application.BankingDomain where
 
 import           Application.DTO
 import           Application.DomainEvents   as DomainEvents
-import           Application.Layer
 import           Application.Exceptions
+import           Application.Layer
 import           Control.Monad.Except
 import           Data.Text                  as T
 import           Domain.Account.Api
@@ -13,6 +13,9 @@ import           Domain.Customer.Repository
 import           Domain.Types
 
 data TransferType = Transactional | Eventual
+
+type Application          = ApplicationLayer
+type ApplicationExcept ex = ExceptT ex Application
 
 createCustomer :: T.Text -> Application T.Text
 createCustomer name = do
@@ -143,7 +146,7 @@ performTransferTransactional fromAccount toAccount amount reference = do
   fromCustomer <- throwMaybe CustomerNotFound (runRepo $ customerRepo $ findCustomerById fromOwner)
   toOwner      <- lift $ runAggregate $ accountAggregate $ getOwner toAccount
   toCustomer   <- throwMaybe CustomerNotFound (runRepo $ customerRepo $ findCustomerById toOwner)
-  
+
   fromName <- lift $ runAggregate $ customerAggregate $ getName fromCustomer
   toName   <- lift $ runAggregate $ customerAggregate $ getName toCustomer
   fromIban <- lift $ runAggregate $ accountAggregate $ getIban fromAccount
@@ -215,13 +218,13 @@ transferSent evt = do
                     (transferSentFailed evt "Could not find sending Account")
 
     fromOwner <- lift $ runAggregate $ accountAggregate $ getOwner fromAccount
-    
-    _ <- throwMaybeAction 
+
+    _ <- throwMaybeAction
           (runRepo $ customerRepo $ findCustomerById fromOwner)
           (transferSentFailed evt "Could not find sending customer")
 
     toOwner <- lift $ runAggregate $ accountAggregate $ getOwner toAccount
-    
+
     fromCustomer <- throwMaybeAction
                       (runRepo $ customerRepo $ findCustomerById toOwner)
                       (transferSentFailed evt "Could not find receiving customer")
@@ -260,22 +263,22 @@ transferFailed evt = do
                   (runRepo $ accountRepo $ findAccountByIban (Iban fromIban))
                   (logError "Processing TransferFailed event failed: could not find sending Account!")
 
-  toAccount <- throwMaybeAction 
+  toAccount <- throwMaybeAction
                   (runRepo $ accountRepo $ findAccountByIban (Iban toIban))
                   (logError "Processing TransferFailed event failed: could not find receiving Account!")
 
   fromOwner <- lift $ runAggregate $ accountAggregate $ getOwner fromAccount
 
-  _ <- throwMaybeAction 
+  _ <- throwMaybeAction
         (runRepo $ customerRepo $ findCustomerById fromOwner)
         (logError "Processing TransferFailed event failed: could not find sending Customer!")
 
   toOwner <- lift $ runAggregate $ accountAggregate $ getOwner toAccount
-  
+
   toCustomer <- throwMaybeAction
                   (runRepo $ customerRepo $ findCustomerById toOwner)
                   (logError "Processing TransferFailed event failed: could not find receiving Customer!")
- 
+
   toName <- lift $ runAggregate $ customerAggregate $ getName toCustomer
 
   (_, retFrom, _) <- lift $ runAggregate $ accountAggregate $ receiveFrom fromAccount (Iban fromIban) amount toName ("Transfer failed: " <> reference)
