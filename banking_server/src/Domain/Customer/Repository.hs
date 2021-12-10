@@ -35,7 +35,7 @@ runCustomerRepo prog conn cache = foldF interpretCustomerRepo prog
       _cDbId <- liftIO $ DB.insertCustomer cEntity conn
 
       -- Customers have changed => simplest solution is to evict their cache region AFTER DB TX has commited
-      tell [evictCacheRegion cache CustomerCache]
+      tell [invalidateCacheRegion cache CustomerCache]
 
       let c = customer cid cname
       return $ f c

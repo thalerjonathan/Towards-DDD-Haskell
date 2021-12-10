@@ -39,7 +39,7 @@ runAccountRepo prog conn cache = foldF interpret prog
       aid <- liftIO $ DB.insertAccount accountEntity conn
 
       -- Accounts have changed => simplest solution is to evict their cache region AFTER DB TX has commited
-      tell [evictCacheRegion cache AccountCache]
+      tell [invalidateCacheRegion cache AccountCache]
 
       return $ f $ account (Entity aid accountEntity)
 

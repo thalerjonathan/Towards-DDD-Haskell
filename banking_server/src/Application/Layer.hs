@@ -122,5 +122,5 @@ interpretRepo (AccountRepo r)  = runAccountRepo r
 interpretRepo (CustomerRepo r) = runCustomerRepo r
 
 interpretAggregate :: Aggregate a -> SqlBackend -> AppCache -> WriterT [IO ()] IO a
-interpretAggregate (CustomerAggregate a) _  _      = runCustomerAggregate a -- NOTE: customer aggregate does not access cache / db
+interpretAggregate (CustomerAggregate a) _  _      = return (runCustomerAggregate a) -- NOTE: customer aggregate does not access cache / db
 interpretAggregate (AccountAggregate a) conn cache = runAccountAggregate a conn cache

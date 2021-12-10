@@ -158,7 +158,7 @@ runAccountAggregate prog conn cache = foldF interpret prog
 
     interpret (PersistTXLine aid m iban@(Iban i) name ref cont) = do
       -- TXLines have changed => simplest solution is to evict their cache region AFTER DB TX has commited
-      tell [evictCacheRegion cache TxLineCache]
+      tell [invalidateCacheRegion cache TxLineCache]
 
       now    <- liftIO $ getCurrentTime
       _txKey <- liftIO $ DB.insertTXLine (DB.TxLineEntity aid i m name ref now) conn
@@ -168,7 +168,7 @@ runAccountAggregate prog conn cache = foldF interpret prog
 
     interpret (UpdateBalance aid m a) = do 
       -- Account has changed => simplest solution is to evict their cache region AFTER DB TX has commited
-      tell [evictCacheRegion cache AccountCache]
+      tell [invalidateCacheRegion cache AccountCache]
 
       liftIO $ DB.updateAccountBalance aid m conn
 

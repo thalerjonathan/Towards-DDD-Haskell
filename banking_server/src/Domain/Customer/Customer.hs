@@ -1,8 +1,7 @@
 {-# LANGUAGE Arrows #-}
 module Domain.Customer.Customer where
 
-import           Control.Monad.Free.Church
-import           Control.Monad.Writer.Lazy
+import           Control.Monad.Identity
 import           Data.MonadicStreamFunction              (MSF, arrM, feedback,
                                                           returnA)
 import           Data.MonadicStreamFunction.InternalCore (unMSF)
@@ -19,11 +18,7 @@ data CustomerCommandResult
   | ReturnName Text
   deriving Show
 
-data CustomerLang a
-  = ReadName (Text -> a)
-  deriving Functor
-
-type CustomerProgram = F CustomerLang
+type CustomerProgram = Identity
 
 data CustomerState
   = CustomerState CustomerId deriving Show
@@ -36,9 +31,6 @@ customer cid cName = feedback s0 (proc (cmd, s) -> do
     returnA -< (ret, s))
   where
     s0 = CustomerState cid
-
-readName :: CustomerProgram Text
-readName = liftF (ReadName id)
 
 getName :: Customer -> CustomerProgram T.Text
 getName c = do
@@ -54,7 +46,6 @@ getDomainId c = do
     (ReturnDomainId n) -> return n
     _                  -> error "unexpected return in customer"
 
-
 handleCommand :: CustomerId
               -> T.Text
               -> CustomerCommand
@@ -64,11 +55,5 @@ handleCommand cid _ GetDomainId = do
 handleCommand _ cname GetName = do
   return $ ReturnName cname
 
-runCustomerAggregate :: CustomerProgram a -> WriterT [IO ()] IO a
-runCustomerAggregate = foldF interpret
-  where
-    interpret :: CustomerLang a -> WriterT [IO ()] IO a
-    interpret (ReadName cont) = do
-      -- TODO: this is obsolete, Customer Aggregate does not lazily access DB
-      let name = "Jonathan Thaler"
-      return $ cont name
+runCustomerAggregate :: CustomerProgram a -> a
+runCustomerAggregate act = runIdentity act
