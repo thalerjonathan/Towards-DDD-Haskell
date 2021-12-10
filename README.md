@@ -1,4 +1,4 @@
-# Towards Domain-Driven Design with Haskell
+# Towards Tactical Domain-Driven Design in Haskell
 
 ## Introduction
 
