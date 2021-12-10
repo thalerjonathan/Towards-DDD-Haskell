@@ -2,6 +2,7 @@
 module Domain.Customer.Customer where
 
 import           Control.Monad.Free.Church
+import           Control.Monad.Writer.Lazy
 import           Data.MonadicStreamFunction              (MSF, arrM, feedback,
                                                           returnA)
 import           Data.MonadicStreamFunction.InternalCore (unMSF)
@@ -63,15 +64,10 @@ handleCommand cid _ GetDomainId = do
 handleCommand _ cname GetName = do
   return $ ReturnName cname
 
-execCommand :: Customer -> CustomerCommand -> IO (Customer, CustomerCommandResult)
-execCommand a cmd = do
-  (ret, a') <- runCustomerAggregate (unMSF a cmd)
-  return (a', ret)
-
-runCustomerAggregate :: CustomerProgram a -> IO a
+runCustomerAggregate :: CustomerProgram a -> WriterT [IO ()] IO a
 runCustomerAggregate = foldF interpret
   where
-    interpret :: CustomerLang a -> IO a
+    interpret :: CustomerLang a -> WriterT [IO ()] IO a
     interpret (ReadName cont) = do
       -- TODO: this is obsolete, Customer Aggregate does not lazily access DB
       let name = "Jonathan Thaler"

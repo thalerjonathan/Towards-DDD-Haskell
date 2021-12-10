@@ -25,9 +25,9 @@ type AppCache = Map.HashMap CacheRegion (Cache String Any)
 -- TODO: load cache config from some cfg file
 mkAppCache :: IO AppCache
 mkAppCache = flip execStateT Map.empty $ do
-    createCache AccountCache (Just 10)
-    createCache CustomerCache (Just 10)
-    createCache TxLineCache (Just 10)
+    createCache AccountCache (Just 60)
+    createCache CustomerCache (Just 60)
+    createCache TxLineCache (Just 60)
   where
     createCache :: CacheRegion -> Maybe Int -> StateT AppCache IO ()
     createCache region dur = do

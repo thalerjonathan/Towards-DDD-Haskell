@@ -6,6 +6,7 @@ module Application.Layer where
 import           Control.Monad.Free.Church
 
 import           Application.DomainEvents
+import           Control.Monad.Writer.Lazy
 import           Data.Text                     as T
 import           Data.Time.Clock
 import           Data.UUID
@@ -17,6 +18,7 @@ import           Domain.Customer.Customer
 import           Domain.Customer.Repository
 import           Infrastructure.Cache.AppCache
 import           Infrastructure.DB.Banking     as DB
+import qualified Infrastructure.DB.Pool        as Pool
 
 data LogLevel
   = Debug
@@ -88,30 +90,37 @@ customerAggregate = CustomerAggregate
 accountAggregate :: AccountProgram a -> Aggregate a
 accountAggregate = AccountAggregate
 
-runApplication :: ApplicationLayer a -> AppCache -> SqlBackend -> IO a
+runApplicationTX :: Pool.DbPool -> AppCache -> ApplicationLayer a -> IO a
+runApplicationTX p cache prog = do
+  (a, posTXActions) <- (Pool.runWithTX p (runWriterT . runApplication prog cache))
+  -- execute all post-TX actions
+  sequence_ posTXActions
+  return a
+
+runApplication :: ApplicationLayer a -> AppCache -> SqlBackend -> WriterT [IO ()] IO a
 runApplication prog cache conn = foldF interpret prog
   where
-    interpret :: ApplicationLayerLang a -> IO a
+    interpret :: ApplicationLayerLang a -> WriterT [IO ()] IO a
     interpret (RunRepo r f)  = do
       f <$> interpretRepo r conn cache
     interpret (RunAggregate a f) = do
       f <$> interpretAggregate a conn cache
     interpret (Logging lvl txt a) = do
-      putStrLn $ "LOG " ++ show lvl ++ ": " ++ show txt
+      liftIO $ putStrLn $ "LOG " ++ show lvl ++ ": " ++ show txt
       return a
     interpret (NextUUID f) = do
-      f <$> nextRandom
+      f <$> liftIO nextRandom
     interpret (PersistDomainEvent evt a) = do
-      now <- getCurrentTime
+      now <- liftIO getCurrentTime
       let (evtName, payload) = toPayload evt
       let pe = PersistedEventEntity now evtName False False "" payload
-      _ <- DB.insertEvent pe conn
+      _ <- liftIO $ DB.insertEvent pe conn
       return a
 
-interpretRepo :: Repository a -> SqlBackend -> AppCache -> IO a
+interpretRepo :: Repository a -> SqlBackend -> AppCache -> WriterT [IO ()] IO a
 interpretRepo (AccountRepo r)  = runAccountRepo r
 interpretRepo (CustomerRepo r) = runCustomerRepo r
 
-interpretAggregate :: Aggregate a -> SqlBackend -> AppCache -> IO a
-interpretAggregate (CustomerAggregate a) _  _ = runCustomerAggregate a -- NOTE: customer aggregate does not access cache / db
+interpretAggregate :: Aggregate a -> SqlBackend -> AppCache -> WriterT [IO ()] IO a
+interpretAggregate (CustomerAggregate a) _  _      = runCustomerAggregate a -- NOTE: customer aggregate does not access cache / db
 interpretAggregate (AccountAggregate a) conn cache = runAccountAggregate a conn cache

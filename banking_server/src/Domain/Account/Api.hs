@@ -136,13 +136,13 @@ persistTXLine aid m i name ref = lift $ liftF (PersistTXLine aid m i name ref id
 updateBalance :: DB.AccountEntityId -> Money -> AccountEffects ()
 updateBalance aid m = lift $ liftF (UpdateBalance aid m ())
 
-runAccountAggregate :: AccountProgram a -> SqlBackend -> AppCache ->  IO a
+runAccountAggregate :: AccountProgram a -> SqlBackend -> AppCache -> WriterT [IO ()] IO a
 runAccountAggregate prog conn cache = foldF interpret prog
   where
-    interpret :: AccountLang a -> IO a
+    interpret :: AccountLang a -> WriterT [IO ()] IO a
     interpret (FetchTXLines aid cont)  = do
       let act = DB.txLinesOfAccount aid conn
-      txs <- performCachedAction cache TxLineCache ("account_" ++ show aid) act
+      txs <- liftIO $ performCachedAction cache TxLineCache ("account_" ++ show aid) act
       --txs <- DB.txLinesOfAccount aid conn
 
       let txVos = map (\(DB.Entity _ tx) ->
@@ -157,19 +157,19 @@ runAccountAggregate prog conn cache = foldF interpret prog
       return (cont txVos)
 
     interpret (PersistTXLine aid m iban@(Iban i) name ref cont) = do
-      -- TXLines have changed => simplest solution is to evict their cache region
-      evictCacheRegion cache TxLineCache
+      -- TXLines have changed => simplest solution is to evict their cache region AFTER DB TX has commited
+      tell [evictCacheRegion cache TxLineCache]
 
-      now    <- getCurrentTime
-      _txKey <- DB.insertTXLine (DB.TxLineEntity aid i m name ref now) conn
+      now    <- liftIO $ getCurrentTime
+      _txKey <- liftIO $ DB.insertTXLine (DB.TxLineEntity aid i m name ref now) conn
       let tx = TXLine m iban name ref now
 
       return (cont tx)
 
     interpret (UpdateBalance aid m a) = do 
-      -- Account has changed => simplest solution is to evict their cache region
-      evictCacheRegion cache AccountCache
+      -- Account has changed => simplest solution is to evict their cache region AFTER DB TX has commited
+      tell [evictCacheRegion cache AccountCache]
 
-      DB.updateAccountBalance aid m conn
+      liftIO $ DB.updateAccountBalance aid m conn
 
       return a
