@@ -9,8 +9,8 @@ import qualified Data.Text                               as T
 import           Data.Time.Clock
 import           Database.Persist.Sql
 import           Domain.Types
+import           Infrastructure.Cache.AppCache
 import qualified Infrastructure.DB.Banking               as DB
-
 
 data TXLine  = TXLine Money Iban T.Text T.Text UTCTime deriving Show
 
@@ -136,13 +136,14 @@ persistTXLine aid m i name ref = lift $ liftF (PersistTXLine aid m i name ref id
 updateBalance :: DB.AccountEntityId -> Money -> AccountEffects ()
 updateBalance aid m = lift $ liftF (UpdateBalance aid m ())
 
-runAccountAggregate :: AccountProgram a -> SqlBackend -> IO a
-runAccountAggregate prog conn = foldF interpret prog
+runAccountAggregate :: AccountProgram a -> SqlBackend -> AppCache ->  IO a
+runAccountAggregate prog conn cache = foldF interpret prog
   where
     interpret :: AccountLang a -> IO a
     interpret (FetchTXLines aid cont)  = do
-      -- TODO: load from TxLineCache region
-      txs <- DB.txLinesOfAccount aid conn
+      let act = DB.txLinesOfAccount aid conn
+      txs <- performCachedAction cache TxLineCache ("account_" ++ show aid) act
+      --txs <- DB.txLinesOfAccount aid conn
 
       let txVos = map (\(DB.Entity _ tx) ->
                           TXLine
@@ -156,14 +157,19 @@ runAccountAggregate prog conn = foldF interpret prog
       return (cont txVos)
 
     interpret (PersistTXLine aid m iban@(Iban i) name ref cont) = do
-      -- TODO: easies solution: evict TxLineCache region 
+      -- TXLines have changed => simplest solution is to evict their cache region
+      evictCacheRegion cache TxLineCache
+
       now    <- getCurrentTime
       _txKey <- DB.insertTXLine (DB.TxLineEntity aid i m name ref now) conn
       let tx = TXLine m iban name ref now
 
       return (cont tx)
 
-    interpret (UpdateBalance aid m a) = do
-      -- TODO: easies solution: evict AccountCache region!
+    interpret (UpdateBalance aid m a) = do 
+      -- Account has changed => simplest solution is to evict their cache region
+      evictCacheRegion cache AccountCache
+
       DB.updateAccountBalance aid m conn
+
       return a

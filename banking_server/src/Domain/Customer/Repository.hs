@@ -32,9 +32,12 @@ runCustomerRepo prog conn cache = foldF interpretCustomerRepo prog
     interpretCustomerRepo (AddCustomer cid cname f) = do
       let cEntity = CustomerEntity (customerIdToText cid) cname
       _cDbId <- DB.insertCustomer cEntity conn
+
+      -- Customers have changed => simplest solution is to evict their cache region
+      evictCacheRegion cache CustomerCache
+
       let c = customer cid cname
       return $ f c
-      -- TODO: easies solution: evict CustomerCache region 
 
     interpretCustomerRepo (AllCustomers f) = do
       let act = DB.allCustomers conn

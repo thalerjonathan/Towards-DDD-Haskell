@@ -22,7 +22,6 @@ instance Hashable CacheRegion
 -- TODO: https://hackage.haskell.org/package/base-4.15.0.0/docs/Data-Typeable.html
 type AppCache = Map.HashMap CacheRegion (Cache String Any)
 
-
 -- TODO: load cache config from some cfg file
 mkAppCache :: IO AppCache
 mkAppCache = flip execStateT Map.empty $ do
@@ -36,14 +35,21 @@ mkAppCache = flip execStateT Map.empty $ do
       c <- liftIO $ newCache tspec
       modify (Map.insert region c)
 
+evictCacheRegion :: AppCache -> CacheRegion -> IO ()
+evictCacheRegion cache region = do
+  -- TODO: make safe without fromJust
+  let regionCache = (fromJust . Map.lookup region) cache
+  ks <- Cache.keys regionCache
+  forM_ ks (Cache.delete regionCache)
+
 performCachedAction :: AppCache -> CacheRegion -> String -> IO a -> IO a
 performCachedAction cache region entryKey act = do
-  let c = (fromJust . Map.lookup region) cache
   -- TODO: make safe without fromJust
-  mFixCache <- Cache.lookup (unsafeCoerce c) entryKey
+  let regionCache = (fromJust . Map.lookup region) cache
+  mFixCache <- Cache.lookup (unsafeCoerce regionCache) entryKey
   case mFixCache of
     Nothing -> do
       ret <- act
-      Cache.insert c entryKey (unsafeCoerce ret)
+      Cache.insert regionCache entryKey (unsafeCoerce ret)
       return ret
     (Just fixCache) -> return fixCache

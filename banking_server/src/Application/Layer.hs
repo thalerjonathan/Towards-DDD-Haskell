@@ -95,7 +95,7 @@ runApplication prog cache conn = foldF interpret prog
     interpret (RunRepo r f)  = do
       f <$> interpretRepo r conn cache
     interpret (RunAggregate a f) = do
-      f <$> interpretAggregate a conn
+      f <$> interpretAggregate a conn cache
     interpret (Logging lvl txt a) = do
       putStrLn $ "LOG " ++ show lvl ++ ": " ++ show txt
       return a
@@ -112,6 +112,6 @@ interpretRepo :: Repository a -> SqlBackend -> AppCache -> IO a
 interpretRepo (AccountRepo r)  = runAccountRepo r
 interpretRepo (CustomerRepo r) = runCustomerRepo r
 
-interpretAggregate :: Aggregate a -> SqlBackend -> IO a
-interpretAggregate (CustomerAggregate a) _   = runCustomerAggregate a
-interpretAggregate (AccountAggregate a) conn = runAccountAggregate a conn
+interpretAggregate :: Aggregate a -> SqlBackend -> AppCache -> IO a
+interpretAggregate (CustomerAggregate a) _  _ = runCustomerAggregate a -- NOTE: customer aggregate does not access cache / db
+interpretAggregate (AccountAggregate a) conn cache = runAccountAggregate a conn cache

@@ -36,7 +36,10 @@ runAccountRepo prog conn cache = foldF interpret prog
                       Savings -> DB.Savings
       let accountEntity = DB.AccountEntity (customerIdToText owner) balance iban aTypeDb
       aid <- DB.insertAccount accountEntity conn
-      -- TODO: easies solution: evict AccountCache region 
+
+      -- Accounts have changed => simplest solution is to evict their cache region
+      evictCacheRegion cache AccountCache
+
       return $ f $ account (Entity aid accountEntity)
 
     interpret (FindAccountsForOwner (CustomerId cDomainId) cont) = do
