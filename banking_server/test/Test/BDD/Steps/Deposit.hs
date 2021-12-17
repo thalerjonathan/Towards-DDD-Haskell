@@ -1,18 +1,15 @@
 module Test.BDD.Steps.Deposit where
 
--- import           Test.Tasty.HUnit
-
 import           Data.Text
 import           Test.Cucumber.Data.Step
 
 import           Control.Monad
+import           Control.Monad.Except
 import           Control.Monad.State           (gets)
-
 import           Database.Persist.Postgresql
 
 import           Application.BankingAnemic
 import           Application.DTO
-import           Control.Monad.IO.Class        (liftIO)
 import           Infrastructure.Cache.AppCache
 import           Test.Cucumber.Runner          (StepAction,
                                                 StepActionParam (ParamDouble))
@@ -32,11 +29,11 @@ givenDeposit :: StepAction DepositStepData
 givenDeposit [ParamDouble balance]  = do
   liftIO $ putStrLn "givenDeposit begin"
   iban  <- gets depositStepDataIban
-  cache <- gets depositStepDataCache
+  _cache <- gets depositStepDataCache
   conn  <- gets depositStepDataConn
 
-  owner <- liftIO $ createCustomer cache "Jonathan" conn
-  void $ liftIO $ createAccount cache owner iban balance "Giro" conn
+  owner <- liftIO $ createCustomer "Jonathan" conn
+  void $ liftIO $ runExceptT $ createAccount owner iban balance "Giro" conn
   liftIO $ putStrLn "givenDeposit end"
 givenDeposit _ = fail "Invalid params in givenDeposit"
 
@@ -50,10 +47,10 @@ whenDeposit :: StepAction DepositStepData
 whenDeposit [ParamDouble balance] = do
   liftIO $ putStrLn "whenDeposit begin"
   iban  <- gets depositStepDataIban
-  cache <- gets depositStepDataCache
+  _cache <- gets depositStepDataCache
   conn  <- gets depositStepDataConn
 
-  ret <- liftIO $ deposit cache iban balance conn
+  ret <- liftIO $ runExceptT $ deposit iban balance conn
   case ret of
     (Right _) -> liftIO $ putStrLn "whenDeposit end"
     (Left err) -> do
@@ -70,10 +67,10 @@ thenDeposit :: StepAction DepositStepData
 thenDeposit [ParamDouble expectedBalance] = do
   liftIO $ putStrLn "thenDeposit begin"
   iban  <- gets depositStepDataIban
-  cache <- gets depositStepDataCache
+  _cache <- gets depositStepDataCache
   conn  <- gets depositStepDataConn
 
-  ret <- liftIO $ getAccount cache iban conn
+  ret <- liftIO $ runExceptT $ getAccount iban conn
   case ret of
     (Left _) -> fail "Account Not Found!"
     (Right a) -> do

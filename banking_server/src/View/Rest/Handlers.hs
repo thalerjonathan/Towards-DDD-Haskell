@@ -24,15 +24,15 @@ import           Infrastructure.DB.Pool        as Pool
 handleAllCustomers :: AppCache
                    -> DbPool
                    -> Handler [CustomerDetailsDTO]
-handleAllCustomers cache p =
-  liftIO $ Pool.runWithTX p (getAllCustomers cache)
+handleAllCustomers _cache p =
+  liftIO $ Pool.runWithTX p getAllCustomers
 
 handleCustomer :: AppCache
                -> DbPool
                -> T.Text
                -> Handler CustomerDTO
-handleCustomer cache p customerId = do
-  ret <- liftIO $ Pool.runWithTX p (runExceptT . getCustomer cache customerId)
+handleCustomer _cache p customerId = do
+  ret <- liftIO $ Pool.runWithTX p (runExceptT . getCustomer customerId)
   case ret of
     (Left _)     -> throwError err404
     (Right cust) -> return cust
@@ -41,8 +41,8 @@ handleAccount :: AppCache
               -> DbPool
               -> T.Text
               -> Handler AccountDTO
-handleAccount cache p iban = do
-  ret <- liftIO $ Pool.runWithTX p (runExceptT . getAccount cache iban)
+handleAccount _cache p iban = do
+  ret <- liftIO $ Pool.runWithTX p (runExceptT . getAccount iban)
   case ret of
     (Left _)  -> throwError err404
     (Right a) -> return a
@@ -52,16 +52,16 @@ handleDeposit :: AppCache
               -> T.Text
               -> Double
               -> Handler (Either T.Text TXLineDTO)
-handleDeposit cache p iban amount =
-  performAccountTx p (runExceptT . deposit cache iban amount)
+handleDeposit _cache p iban amount =
+  performAccountTx p (runExceptT . deposit iban amount)
 
 handleWithdraw :: AppCache
                -> DbPool
                -> T.Text
                -> Double
                -> Handler (Either T.Text TXLineDTO)
-handleWithdraw cache p iban amount =
-  performAccountTx p (runExceptT . withdraw cache iban amount)
+handleWithdraw _cache p iban amount =
+  performAccountTx p (runExceptT . withdraw iban amount)
 
 handleTransfer :: AppCache
                -> DbPool
@@ -70,8 +70,8 @@ handleTransfer :: AppCache
                -> Double
                -> T.Text
                -> Handler (Either T.Text TXLineDTO)
-handleTransfer cache p fromIban toIban amount reference =
-  performAccountTx p (runExceptT . transferEventual cache fromIban toIban amount reference)
+handleTransfer _cache p fromIban toIban amount reference =
+  performAccountTx p (runExceptT . transferEventual fromIban toIban amount reference)
 
 handleSwagger :: Handler Swagger
 handleSwagger = return bankingSwagger

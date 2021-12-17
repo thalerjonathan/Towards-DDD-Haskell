@@ -163,7 +163,7 @@ savings (TransferTo toIban amount name ref) = do
   
   let newBalance = b - amount
   if newBalance < 0
-    then return $ TransferToResult $ Left "Cannot overdraw Savings account by more than -1000!"
+    then return $ TransferToResult $ Left "Cannot overdraw Savings account!"
     else do
       changeBalance newBalance
       tx <- newTxLine (-amount) toIban name ref

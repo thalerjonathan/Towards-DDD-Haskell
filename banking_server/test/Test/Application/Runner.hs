@@ -1,15 +1,16 @@
 {-# LANGUAGE RankNTypes #-}
 module Test.Application.Runner where
 
+import           Application.Layer
 import           Control.Monad.Free.Church
 import           Control.Monad.Identity
 import           Data.Maybe
 import           Data.UUID
 import           Domain.Account.Repository
-import           Domain.Application
 import           Domain.Customer.Customer
 import           Domain.Customer.Repository
 import           Domain.Types
+import           Test.Domain.Account.Data
 
 customerRepoStub :: CustomerRepoLang a -> Identity a
 customerRepoStub (AddCustomer cid cname f) = do
@@ -21,21 +22,22 @@ customerRepoStub (FindCustomerById _ cont) = do
   return $ cont Nothing
 
 accountRepoStub :: AccountRepoLang a -> Identity a
-accountRepoStub (AddAccount _a ret) = do
-  return ret
+accountRepoStub (AddAccount (CustomerId _cid) _amount _iban aType cont) = do
+  let a = mkTestAccount aType
+  return $ cont a
 accountRepoStub (FindAccountsForOwner (CustomerId _cDomainId) cont) = do
   return $ cont []
 accountRepoStub (FindAccountByIban (Iban _i) cont) = do
   return $ cont Nothing
 
-testApplication :: Application a
+testApplication :: ApplicationLayer a
                 -> (forall b. AccountRepoLang b -> Identity b)
                 -> (forall b. CustomerRepoLang b -> Identity b)
                 -> a
 testApplication prog accRepoInter custRepoInter
     = runIdentity $ foldF interpret prog
   where
-    interpret :: ApplicationLang a -> Identity a
+    interpret :: ApplicationLayerLang a -> Identity a
     interpret (RunRepo (AccountRepo r) f)  = do
       f <$> foldF accRepoInter r
     interpret (RunRepo (CustomerRepo r) f)  = do

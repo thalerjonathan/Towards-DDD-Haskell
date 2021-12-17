@@ -1,11 +1,11 @@
 module Test.Application.Deposit where
 
-import           Test.Tasty
-import           Test.Tasty.HUnit
-
 import           Application.BankingDomain
 import           Application.Exceptions
+import           Control.Monad.Except
 import           Test.Application.Runner
+import           Test.Tasty
+import           Test.Tasty.HUnit
 
 deposit_tests :: TestTree
 deposit_tests = testGroup "Deposit Tests"
@@ -18,12 +18,12 @@ given_repository_when_deposit_then_return_new_tx = testCase "Deposit into existi
       amount = 123
 
   let ret = testApplication
-              (deposit iban amount)
+              (runExceptT $ deposit iban amount)
               accountRepoStub
               customerRepoStub
-  
+
   assertBool "" (accountNotFound ret)
 
 accountNotFound :: Either Exception a -> Bool
 accountNotFound (Left AccountNotFound) = True
-accountNotFound _ = False
+accountNotFound _                      = False

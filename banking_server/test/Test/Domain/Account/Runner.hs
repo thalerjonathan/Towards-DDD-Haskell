@@ -5,8 +5,7 @@ import           Control.Monad.State
 import           Data.Time
 import           Domain.Account.Api
 import           Domain.Types
-
-import           Test.Domain.Account.Data
+import           Test.Utils.Time
 
 testAccountProgram:: AccountProgram a -> a
 testAccountProgram prog = ret

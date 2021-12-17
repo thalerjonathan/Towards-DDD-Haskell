@@ -26,7 +26,6 @@ import           Data.UUID
 import           Data.UUID.V4                  (nextRandom)
 
 import           Database.Persist.Postgresql
-import           Infrastructure.Cache.AppCache
 import           Infrastructure.DB.Banking     as DB
 
 data TransferType = Transactional | Eventual
@@ -34,61 +33,55 @@ data TransferType = Transactional | Eventual
 type Application          = IO
 type ApplicationExcept ex = ExceptT ex Application
 
-createCustomer :: AppCache
-               -> T.Text
+createCustomer :: T.Text
                -> SqlBackend
                -> Application T.Text
-createCustomer _cache name conn = do
+createCustomer name conn = do
   custDomainId <- toText <$> nextRandom
   let cust = CustomerEntity custDomainId name
   _cid <- DB.insertCustomer cust conn
   return custDomainId
 
-createAccount :: AppCache
-              -> T.Text
+createAccount :: T.Text
               -> T.Text
               -> Double
               -> T.Text
               -> SqlBackend
               -> ApplicationExcept Exception ()
-createAccount _cache owner iban balance t conn = do
+createAccount owner iban balance t conn = do
   _ <- tryMaybe (liftIO $ DB.customerByDomainId owner conn) CustomerNotFound
   let at = read (T.unpack t) :: DB.AccountEntityType
   let acc = AccountEntity owner balance iban at
   _aid <- liftIO $ DB.insertAccount acc conn
   return ()
 
-getAllCustomers :: AppCache
-                -> SqlBackend
+getAllCustomers :: SqlBackend
                 -> Application [CustomerDetailsDTO]
-getAllCustomers _cache conn = do
+getAllCustomers conn = do
   cs <- DB.allCustomers conn
   return $ map customerEntityToDetailsDTO cs
 
-getCustomer :: AppCache
-            -> T.Text
+getCustomer :: T.Text
             -> SqlBackend
             -> ApplicationExcept Exception CustomerDTO
-getCustomer _cache cIdStr conn = do
+getCustomer cIdStr conn = do
   c  <- tryMaybe (liftIO $ DB.customerByDomainId cIdStr conn) CustomerNotFound
   as <- liftIO $ DB.accountsOfCustomer cIdStr conn
   return $ customerEntityToDTO c as
 
-getAccount :: AppCache
-           -> T.Text
+getAccount :: T.Text
            -> SqlBackend
            -> ApplicationExcept Exception AccountDTO
-getAccount _cache iban conn = do
+getAccount iban conn = do
   a@(Entity aid _) <- tryMaybe (DB.accountByIban iban conn) AccountNotFound
   txs <- liftIO $ DB.txLinesOfAccount aid conn
   return $ accountEntityToDTO a txs
 
-deposit :: AppCache
-        -> T.Text
+deposit :: T.Text
         -> Double
         -> SqlBackend
         -> ApplicationExcept Exception TXLineDTO
-deposit _cache iban amount conn = do
+deposit iban amount conn = do
   (Entity aid a) <- tryMaybe (DB.accountByIban iban conn) AccountNotFound
   if isSavings a
     then throwError $ InvalidAccountOperation "Cannot deposit into Savings account!"
@@ -101,12 +94,11 @@ deposit _cache iban amount conn = do
       liftIO $ DB.updateAccountBalance aid newBalance conn
       return $ txLineToDTO (Entity txId newTxLine)
 
-withdraw :: AppCache
-         -> T.Text
+withdraw :: T.Text
          -> Double
          -> SqlBackend
          -> ApplicationExcept Exception TXLineDTO
-withdraw _cache iban amount conn = do
+withdraw iban amount conn = do
   (Entity aid a) <- tryMaybe (DB.accountByIban iban conn) AccountNotFound
   if isSavings a
     then throwError $ InvalidAccountOperation "Cannot withdraw from Savings account!"
@@ -121,24 +113,22 @@ withdraw _cache iban amount conn = do
       liftIO $ DB.updateAccountBalance aid newBalance conn
       return $ txLineToDTO (Entity txId newTxLine)
 
-transferEventual :: AppCache
-                 -> T.Text
+transferEventual :: T.Text
                  -> T.Text
                  -> Double
                  -> T.Text
                  -> SqlBackend
                  -> ApplicationExcept Exception TXLineDTO
-transferEventual _cache fromIban toIban amount reference conn =
+transferEventual fromIban toIban amount reference conn =
   checkAndPerformTransfer fromIban toIban amount reference conn Eventual
 
-transferTransactional :: AppCache
-                      -> T.Text
+transferTransactional :: T.Text
                       -> T.Text
                       -> Double
                       -> T.Text
                       -> SqlBackend
                       -> ApplicationExcept Exception TXLineDTO
-transferTransactional _cache fromIban toIban amount reference conn =
+transferTransactional fromIban toIban amount reference conn =
   checkAndPerformTransfer fromIban toIban amount reference conn Transactional
 
 checkAndPerformTransfer :: T.Text

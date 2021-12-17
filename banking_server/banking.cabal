@@ -75,6 +75,7 @@ executable Banking
                     , View.HTML.Api
                     , View.HTML.Controller
                     , View.HTML.Forms
+                    , View.HTML.Page.Head
                     , View.HTML.Page.AllCustomers
                     , View.HTML.Page.Customer
                     , View.HTML.Page.Account
@@ -165,6 +166,7 @@ test-suite banking-test
                     , Infrastructure.DB.Config
                     , Infrastructure.DB.Banking
                     , Infrastructure.DB.Pool
+                    , Test.Utils.Time
                     , Test.BDD.Tests
                     , Test.BDD.Steps.Deposit
                     , Test.Domain.Tests

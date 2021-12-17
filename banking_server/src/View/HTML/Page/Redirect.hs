@@ -1,8 +1,8 @@
 module View.HTML.Page.Redirect where
 
-import Data.Text
-import Text.Blaze.Html5 as H
-import Text.Blaze.Html5.Attributes
+import           Data.Text
+import           Text.Blaze.Html5            as H
+import           Text.Blaze.Html5.Attributes
 
 redirectToHtml :: Text -> Html
 redirectToHtml l = docTypeHtml $ do

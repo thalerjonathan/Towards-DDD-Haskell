@@ -1,24 +1,9 @@
 module Test.Domain.Account.Data where
 
-import           Data.Fixed
-import           Data.Time
 import           Database.Persist.Sql
 import           Domain.Account.Api
 import           Domain.Account.Impl
 import qualified Infrastructure.DB.Banking as DB
-
--- https://wiki.haskell.org/Time
--- https://williamyaoh.com/posts/2019-09-16-time-cheatsheet.html
-mkUTCTime :: Integer
-          -> Int
-          -> Int
-          -> Int
-          -> Int
-          -> Pico
-          -> UTCTime
-mkUTCTime year mon day hour mn sec =
-  UTCTime (fromGregorian year mon day)
-          (timeOfDayToTime (TimeOfDay hour mn sec))
 
 mkAccountKey :: DB.Key DB.AccountEntity
 mkAccountKey =

@@ -2,8 +2,6 @@
 The server implementing the simple Banking Domain
 
 ## TODOs
-- move page headers into separate file
-- Put cucumber into banking_server
 - Fully test domain layer
 - Fully test application layer
 - Implement BDD tests from file

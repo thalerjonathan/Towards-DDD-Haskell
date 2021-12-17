@@ -188,41 +188,34 @@ view model =
 
       -- deposit form
       , H.div [ A.class "container-fluid mt-1 p-2 bg-light text-dark rounded-3" ]
-        [ H.form [] 
-          [ H.input [ E.onInput DepositAmountUpdated, A.type_ "number", A.step "0.01", A.value (String.fromFloat s.depositAmount) ] [] ]
+        [ H.input [ E.onInput DepositAmountUpdated, A.type_ "number", A.step "0.01", A.value (String.fromFloat s.depositAmount) ] [] 
         , H.button [ E.onClick Deposit, A.class "btn btn-primary" ] [ H.text "Deposit" ]
         ]
 
       -- withdaw form
       , H.div [ A.class "container-fluid mt-1 p-2 bg-light text-dark rounded-3" ]
-        [ H.form [] 
-          [ H.input [ E.onInput WithdrawAmountUpdated, A.type_ "number", A.step "0.01", A.value (String.fromFloat s.withdrawAmount) ] [] ]
+        [ H.input [ E.onInput WithdrawAmountUpdated, A.type_ "number", A.step "0.01", A.value (String.fromFloat s.withdrawAmount) ] []
         , H.button [ E.onClick Withdraw, A.class "btn btn-primary" ] [ H.text "Withdraw" ]
         ]
 
       -- transfer form
-      , H.div [ A.class "container-fluid mt-1 p-2 bg-light text-dark rounded-3" ]
-        [ H.form [] 
-          [ H.div [ A.class "input-group input-group-sm mb-3" ]
+      , H.div [ A.class "container-fluid mt-3 p-2 bg-light text-dark rounded-3" ]
+        [ H.div [ A.class "input-group input-group-sm mb-3" ]
             [ H.span [ A.class "input-group-text" ] 
-              [ H.text "Receiving IBAN "
-              , H.input [ E.onInput TransferIbanUpdated, A.type_ "text", A.class "form-control", A.value s.transferIban ] [] 
-              ]
+              [ H.text "Receiving IBAN " ]
+            , H.input [ E.onInput TransferIbanUpdated, A.type_ "text", A.class "form-control", A.value s.transferIban ] [] 
             ]
-          , H.div [ A.class "input-group input-group-sm mb-3" ]
-            [ H.span [ A.class "input-group-text" ] 
-              [ H.text "Amount "
-              , H.input [ E.onInput TransferAmountUpdated, A.type_ "number", A.step "0.01", A.class "form-control", A.value (String.fromFloat s.transferAmount)] [] 
-              ]
-            ]
-          , H.div [ A.class "input-group input-group-sm mb-3" ]
-            [ H.span [ A.class "input-group-text" ] 
-              [ H.text "Reference "
-              , H.input [ E.onInput TransferReferenceUpdated, A.type_ "text", A.class "form-control", A.value s.transferRef ] [] 
-              ]
-            ]
+        , H.div [ A.class "input-group input-group-sm mb-3" ]
+          [ H.span [ A.class "input-group-text" ] 
+            [ H.text "Amount " ]
+          , H.input [ E.onInput TransferAmountUpdated, A.type_ "number", A.step "0.01", A.class "form-control", A.value (String.fromFloat s.transferAmount)] [] 
+        ]
+        , H.div [ A.class "input-group input-group-sm mb-3" ]
+          [ H.span [ A.class "input-group-text" ] 
+            [ H.text "Reference " ]
+          , H.input [ E.onInput TransferReferenceUpdated, A.type_ "text", A.class "form-control", A.value s.transferRef ] [] 
           ]
-
+        
         , H.button [ E.onClick Transfer, A.class "btn btn-primary" ] [ H.text "Transfer" ]
         ]
 

@@ -7197,7 +7197,6 @@ var $elm$html$Html$Attributes$stringProperty = F2(
 	});
 var $elm$html$Html$Attributes$class = $elm$html$Html$Attributes$stringProperty('className');
 var $elm$html$Html$div = _VirtualDom_node('div');
-var $elm$html$Html$form = _VirtualDom_node('form');
 var $elm$html$Html$h2 = _VirtualDom_node('h2');
 var $elm$html$Html$h3 = _VirtualDom_node('h3');
 var $elm$html$Html$hr = _VirtualDom_node('hr');
@@ -7340,22 +7339,16 @@ var $author$project$Page$Account$view = function (model) {
 					_List_fromArray(
 						[
 							A2(
-							$elm$html$Html$form,
-							_List_Nil,
+							$elm$html$Html$input,
 							_List_fromArray(
 								[
-									A2(
-									$elm$html$Html$input,
-									_List_fromArray(
-										[
-											$elm$html$Html$Events$onInput($author$project$Page$Account$DepositAmountUpdated),
-											$elm$html$Html$Attributes$type_('number'),
-											$elm$html$Html$Attributes$step('0.01'),
-											$elm$html$Html$Attributes$value(
-											$elm$core$String$fromFloat(s.w))
-										]),
-									_List_Nil)
-								])),
+									$elm$html$Html$Events$onInput($author$project$Page$Account$DepositAmountUpdated),
+									$elm$html$Html$Attributes$type_('number'),
+									$elm$html$Html$Attributes$step('0.01'),
+									$elm$html$Html$Attributes$value(
+									$elm$core$String$fromFloat(s.w))
+								]),
+							_List_Nil),
 							A2(
 							$elm$html$Html$button,
 							_List_fromArray(
@@ -7377,22 +7370,16 @@ var $author$project$Page$Account$view = function (model) {
 					_List_fromArray(
 						[
 							A2(
-							$elm$html$Html$form,
-							_List_Nil,
+							$elm$html$Html$input,
 							_List_fromArray(
 								[
-									A2(
-									$elm$html$Html$input,
-									_List_fromArray(
-										[
-											$elm$html$Html$Events$onInput($author$project$Page$Account$WithdrawAmountUpdated),
-											$elm$html$Html$Attributes$type_('number'),
-											$elm$html$Html$Attributes$step('0.01'),
-											$elm$html$Html$Attributes$value(
-											$elm$core$String$fromFloat(s.D))
-										]),
-									_List_Nil)
-								])),
+									$elm$html$Html$Events$onInput($author$project$Page$Account$WithdrawAmountUpdated),
+									$elm$html$Html$Attributes$type_('number'),
+									$elm$html$Html$Attributes$step('0.01'),
+									$elm$html$Html$Attributes$value(
+									$elm$core$String$fromFloat(s.D))
+								]),
+							_List_Nil),
 							A2(
 							$elm$html$Html$button,
 							_List_fromArray(
@@ -7409,104 +7396,98 @@ var $author$project$Page$Account$view = function (model) {
 					$elm$html$Html$div,
 					_List_fromArray(
 						[
-							$elm$html$Html$Attributes$class('container-fluid mt-1 p-2 bg-light text-dark rounded-3')
+							$elm$html$Html$Attributes$class('container-fluid mt-3 p-2 bg-light text-dark rounded-3')
 						]),
 					_List_fromArray(
 						[
 							A2(
-							$elm$html$Html$form,
-							_List_Nil,
+							$elm$html$Html$div,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('input-group input-group-sm mb-3')
+								]),
 							_List_fromArray(
 								[
 									A2(
-									$elm$html$Html$div,
+									$elm$html$Html$span,
 									_List_fromArray(
 										[
-											$elm$html$Html$Attributes$class('input-group input-group-sm mb-3')
+											$elm$html$Html$Attributes$class('input-group-text')
 										]),
 									_List_fromArray(
 										[
-											A2(
-											$elm$html$Html$span,
-											_List_fromArray(
-												[
-													$elm$html$Html$Attributes$class('input-group-text')
-												]),
-											_List_fromArray(
-												[
-													$elm$html$Html$text('Receiving IBAN '),
-													A2(
-													$elm$html$Html$input,
-													_List_fromArray(
-														[
-															$elm$html$Html$Events$onInput($author$project$Page$Account$TransferIbanUpdated),
-															$elm$html$Html$Attributes$type_('text'),
-															$elm$html$Html$Attributes$class('form-control'),
-															$elm$html$Html$Attributes$value(s.A)
-														]),
-													_List_Nil)
-												]))
+											$elm$html$Html$text('Receiving IBAN ')
 										])),
 									A2(
-									$elm$html$Html$div,
+									$elm$html$Html$input,
 									_List_fromArray(
 										[
-											$elm$html$Html$Attributes$class('input-group input-group-sm mb-3')
+											$elm$html$Html$Events$onInput($author$project$Page$Account$TransferIbanUpdated),
+											$elm$html$Html$Attributes$type_('text'),
+											$elm$html$Html$Attributes$class('form-control'),
+											$elm$html$Html$Attributes$value(s.A)
+										]),
+									_List_Nil)
+								])),
+							A2(
+							$elm$html$Html$div,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('input-group input-group-sm mb-3')
+								]),
+							_List_fromArray(
+								[
+									A2(
+									$elm$html$Html$span,
+									_List_fromArray(
+										[
+											$elm$html$Html$Attributes$class('input-group-text')
 										]),
 									_List_fromArray(
 										[
-											A2(
-											$elm$html$Html$span,
-											_List_fromArray(
-												[
-													$elm$html$Html$Attributes$class('input-group-text')
-												]),
-											_List_fromArray(
-												[
-													$elm$html$Html$text('Amount '),
-													A2(
-													$elm$html$Html$input,
-													_List_fromArray(
-														[
-															$elm$html$Html$Events$onInput($author$project$Page$Account$TransferAmountUpdated),
-															$elm$html$Html$Attributes$type_('number'),
-															$elm$html$Html$Attributes$step('0.01'),
-															$elm$html$Html$Attributes$class('form-control'),
-															$elm$html$Html$Attributes$value(
-															$elm$core$String$fromFloat(s.z))
-														]),
-													_List_Nil)
-												]))
+											$elm$html$Html$text('Amount ')
 										])),
 									A2(
-									$elm$html$Html$div,
+									$elm$html$Html$input,
 									_List_fromArray(
 										[
-											$elm$html$Html$Attributes$class('input-group input-group-sm mb-3')
+											$elm$html$Html$Events$onInput($author$project$Page$Account$TransferAmountUpdated),
+											$elm$html$Html$Attributes$type_('number'),
+											$elm$html$Html$Attributes$step('0.01'),
+											$elm$html$Html$Attributes$class('form-control'),
+											$elm$html$Html$Attributes$value(
+											$elm$core$String$fromFloat(s.z))
+										]),
+									_List_Nil)
+								])),
+							A2(
+							$elm$html$Html$div,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('input-group input-group-sm mb-3')
+								]),
+							_List_fromArray(
+								[
+									A2(
+									$elm$html$Html$span,
+									_List_fromArray(
+										[
+											$elm$html$Html$Attributes$class('input-group-text')
 										]),
 									_List_fromArray(
 										[
-											A2(
-											$elm$html$Html$span,
-											_List_fromArray(
-												[
-													$elm$html$Html$Attributes$class('input-group-text')
-												]),
-											_List_fromArray(
-												[
-													$elm$html$Html$text('Reference '),
-													A2(
-													$elm$html$Html$input,
-													_List_fromArray(
-														[
-															$elm$html$Html$Events$onInput($author$project$Page$Account$TransferReferenceUpdated),
-															$elm$html$Html$Attributes$type_('text'),
-															$elm$html$Html$Attributes$class('form-control'),
-															$elm$html$Html$Attributes$value(s.B)
-														]),
-													_List_Nil)
-												]))
-										]))
+											$elm$html$Html$text('Reference ')
+										])),
+									A2(
+									$elm$html$Html$input,
+									_List_fromArray(
+										[
+											$elm$html$Html$Events$onInput($author$project$Page$Account$TransferReferenceUpdated),
+											$elm$html$Html$Attributes$type_('text'),
+											$elm$html$Html$Attributes$class('form-control'),
+											$elm$html$Html$Attributes$value(s.B)
+										]),
+									_List_Nil)
 								])),
 							A2(
 							$elm$html$Html$button,
