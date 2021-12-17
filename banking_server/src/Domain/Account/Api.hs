@@ -160,7 +160,7 @@ runAccountAggregate prog conn cache = foldF interpret prog
       -- TXLines have changed => simplest solution is to evict their cache region AFTER DB TX has commited
       tell [invalidateCacheRegion cache TxLineCache]
 
-      now    <- liftIO $ getCurrentTime
+      now    <- liftIO getCurrentTime
       _txKey <- liftIO $ DB.insertTXLine (DB.TxLineEntity aid i m name ref now) conn
       let tx = TXLine m iban name ref now
 

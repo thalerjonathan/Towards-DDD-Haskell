@@ -6,6 +6,7 @@ import           Control.Monad.Free.Church
 import           Control.Monad.Identity
 import           Data.Maybe
 import           Data.UUID
+import           Domain.Account.Api
 import           Domain.Account.Repository
 import           Domain.Customer.Customer
 import           Domain.Customer.Repository
@@ -33,8 +34,9 @@ accountRepoStub (FindAccountByIban (Iban _i) cont) = do
 testApplication :: ApplicationLayer a
                 -> (forall b. AccountRepoLang b -> Identity b)
                 -> (forall b. CustomerRepoLang b -> Identity b)
+                -> (forall b. AccountLang b -> Identity b)
                 -> a
-testApplication prog accRepoInter custRepoInter
+testApplication prog accRepoInter custRepoInter accAggInter
     = runIdentity $ foldF interpret prog
   where
     interpret :: ApplicationLayerLang a -> Identity a
@@ -49,7 +51,7 @@ testApplication prog accRepoInter custRepoInter
       return a
     interpret (PersistDomainEvent _evt _a) = do
       undefined
-    interpret (RunAggregate (AccountAggregate _a) _f) = do
-      undefined
+    interpret (RunAggregate (AccountAggregate a) f) = do
+      f <$> foldF accAggInter a
     interpret (RunAggregate (CustomerAggregate _a) _f) = do
       undefined
