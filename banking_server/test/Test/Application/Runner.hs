@@ -53,5 +53,6 @@ testApplication prog accRepoInter custRepoInter accAggInter
       undefined
     interpret (RunAggregate (AccountAggregate a) f) = do
       f <$> foldF accAggInter a
-    interpret (RunAggregate (CustomerAggregate _a) _f) = do
-      undefined
+    interpret (RunAggregate (CustomerAggregate a) f) = do
+      let ret = runIdentity a
+      return $ f ret

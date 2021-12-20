@@ -175,6 +175,9 @@ test-suite banking-test
                     , Test.Domain.Account.Runner
                     , Test.Application.Tests
                     , Test.Application.Deposit
+                    , Test.Application.Withdraw
+                    , Test.Application.Transfer
+                    , Test.Application.Utils
                     , Test.Application.Runner
 
   hs-source-dirs:     src/

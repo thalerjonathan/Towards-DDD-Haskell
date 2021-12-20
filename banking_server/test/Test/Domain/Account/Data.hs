@@ -1,5 +1,6 @@
 module Test.Domain.Account.Data where
 
+import           Data.Text                 as T
 import           Database.Persist.Sql
 import           Domain.Account.Api
 import           Domain.Account.Impl
@@ -27,3 +28,19 @@ mkTestAccount at = account e
       , DB.accountEntityBalance = 0
       , DB.accountEntityType    = t
       })
+
+mkTestAccountWith :: AccountType -> T.Text -> T.Text -> Double -> Account
+mkTestAccountWith at owner iban bal = account e
+  where
+    t = case at of
+          Giro    -> DB.Giro
+          Savings -> DB.Savings
+
+    k = mkAccountKey
+    e = DB.Entity k (DB.AccountEntity {
+        DB.accountEntityOwner   = owner
+      , DB.accountEntityIban    = iban
+      , DB.accountEntityBalance = bal
+      , DB.accountEntityType    = t
+      })
+
