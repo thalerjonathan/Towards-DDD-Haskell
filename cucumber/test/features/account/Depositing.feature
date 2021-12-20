@@ -11,5 +11,5 @@ Then I should have a balance of 1802.45 in my account
 Scenario: Deposit money into a Savings account
 Given my Savings account has a balance of 567.89
 When I deposit 234.56 into my account
-Then I expect the error 'Cannot deposit into Savings account!'  
+Then I expect the error 'Cannot deposit money directly into Savings Account! Use transfer of money from a Giro Account of the same customer.'  
 And I should have a balance of 567.89 in my account

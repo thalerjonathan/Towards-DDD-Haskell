@@ -43,9 +43,10 @@ initPool cfg = P <$> createPostgresqlPoolModified connAct connStr poolConnection
     setSchemaQuery = fromString $ "BEGIN; SET SCHEMA '" ++ (dbSchema cfg) ++ "'; COMMIT;"
 
     connAct conn = do
-      putStrLn "Before Set schema"
-      ret <- execute_ conn setSchemaQuery
-      putStrLn $ "After Set schema, returned " ++ show ret
+      --putStrLn "Before Set schema"
+      _ret <- execute_ conn setSchemaQuery
+      --putStrLn $ "After Set schema, returned " ++ show ret
+      return ()
 
     connStr = C.pack $
       "host="      ++ dbHost cfg ++

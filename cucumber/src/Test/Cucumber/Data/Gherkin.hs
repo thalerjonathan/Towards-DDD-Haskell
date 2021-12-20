@@ -4,7 +4,7 @@ data Feature
   = Feature String String [Scenario]
   deriving Show
 
-data Scenario 
+data Scenario
   = Scenario String Given
   deriving Show
 
@@ -20,7 +20,7 @@ data Then = T Step
 data Step = Step String And
   deriving Show
 
-data And 
-  = And String And 
+data And
+  = And String And
   | NoAnd
   deriving Show

@@ -113,7 +113,6 @@ executable Banking
                     , postgresql-simple
                     , resource-pool
                     , servant-blaze
-                    -- , servant-options
                     , servant-server
                     , servant-swagger
                     , swagger2

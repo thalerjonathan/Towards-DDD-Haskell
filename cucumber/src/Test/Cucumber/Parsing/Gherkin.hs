@@ -1,12 +1,16 @@
 module Test.Cucumber.Parsing.Gherkin
   ( parseGherkin
   ) where
-  
-import Data.Void
-import Text.Megaparsec hiding (State)
-import Text.Megaparsec.Char
 
-import Test.Cucumber.Data.Gherkin
+import           Data.Void                  (Void)
+import           Text.Megaparsec            (MonadParsec (eof), Parsec, eitherP,
+                                             many, some, (<|>))
+import           Text.Megaparsec.Char       (hspace, newline, printChar, space1,
+                                             string)
+
+import           Test.Cucumber.Data.Gherkin (And (And, NoAnd), Feature (..),
+                                             Given (G), Scenario (..),
+                                             Step (..), Then (T), When (W))
 
 type Parser = Parsec Void String
 
@@ -28,8 +32,7 @@ parseGherkin = do
     parseFeatureTitle :: Parser String
     parseFeatureTitle = do
       _ <- string "Feature:"
-      str <- parseLine
-      return str
+      parseLine
 
 parseScenario :: Parser Scenario
 parseScenario = do
@@ -37,24 +40,23 @@ parseScenario = do
     g <- parseAllSteps "Given"
     w <- parseAllSteps "When"
     t <- parseAllSteps "Then"
-    
-    return 
+
+    return
       $ Scenario title
-        $ G g 
+        $ G g
           $ W w
             $ T t
   where
     parseScenarioTitle :: Parser String
     parseScenarioTitle = do
       _ <- string "Scenario:"
-      str <- parseLine
-      return str
+      parseLine
 
     parseAllSteps :: String -> Parser Step
     parseAllSteps step = do
       s  <- parseStep step
       ss <- many $ parseStep "And"
-      let as = foldr (\str a -> And str a) NoAnd ss
+      let as = foldr And NoAnd ss
       return $ Step s as
 
 
@@ -62,14 +64,14 @@ parseScenario = do
     parseStep step = do
       _ <- string step
       hspace
-      str <- many $ printChar
+      str <- many printChar
       space1 <|> eof
       return str
 
 parseLine :: Parser String
 parseLine = do
   hspace
-  str <- many $ printChar
+  str <- many printChar
   hspace
   _ <- newline
   return str

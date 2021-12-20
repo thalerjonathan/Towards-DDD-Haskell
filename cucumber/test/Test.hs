@@ -1,45 +1,37 @@
 module Main where
 
-import Text.Megaparsec hiding (State)
+import           Text.Megaparsec               (parse)
 
-import Test.Cucumber.Parsing.Gherkin
-import Steps.AccountSteps
-import Test.Cucumber
-import Test.Cucumber.Data.Step (StepType)
-import Test.Cucumber.Runner (StepAction)
-
-testFeature :: String
-testFeature = "Feature: Depositing money into accounts\n" ++
-                  "In order to manage my money more efficiently\n" ++
-                  "As a bank client\n" ++
-                  "I want to deposit money into my accounts whenever I need to.\n" ++
-                "Scenario: Deposit money into a Giro account\n" ++
-                  "Given my Giro account has a balance of 1234.56\n" ++
-                  "When I deposit 567.89 into my account\n" ++ 
-                  "Then I should have a balance of 1802.45 in my account\n"
+import           Steps.AccountSteps            (AccountStepsData,
+                                                givenAccountBalance,
+                                                thenExpectError,
+                                                thenExpectNewBalance,
+                                                whenDepositBalance)
+import           Test.Cucumber                 (runFeature)
+import           Test.Cucumber.Data.Step       (StepType)
+import           Test.Cucumber.Parsing.Gherkin (parseGherkin)
+import           Test.Cucumber.Runner          (StepAction)
 
 testFeatureSteps :: [(StepType, StepAction AccountStepsData)]
-testFeatureSteps = [ (givenGiroAccountBalanceStep,  -- givenGiroAccountBalanceStep givenGiroAccountBalanceStepGenerated
-                      givenGiroAccountBalance)
-                  , 
-                    (whenDepositBalanceStep,
-                      whenDepositBalance)
-                  , 
-                    ( thenExpectNewBalanceStep,
-                      thenExpectNewBalance)
+testFeatureSteps = [ givenAccountBalance
+                   , whenDepositBalance
+                   , thenExpectNewBalance
+                   , thenExpectError
                   ]
 
 main :: IO ()
 main = do
-  --s <- readFile "test/resources/features/Depositing.feature"
-  let ret = parse parseGherkin "" testFeature
+  s <- readFile "test/features/account/Depositing.feature"
+  let ret = parse parseGherkin "" s
   case ret of
     (Left e) -> print e
     (Right feature) -> do
-      runFeature 
+      runFeature
         feature
         (\scenarioAction -> do
-          putStrLn "Before Scenario"
           scenarioAction Nothing
-          putStrLn "After Scenario"
-        ) testFeatureSteps
+        ) [ givenAccountBalance
+            , whenDepositBalance
+            , thenExpectNewBalance
+            , thenExpectError
+          ]

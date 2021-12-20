@@ -1,63 +1,74 @@
-{-# LANGUAGE QuasiQuotes     #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE LambdaCase  #-}
+{-# LANGUAGE QuasiQuotes #-}
 module Steps.AccountSteps where
 
-import Test.Cucumber.Runner
-import Test.Cucumber.Data.Step
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.State (get, put)
+import           Control.Monad.State                    (get, put)
+import           Test.Cucumber.Data.Step                (StepType (..))
+import           Test.Cucumber.Runner                   (StepAction,
+                                                         StepActionParam (ParamDouble, ParamString, ParamWord))
 
--- import Test.Cucumber.Generator.StepDefinition ( given )
+import           Control.Monad                          (when)
+import           Test.Cucumber.Generator.StepDefinition (given_, then_, when_)
 
-type AccountStepsData = Maybe Double
+type AccountStepsData = Maybe (String, Double, Maybe String)
 
--- givenGiroAccountBalanceStepGenerated :: StepType
--- givenGiroAccountBalanceStepGenerated = [given|my Giro account has a balance of {double}|]
+givenAccountBalance :: (StepType, StepAction AccountStepsData)
+givenAccountBalance = (
 
--- Given my Giro account has a balance of {double}
-givenGiroAccountBalanceStep :: StepType
-givenGiroAccountBalanceStep = Given 
-                                (Text "my Giro account has a balance of" 
-                                  (Param Double StepEnd))
+    [given_|my {word} account has a balance of {double}|]
 
-givenGiroAccountBalance :: StepAction AccountStepsData
-givenGiroAccountBalance [ParamDouble initialBalance]  = do
-  liftIO $ putStrLn "givenGiroAccountBalance begin"
-  put (Just initialBalance)
-  liftIO $ putStrLn "givenGiroAccountBalance end"
-givenGiroAccountBalance _ = fail "Invalid params in givenGiroAccountBalance"
+  , \case
+    [ParamWord accountType, ParamDouble initialBalance] -> do
+      put $ Just (accountType, initialBalance, Nothing)
+    _ -> fail "Invalid params in givenGiroAccountBalance"
+  )
 
--- When I deposit {double} into my account
-whenDepositBalanceStep :: StepType
-whenDepositBalanceStep = When 
-                          (Text "I deposit" 
-                            (Param Double 
-                              (Text "into my account" StepEnd)))
-whenDepositBalance :: StepAction AccountStepsData
-whenDepositBalance [ParamDouble amount] = do
-  liftIO $ putStrLn "whenDepositBalance begin"
-  ret <- get
-  case ret of
-    Nothing -> fail "Account not found!"
-    Just balance -> do
-      put (Just $ balance + amount)
-      liftIO $ putStrLn "whenDepositBalance end"
-whenDepositBalance _ = fail "Invalid params in whenDepositBalance"
+whenDepositBalance :: (StepType, StepAction AccountStepsData)
+whenDepositBalance = (
 
--- Then I should have a balance of {double} in my account
-thenExpectNewBalanceStep :: StepType
-thenExpectNewBalanceStep = Then 
-                            (Text "I should have a balance of" 
-                              (Param Double 
-                                (Text "in my account" StepEnd)))
-thenExpectNewBalance :: StepAction AccountStepsData
-thenExpectNewBalance [ParamDouble expectedBalance] = do
-  liftIO $ putStrLn "thenExpectNewBalance begin"
-  ret <- get
-  case ret of
-    Nothing -> fail "Account not found!"
-    Just balance -> do
-      if abs (balance - expectedBalance) > 0.01
-        then fail $ "Expected balance " ++ show expectedBalance ++ " but was " ++ show balance
-        else liftIO $ putStrLn "thenExpectNewBalance end"
-thenExpectNewBalance _ = fail "Invalid params in thenExpectNewBalance"
+    [when_|I deposit {double} into my account|]
+
+  , \case
+    [ParamDouble amount] -> do
+      ret <- get
+      case ret of
+        Nothing -> fail "Account State not found!"
+        Just (at, bal, _) -> do
+          if at == "Savings"
+            then do put $ Just (at, bal, Just "Cannot deposit money directly into Savings Account! Use transfer of money from a Giro Account of the same customer.")
+            else do put $ Just (at, bal + amount, Nothing)
+    _ -> fail "Invalid params in whenDepositBalance"
+  )
+
+thenExpectNewBalance :: (StepType, StepAction AccountStepsData)
+thenExpectNewBalance = (
+
+    [then_|I should have a balance of {double} in my account|]
+
+  , \case
+    [ParamDouble expectedBalance] -> do
+      ret <- get
+      case ret of
+        Nothing -> fail "Account State not found!"
+        Just (_, bal, _) -> do
+          when (abs (bal - expectedBalance) > 0.01)
+            (fail $ "Expected balance " ++ show expectedBalance ++ " but was " ++ show bal)
+    _ -> fail "Invalid params in thenExpectNewBalance"
+  )
+
+thenExpectError :: (StepType, StepAction AccountStepsData)
+thenExpectError = (
+
+    [then_|I expect the error {string}|]
+
+  , \case
+    [ParamString expectedErr] -> do
+      ret <- get
+      case ret of
+        Nothing -> fail "Account State not found!"
+        Just (_, _, Just actualErr) -> do
+          when (expectedErr /= actualErr)
+              (fail $ "Expected Error '" ++ expectedErr ++ "' but was '" ++ actualErr ++ "'")
+        _ -> fail "Expected Error but there was none."
+    _ -> fail "Invalid params in thenExpectError"
+  )
