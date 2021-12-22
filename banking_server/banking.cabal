@@ -167,7 +167,7 @@ test-suite banking-test
                     , Infrastructure.DB.Pool
                     , Test.Utils.Time
                     , Test.BDD.Tests
-                    , Test.BDD.Steps.Deposit
+                    , Test.BDD.Steps.DepositWithdraw
                     , Test.Domain.Tests
                     , Test.Domain.Account.Tests
                     , Test.Domain.Account.Data

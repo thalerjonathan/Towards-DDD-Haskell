@@ -36,14 +36,16 @@ runScenario steps (Scenario _ (G givenStep (W whenStep (T thenStep)))) s = do
 
     givenRet <- execStepActionsFor steps givenStep "Given" s
     case givenRet of
-      Nothing -> return ()
+      Nothing -> error "Could not find matching Given steps!"
       (Just givenState) -> do
         whenRet <- execStepActionsFor steps whenStep "When" givenState
         case whenRet of
-          Nothing -> return ()
+          Nothing -> error "Could not find matching When steps!"
           (Just whenState) -> do
-            _thenRet <- execStepActionsFor steps thenStep "Then" whenState
-            return ()
+            thenRet <- execStepActionsFor steps thenStep "Then" whenState
+            case thenRet of
+              Nothing -> error "Could not find matching Then steps!"
+              Just _  -> return ()
 
 execStepActionsFor :: [(StepType, StepAction s)] -> Step -> String -> s -> IO (Maybe s)
 execStepActionsFor steps (Step stepStr stepAnd) st s = do
@@ -104,7 +106,7 @@ parseStep (Param Word cont, act) acc = do
 
 parseStep (Param Str cont, act) acc = do
   _ <- char '\''
-  w <- some (alphaNumChar <|> spaceChar <|> char '!' <|> char '.')
+  w <- some (alphaNumChar <|> spaceChar <|> char '!' <|> char '.' <|> char '-')
   _ <- char '\''
   parseStep (cont, act) (acc ++ [ParamString w])
 

@@ -17,5 +17,5 @@ And I should have a balance of 1000.00 in my account
 Scenario: Withdraw money from a Savings account
 Given my Savings account has a balance of 567.89
 When I withdraw 234.56 from my account
-Then I expect the error 'Cannot withdraw money directly from Savings Account! Use transfer of money into a Giro Account of the same customer.'  
+Then I expect the error 'Cannot withdraw from Savings account!'  
 And I should have a balance of 567.89 in my account

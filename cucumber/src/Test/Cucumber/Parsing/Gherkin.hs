@@ -59,7 +59,6 @@ parseScenario = do
       let as = foldr And NoAnd ss
       return $ Step s as
 
-
     parseStep :: String -> Parser String
     parseStep step = do
       _ <- string step
