@@ -147,7 +147,7 @@ checkAndPerformTransfer fromIban toIban amount reference conn txType = do
       if isSavings fromAccount || isSavings  toAccount
         then throwError $ InvalidAccountOperation "Transfer cannot happen with Savings account of different customers!"
         else if amount > 5000
-          then throwError $ InvalidAccountOperation "Transfer between different customers cannot exceed 5000€!"
+          then throwError $ InvalidAccountOperation "Transfer between different customers cannot exceed 5000!"
           else
             case txType of
               Transactional -> performTransferTransactional fromAid fromAccount toAid toAccount amount reference conn

@@ -1,4 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds #-}
 module Domain.Account.Api where
 
 import           Control.Monad.Free.Church
@@ -15,6 +17,9 @@ import qualified Infrastructure.DB.Banking               as DB
 data TXLine  = TXLine Money Iban T.Text T.Text UTCTime deriving Show
 
 data AccountType = Giro | Savings deriving (Show, Eq, Read)
+
+data AccountCommandNew ret where
+  DepositNew :: Money -> AccountCommandNew 'DepositResult
 
 data AccountCommand
   = Deposit Money

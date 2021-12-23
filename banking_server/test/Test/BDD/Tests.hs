@@ -10,53 +10,71 @@ import           Database.Persist.Sql
 import           Infrastructure.Cache.AppCache
 import qualified Infrastructure.DB.Config       as DbCfg
 import           Infrastructure.DB.Pool
-import           Test.BDD.Steps.DepositWithdraw
+import           Test.BDD.Steps.DepositWithdraw as DW
+import           Test.BDD.Steps.Transferring    as TR
 import           Test.Cucumber
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
 type AppConfig = DbCfg.DbConfig
 
-
 bdd_tests :: TestTree
 bdd_tests = testGroup "BDD Tests"
               [ testDeposit
-              , testWithdraw ]
+              , testWithdraw
+              , testTransferring ]
 
 testDeposit :: TestTree
 testDeposit =
   testScenario
-    [ givenAccount
-    , whenDeposit
-    , thenExpectBalance
-    , thenExpectError
+    [ DW.givenAccount
+    , DW.whenDeposit
+    , DW.thenExpectBalance
+    , DW.thenExpectError
     ]
     "Deposit Scenarios"
     "test/resources/features/Depositing.feature"
-    (\cache conn -> StepData {
-        stepDataIban  = "AT99 99999 9999999999"
-      , stepDataCache = cache
-      , stepDataConn  = conn
-      , stepDataEx    = Nothing
+    (\cache conn -> DW.StepData {
+        DW.stepDataIban  = "AT99 99999 9999999999"
+      , DW.stepDataCache = cache
+      , DW.stepDataConn  = conn
+      , DW.stepDataEx    = Nothing
       })
 
 testWithdraw :: TestTree
 testWithdraw =
   testScenario
-    [ givenAccount
-    , whenWithdraw
-    , thenExpectBalance
-    , thenExpectError
+    [ DW.givenAccount
+    , DW.whenWithdraw
+    , DW.thenExpectBalance
+    , DW.thenExpectError
     ]
     "Withdraw Scenarios"
     "test/resources/features/Withdrawing.feature"
-    (\cache conn -> StepData {
-        stepDataIban  = "AT99 99999 9999999999"
-      , stepDataCache = cache
-      , stepDataConn  = conn
-      , stepDataEx    = Nothing
+    (\cache conn -> DW.StepData {
+        DW.stepDataIban  = "AT99 99999 9999999999"
+      , DW.stepDataCache = cache
+      , DW.stepDataConn  = conn
+      , DW.stepDataEx    = Nothing
       })
 
+testTransferring :: TestTree
+testTransferring =
+  testScenario
+    [ TR.givenAccount
+    , TR.givenAccountSameCustomer
+    , TR.whenTransferring
+    , TR.thenExpectBalance
+    , TR.thenExpectError
+    ]
+    "Transferring Scenarios"
+    "test/resources/features/Transferring.feature"
+    (\cache conn -> TR.StepData {
+        TR.stepDataOwner = Nothing
+      , TR.stepDataCache = cache
+      , TR.stepDataConn  = conn
+      , TR.stepDataEx    = Nothing
+      })
 
 testScenario :: [(StepType, StepAction s)]
              -> String

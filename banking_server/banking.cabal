@@ -168,6 +168,7 @@ test-suite banking-test
                     , Test.Utils.Time
                     , Test.BDD.Tests
                     , Test.BDD.Steps.DepositWithdraw
+                    , Test.BDD.Steps.Transferring
                     , Test.Domain.Tests
                     , Test.Domain.Account.Tests
                     , Test.Domain.Account.Data

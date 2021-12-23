@@ -10,7 +10,7 @@ import           Control.Monad.Writer.Lazy
 import           Data.Text                     as T
 import           Data.Time.Clock
 import           Data.UUID
-import           Data.UUID.V4                  (nextRandom)
+import           Data.UUID.V4
 import           Database.Persist.Sql
 import           Domain.Account.Api
 import           Domain.Account.Repository
@@ -92,7 +92,7 @@ accountAggregate = AccountAggregate
 
 runApplicationTX :: Pool.DbPool -> AppCache -> ApplicationLayer a -> IO a
 runApplicationTX p cache prog = do
-  (a, posTXActions) <- (Pool.runWithTX p (runWriterT . runApplication prog cache))
+  (a, posTXActions) <- Pool.runWithTX p (runWriterT . runApplication prog cache)
   -- execute all post-TX actions
   sequence_ posTXActions
   return a

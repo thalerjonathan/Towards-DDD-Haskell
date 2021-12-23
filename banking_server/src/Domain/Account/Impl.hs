@@ -27,14 +27,11 @@ type AccountInternalEffects = ReaderT AccountRead (StateT AccountState AccountEf
 
 account :: DB.Entity DB.AccountEntity -> Account
 account (DB.Entity aid a) = feedback s0 (proc (cmd, s) -> do
-      (mCmdRes, s') <- arrM (uncurry foobar) -< (cmd, s)
+      (mCmdRes, s') <- arrM (uncurry runAccount) -< (cmd, s)
       returnA -< (mCmdRes, s'))
 
   where
-    foobar cmd s = do
-      let stateRet = runReaderT ((behaviour atype) cmd) r
-          ret      = runStateT stateRet s
-      ret
+    runAccount cmd s = runStateT (runReaderT ((behaviour atype) cmd) r) s
 
     behaviour DB.Giro    = giro
     behaviour DB.Savings = savings
@@ -119,7 +116,7 @@ giro (Deposit amount) = do
 
 giro (TransferTo toIban amount name ref) = do
   b <- balance
-  
+
   let newBalance = b - amount
   if newBalance < overdraftLimit
     then return $ TransferToResult $ Left "Cannot overdraw Giro account by more than -1000!"
@@ -160,7 +157,7 @@ savings (Deposit _) = do
 
 savings (TransferTo toIban amount name ref) = do
   b <- balance
-  
+
   let newBalance = b - amount
   if newBalance < 0
     then return $ TransferToResult $ Left "Cannot overdraw Savings account!"
