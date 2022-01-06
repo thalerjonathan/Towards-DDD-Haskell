@@ -1,5 +1,7 @@
 # Towards Tactical Domain-Driven Design in Haskell
 
+TODO building an running
+
 ## Introduction
 
 A very viable and popular approach to architect Haskell applications is the so called [3 Layere Cake](https://www.parsonsmatt.org/2018/03/22/three_layer_haskell_cake.html), a term coined by Matt Parsons to describe this architectural style. When analysing this from my Software Engineering (SE) background, I relate Parsons 3 Layer Cake to the following SE terminology:
@@ -36,13 +38,13 @@ In this background section we briefly introduce various concepts necessary to fu
 ### Domain-Driven Design
 In this section we cover and describe the Tactical DDD Patterns very briefly. An in-depth discussion of all Tactical Patterns in particular and DDD in general is beyond the scope of this text and we refer to Evans and Vernons excellent Books.
 
-- Value Object
-- Entity
-- Aggregate
-- Repositories
-- Domain Event
-- Domain Service
-- Factories
+- Value Object: is not a thing in the domain but describes a domain concept. It has no identity and is distinguished by equality of value. Examples are *Color*, *Currency*,...
+- Entity: is a thing in the domain which can change over time but still keeps an identity. Examples are *Person*, *Order*,...
+- Aggregate: is a cluster of domain objects which are treated as a single, consistent unit. Aggregates implement and enforce a consistency and transactional boundary around a cluster of objects, for which they enforce strong business rules. Examples are an *Account* which holds *TransactionLines* where the Account balance must reflect the total of the TransactionLines. 
+- Repository: is a storage location where Aggregates are stored in or retrieved from. Generally Repositories emulate a collection interface and hide the fact that they are backed by an underlying ORM.
+- Domain Event: is a record of some business-significant occurrence. They are emitted from Aggregates and then delivered to interested parties which have registered to receive them. They are key when implementing Eventual Consistency.
+- Domain Service: is a stateless operation, that fullfills a domain-specific task. Generally, Domain Services are used when some domain logic needs access to multiple Aggregates such as transfer policies in Accounts.
+- Factories: are used to encapsulate the process of constructing complex Aggregates, Entities or Value Objects, enforcing invariants.
 
 ### Related Work
 There exists the book *Domain Modeling Made Functional: Tackle Software Complexity with Domain-Driven Design and F#* by Scott Wlashin, which investigates DDD in the context of F#. 
@@ -51,3 +53,33 @@ A master thesis has been written at the University of Applied Sciences Vorarlber
 
 Andor Pénzes has done work on dependently typed DDD based on the Book by Scot Wlashin. His code is publicly available as a [GitHub Repo](https://github.com/andorp/order-taking/)
 
+## Implementation
+The aim of the implementation was to see how we can implement the Banking Domain described in Domain.md following a 4 layered architecture. The four layers are:
+
+1. **View** in the ``View`` module implements both a server-side HTML rendering as well as a RESTful services interface. Both call into the Application Layer to execute the respective domain logic as invoked through the handlers. 
+  - The server-side rendering view is implemented using blaze-html on top of ``servant``. 
+  - The RESTful services are implemented with ``servant`` and are used by an SPA implemented in Elm, which can be found in the ``banking_spa`` folder.
+2. **Application** in the ``Application`` module implements the functionality for each Use Case / User Story of the Domain, for example depositing and withdrawing of money and is therefore the client to the Domain Model. The Application Layer returns Data Transfer Objects (DTOs) to communicate requested data back to the calling layer (generally it is the View Layer). It also handles the asynchronous processing of Domain Events for implementing Eventual Consistency of the *Transfer* feature of the domain.
+3. **Domain** in the ``Domain`` module implements the domain logic of the Banking Domain using Free Monads and Monadic Stream Functions (MSFs). More on that below.
+4. **Infrastructure** in the ``Infrastructure`` module holds all infrastructure-related code:
+  - The actual webserver, using ``servant``, which exposes the interface defined by the View Layer.
+  - The low-level database code and connection pool, using ``persistent``, with the db-model being defined in ``db/banking.persistentmodels`` and ``db/create.sql``. Is used by the Application and Domain Layer.
+  - Application Cache which is used in the Domain Model implementation to cache DB queries.
+  
+
+What we were interested in particular were different approaches to implement the 3rd Layer, the Domain Layer. So far we have developed two implementations:
+
+1. Anemic
+2. MSF
+
+We plan on implementing other approaches using the 3 Layer Cake approach using the [effectful](https://hackage.haskell.org/package/effectful) library.
+
+TODO: tests
+
+### Anemic
+
+### MSF
+
+## Discussion
+TODO weaknesses
+TODO TX boundaries are set in the view layer
