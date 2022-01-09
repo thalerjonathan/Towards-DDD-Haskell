@@ -52,19 +52,21 @@ executable Banking
   main-is:             Main.hs
 
   -- Modules included in this executable, other than Main.
-  other-modules:      Application.Layer
-                    , Application.BankingAnemic
-                    , Application.BankingDomain
+  other-modules:      Application.Anemic.Banking
+                    , Application.Eff.Banking
+                    , Application.Eff.Layer
+                    , Application.FreeMSF.Banking
+                    , Application.FreeMSF.Layer
                     , Application.Exceptions
                     , Application.DTO
-                    , Application.DomainEvents
+                    , Application.Events
                     , Application.Async
-                    , Domain.Account.Api
-                    , Domain.Account.Impl
-                    , Domain.Account.Repository
-                    , Domain.Customer.Customer
-                    , Domain.Customer.Repository
-                    , Domain.Types
+                    , Domain.FreeMSF.Account.Api
+                    , Domain.FreeMSF.Account.Impl
+                    , Domain.FreeMSF.Account.Repository
+                    , Domain.FreeMSF.Customer.Customer
+                    , Domain.FreeMSF.Customer.Repository
+                    , Domain.FreeMSF.Types
                     , Infrastructure.Cache.AppCache
                     , Infrastructure.DB.Config
                     , Infrastructure.DB.Banking
@@ -100,6 +102,7 @@ executable Banking
                     , conduit
                     , configurator
                     , dunai
+                    , effectful
                     , either
                     , free
                     , hashable
@@ -149,18 +152,18 @@ test-suite banking-test
   main-is:            Tests.hs
 
   -- clean up modules... server and handlers certainly not necessary...
-  other-modules:      Application.Layer
-                    , Application.BankingAnemic
-                    , Application.BankingDomain
+  other-modules:      Application.Anemic.Banking
+                    , Application.FreeMSF.Banking
+                    , Application.FreeMSF.Layer
                     , Application.Exceptions
                     , Application.DTO
-                    , Application.DomainEvents
-                    , Domain.Account.Api
-                    , Domain.Account.Impl
-                    , Domain.Account.Repository
-                    , Domain.Customer.Customer
-                    , Domain.Customer.Repository
-                    , Domain.Types
+                    , Application.Events
+                    , Domain.FreeMSF.Account.Api
+                    , Domain.FreeMSF.Account.Impl
+                    , Domain.FreeMSF.Account.Repository
+                    , Domain.FreeMSF.Customer.Customer
+                    , Domain.FreeMSF.Customer.Repository
+                    , Domain.FreeMSF.Types
                     , Infrastructure.Cache.AppCache
                     , Infrastructure.DB.Config
                     , Infrastructure.DB.Banking
@@ -202,6 +205,7 @@ test-suite banking-test
                     , configurator
                     , cucumber-haskell
                     , dunai
+                    , effectful
                     , either
                     , free
                     , hashable

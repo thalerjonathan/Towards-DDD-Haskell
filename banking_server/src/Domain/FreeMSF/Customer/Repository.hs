@@ -1,11 +1,11 @@
-module Domain.Customer.Repository where
+module Domain.FreeMSF.Customer.Repository where
 
 import           Control.Monad.Free.Church
 import           Control.Monad.Writer.Lazy
 import qualified Data.Text                     as T
 import           Database.Persist.Sql
-import           Domain.Customer.Customer
-import           Domain.Types
+import           Domain.FreeMSF.Customer.Customer
+import           Domain.FreeMSF.Types
 import           Infrastructure.Cache.AppCache
 import           Infrastructure.DB.Banking     as DB
 

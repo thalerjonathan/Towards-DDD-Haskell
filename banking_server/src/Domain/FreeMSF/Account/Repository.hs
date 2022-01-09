@@ -1,12 +1,12 @@
-module Domain.Account.Repository where
+module Domain.FreeMSF.Account.Repository where
 
 import           Control.Monad.Free.Church
 import           Control.Monad.Writer.Lazy
 import           Data.UUID
 import           Database.Persist.Sql
-import           Domain.Account.Api
-import           Domain.Account.Impl
-import           Domain.Types
+import           Domain.FreeMSF.Account.Api
+import           Domain.FreeMSF.Account.Impl
+import           Domain.FreeMSF.Types
 import           Infrastructure.Cache.AppCache
 import qualified Infrastructure.DB.Banking     as DB
 

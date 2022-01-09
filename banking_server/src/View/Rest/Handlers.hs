@@ -16,7 +16,7 @@ import           Servant
 import           Application.DTO
 import           View.Rest.Api
 
-import           Application.BankingAnemic
+import           Application.Anemic.Banking
 import           Database.Persist.Postgresql
 import           Infrastructure.Cache.AppCache
 import           Infrastructure.DB.Pool        as Pool

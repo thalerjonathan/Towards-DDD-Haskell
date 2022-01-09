@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Application.BankingAnemic
+module Application.Anemic.Banking
   ( Exception (..)
   , createCustomer
   , createAccount
@@ -13,20 +13,20 @@ module Application.BankingAnemic
   , processDomainEvent
   ) where
 
-import qualified Data.Text                     as T
-import qualified Data.Text.Lazy                as TL
+import qualified Data.Text                   as T
+import qualified Data.Text.Lazy              as TL
 
 import           Application.DTO
-import           Application.DomainEvents
+import           Application.Events
 import           Application.Exceptions
 import           Control.Monad.Except
-import           Data.Aeson.Text               as Aeson
+import           Data.Aeson.Text             as Aeson
 import           Data.Time.Clock
 import           Data.UUID
-import           Data.UUID.V4                  (nextRandom)
+import           Data.UUID.V4                (nextRandom)
 
 import           Database.Persist.Postgresql
-import           Infrastructure.DB.Banking     as DB
+import           Infrastructure.DB.Banking   as DB
 
 data TransferType = Transactional | Eventual
 

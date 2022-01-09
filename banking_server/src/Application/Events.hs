@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
-module Application.DomainEvents where
+module Application.Events where
 
 import           Data.Aeson
 import           Data.Aeson.Text as Aeson

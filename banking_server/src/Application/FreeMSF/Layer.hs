@@ -1,21 +1,21 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE FlexibleInstances         #-}
-module Application.Layer where
+module Application.FreeMSF.Layer where
 
 import           Control.Monad.Free.Church
 
-import           Application.DomainEvents
+import           Application.Events
 import           Control.Monad.Writer.Lazy
 import           Data.Text                     as T
 import           Data.Time.Clock
 import           Data.UUID
 import           Data.UUID.V4
 import           Database.Persist.Sql
-import           Domain.Account.Api
-import           Domain.Account.Repository
-import           Domain.Customer.Customer
-import           Domain.Customer.Repository
+import           Domain.FreeMSF.Account.Api
+import           Domain.FreeMSF.Account.Repository
+import           Domain.FreeMSF.Customer.Customer
+import           Domain.FreeMSF.Customer.Repository
 import           Infrastructure.Cache.AppCache
 import           Infrastructure.DB.Banking     as DB
 import qualified Infrastructure.DB.Pool        as Pool

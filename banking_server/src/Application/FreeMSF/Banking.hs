@@ -1,16 +1,16 @@
-module Application.BankingDomain where
+module Application.FreeMSF.Banking where
 
 import           Application.DTO
-import           Application.DomainEvents   as DomainEvents
+import           Application.Events         as Events
 import           Application.Exceptions
-import           Application.Layer
+import           Application.FreeMSF.Layer
 import           Control.Monad.Except
 import           Data.Text                  as T
-import           Domain.Account.Api
-import           Domain.Account.Repository
-import           Domain.Customer.Customer
-import           Domain.Customer.Repository
-import           Domain.Types
+import           Domain.FreeMSF.Account.Api
+import           Domain.FreeMSF.Account.Repository
+import           Domain.FreeMSF.Customer.Customer
+import           Domain.FreeMSF.Customer.Repository
+import           Domain.FreeMSF.Types
 
 data TransferType = Transactional | Eventual
 
@@ -39,7 +39,7 @@ getAllCustomers :: Application [CustomerDetailsDTO]
 getAllCustomers = do
   cs   <- runRepo $ customerRepo $ allCustomers
   runAggregate $ customerAggregate $ mapM customerToDetailsDTO cs
-  
+
 getCustomer :: T.Text -> ApplicationExcept Exception CustomerDTO
 getCustomer cIdStr = do
   let cid = customerIdFromTextUnsafe cIdStr
@@ -64,7 +64,7 @@ deposit :: T.Text
         -> ApplicationExcept Exception TXLineDTO
 deposit ibanStr amount = do
   a <- tryMaybe (runRepo $ accountRepo $ findAccountByIban (Iban ibanStr)) AccountNotFound
-  (_, ret, _) <- lift $ runAggregate $ accountAggregate $ Domain.Account.Api.deposit a amount
+  (_, ret, _) <- lift $ runAggregate $ accountAggregate $ Domain.FreeMSF.Account.Api.deposit a amount
   case ret of
     (DepositResult (Left err)) -> throwError $ InvalidAccountOperation err
     (DepositResult (Right tx)) -> return $ txLineToDTO tx
@@ -75,7 +75,7 @@ withdraw :: T.Text
          -> ApplicationExcept Exception TXLineDTO
 withdraw ibanStr amount = do
   a <- tryMaybe (runRepo $ accountRepo $ findAccountByIban (Iban ibanStr)) AccountNotFound
-  (_, ret, _) <- lift $ runAggregate $ accountAggregate $ Domain.Account.Api.withdraw a amount
+  (_, ret, _) <- lift $ runAggregate $ accountAggregate $ Domain.FreeMSF.Account.Api.withdraw a amount
   case ret of
     (WithdrawResult (Left err)) -> throwError $ InvalidAccountOperation err
     (WithdrawResult (Right tx)) -> return $ txLineToDTO tx
@@ -104,7 +104,7 @@ checkAndPerformTransfer :: T.Text
                         -> TransferType
                         -> ApplicationExcept Exception TXLineDTO
 checkAndPerformTransfer fromIban toIban amount reference txType = do
-  fromAccount <- tryMaybe (runRepo $ accountRepo $ findAccountByIban (Iban fromIban)) AccountNotFound 
+  fromAccount <- tryMaybe (runRepo $ accountRepo $ findAccountByIban (Iban fromIban)) AccountNotFound
   toAccount   <- tryMaybe (runRepo $ accountRepo $ findAccountByIban (Iban toIban)) AccountNotFound
 
   -- NOTE: this check is similar to a domain service
@@ -194,14 +194,14 @@ performTransferEventual fromAccount toAccount amount reference = do
         , transferSentEventReceivingAccount  = toIbanTx
         }
 
-      lift $ persistDomainEvent (DomainEvents.TransferSent evtData)
+      lift $ persistDomainEvent (Events.TransferSent evtData)
       return $ txLineToDTO txLine
     _ ->
       error "Unexpected result"
 
 processDomainEvent :: DomainEvent -> Application ()
-processDomainEvent (DomainEvents.TransferSent evt)   = void (runExceptT (transferSent evt))
-processDomainEvent (DomainEvents.TransferFailed evt) = void (runExceptT (transferFailed evt))
+processDomainEvent (Events.TransferSent evt)   = void (runExceptT (transferSent evt))
+processDomainEvent (Events.TransferFailed evt) = void (runExceptT (transferFailed evt))
 
 transferSent :: TransferSentEventData -> ApplicationExcept () ()
 transferSent evt = do
@@ -251,7 +251,7 @@ transferSent evt = do
         , transferFailedEventReceivingAccount  = transferSentEventReceivingAccount evtSentData
         }
 
-      persistDomainEvent (DomainEvents.TransferFailed evtFailedData)
+      persistDomainEvent (Events.TransferFailed evtFailedData)
 
 transferFailed :: TransferFailedEventData -> ApplicationExcept () ()
 transferFailed evt = do

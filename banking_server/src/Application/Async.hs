@@ -7,8 +7,8 @@ import           Control.Monad
 import           Data.Aeson
 import           Data.Text.Encoding        as T
 
-import           Application.BankingAnemic
-import           Application.DomainEvents
+import           Application.Anemic.Banking
+import           Application.Events
 import           Infrastructure.DB.Banking as DB
 import           Infrastructure.DB.Pool    as Pool
 

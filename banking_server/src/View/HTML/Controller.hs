@@ -1,8 +1,8 @@
 module View.HTML.Controller where
 
-import           Application.BankingAnemic
-import qualified Application.BankingDomain     as Banking
-import           Application.Layer             as App
+import           Application.Anemic.Banking
+import qualified Application.FreeMSF.Banking   as Banking
+import           Application.FreeMSF.Layer     as App
 import           Control.Monad.Except
 import           Data.Text                     as T
 import           Infrastructure.Cache.AppCache (AppCache)
@@ -21,7 +21,7 @@ handleAllCustomers :: AppCache
                    -> Pool.DbPool
                    -> Handler Html
 handleAllCustomers cache p = do
-  cs <- liftIO $ App.runApplicationTX p cache Banking.getAllCustomers 
+  cs <- liftIO $ App.runApplicationTX p cache Banking.getAllCustomers
   return (allCustomersHtml cs)
 
 handleCustomer :: AppCache

@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
-module Domain.Account.Api where
+module Domain.FreeMSF.Account.Api where
 
 import           Control.Monad.Free.Church
 import           Control.Monad.Writer.Lazy
@@ -10,7 +10,7 @@ import           Data.MonadicStreamFunction.InternalCore
 import qualified Data.Text                               as T
 import           Data.Time.Clock
 import           Database.Persist.Sql
-import           Domain.Types
+import           Domain.FreeMSF.Types
 import           Infrastructure.Cache.AppCache
 import qualified Infrastructure.DB.Banking               as DB
 

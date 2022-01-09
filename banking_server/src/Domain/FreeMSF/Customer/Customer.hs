@@ -1,12 +1,12 @@
 {-# LANGUAGE Arrows #-}
-module Domain.Customer.Customer where
+module Domain.FreeMSF.Customer.Customer where
 
 import           Control.Monad.Identity
 import           Data.MonadicStreamFunction              (MSF, arrM, feedback,
                                                           returnA)
 import           Data.MonadicStreamFunction.InternalCore (unMSF)
 import           Data.Text                               as T
-import           Domain.Types
+import           Domain.FreeMSF.Types
 
 data CustomerCommand
   = GetDomainId

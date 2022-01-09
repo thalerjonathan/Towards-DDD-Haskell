@@ -1,6 +1,6 @@
 {-# LANGUAGE Arrows           #-}
 {-# LANGUAGE FlexibleContexts #-}
-module Domain.Account.Impl
+module Domain.FreeMSF.Account.Impl
   ( account
   ) where
 
@@ -8,8 +8,8 @@ import           Control.Monad.Reader
 import           Control.Monad.State
 import           Data.MonadicStreamFunction
 import qualified Data.Text                  as T
-import           Domain.Account.Api
-import           Domain.Types
+import           Domain.FreeMSF.Account.Api
+import           Domain.FreeMSF.Types
 import qualified Infrastructure.DB.Banking  as DB
 
 data AccountRead = AccountRead
