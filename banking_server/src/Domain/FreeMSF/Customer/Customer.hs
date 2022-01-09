@@ -6,7 +6,7 @@ import           Data.MonadicStreamFunction              (MSF, arrM, feedback,
                                                           returnA)
 import           Data.MonadicStreamFunction.InternalCore (unMSF)
 import           Data.Text                               as T
-import           Domain.FreeMSF.Types
+import           Domain.Types
 
 data CustomerCommand
   = GetDomainId

@@ -10,7 +10,7 @@ import           Data.MonadicStreamFunction.InternalCore
 import qualified Data.Text                               as T
 import           Data.Time.Clock
 import           Database.Persist.Sql
-import           Domain.FreeMSF.Types
+import           Domain.Types
 import           Infrastructure.Cache.AppCache
 import qualified Infrastructure.DB.Banking               as DB
 

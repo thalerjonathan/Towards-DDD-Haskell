@@ -9,7 +9,7 @@ import           Control.Monad.State
 import           Data.MonadicStreamFunction
 import qualified Data.Text                  as T
 import           Domain.FreeMSF.Account.Api
-import           Domain.FreeMSF.Types
+import           Domain.Types
 import qualified Infrastructure.DB.Banking  as DB
 
 data AccountRead = AccountRead

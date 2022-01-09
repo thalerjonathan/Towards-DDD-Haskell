@@ -4,6 +4,7 @@ module Application.Eff.Layer where
 
 import           Application.Events
 import           Control.Monad.Reader
+import           Control.Monad.Writer
 import           Data.Text                     as T
 import           Data.Time.Clock
 import           Data.UUID
@@ -11,18 +12,20 @@ import           Data.UUID.V4
 import           Database.Persist.Postgresql
 import           Infrastructure.Cache.AppCache
 import           Infrastructure.DB.Banking     as DB
+import qualified Infrastructure.DB.Pool        as Pool
 
 data AppData = AppData
   { _conn  :: SqlBackend
   , _cache :: AppCache
   }
 
-newtype AppCtx a = AppCtx (ReaderT AppData IO a)
+newtype AppCtx a = AppCtx (ReaderT AppData (WriterT [IO ()] IO) a)
     deriving newtype
         ( Functor
         , Applicative
         , Monad
         , MonadReader AppData
+        , MonadWriter [IO ()]
         , MonadIO
         )
 
@@ -53,3 +56,12 @@ instance ApplicationLayer AppCtx where
 
   nextUUID :: AppCtx UUID
   nextUUID = liftIO nextRandom
+
+runApplicationTX :: Pool.DbPool -> AppCache -> AppCtx a -> IO a
+runApplicationTX p cache (AppCtx prog) = do
+  (ret, postTxActions) <- Pool.runWithTX p (\conn -> do
+    let appData = AppData conn cache
+    runWriterT $ runReaderT prog appData)
+
+  sequence_ postTxActions
+  return ret

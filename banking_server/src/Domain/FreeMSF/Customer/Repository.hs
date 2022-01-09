@@ -5,7 +5,7 @@ import           Control.Monad.Writer.Lazy
 import qualified Data.Text                     as T
 import           Database.Persist.Sql
 import           Domain.FreeMSF.Customer.Customer
-import           Domain.FreeMSF.Types
+import           Domain.Types
 import           Infrastructure.Cache.AppCache
 import           Infrastructure.DB.Banking     as DB
 

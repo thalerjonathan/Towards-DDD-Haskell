@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Application.Eff.Banking
   ( Exception (..)
@@ -6,7 +7,7 @@ module Application.Eff.Banking
   , createAccount
   -}
   , getAllCustomers
-  --, getCustomer
+  , getCustomer
     {-
   , getAccount
   , deposit
@@ -17,14 +18,16 @@ module Application.Eff.Banking
   -}
   ) where
 
-import Application.Eff.Layer
-
--- import           Control.Monad.Except
-import           Application.Exceptions
--- import           Infrastructure.DB.Banking   as DB
 import           Application.DTO
--- import qualified Data.Text                   as T
-
+import           Application.Eff.Layer
+import           Application.Exceptions
+import           Control.Monad.Except
+import qualified Data.Text                      as T
+import           Domain.Eff.Account
+import           Domain.Eff.Account.Repository
+import           Domain.Eff.Customer
+import           Domain.Eff.Customer.Repository
+import           Domain.Types
 {-
 
 import qualified Data.Text.Lazy              as TL
@@ -36,8 +39,6 @@ import           Data.Aeson.Text             as Aeson
 import           Data.Time.Clock
 import           Data.UUID
 import           Data.UUID.V4                (nextRandom)
-
-
 
 data TransferType = Transactional | Eventual
 
@@ -71,25 +72,30 @@ createAccount owner iban balance t conn = do
   return ()
 --}
 
-getAllCustomers :: ApplicationLayer m
+getAllCustomers :: (ApplicationLayer m, CustomerRepo m)
                 => m [CustomerDetailsDTO]
 getAllCustomers = do
   logging Debug "getAllCustomers"
-  --cs <- DB.allCustomers conn
-  --return $ map customerEntityToDetailsDTO cs
-  return []
+  cs <- allCustomers
+  return $ map customerToDetailsDTO cs
 
-{-
-getCustomer :: ApplicationLayer m 
+getCustomer :: (ApplicationLayer m, CustomerRepo m, AccountRepo m, MonadError Exception m)
             => T.Text
-            -> ExceptT Exception m CustomerDTO
+            -> m CustomerDTO
 getCustomer cIdStr = do
-  -- logging Debug "getCustomer"
-  -- c  <- tryMaybe (liftIO $ DB.customerByDomainId cIdStr conn) CustomerNotFound
-  -- as <- liftIO $ DB.accountsOfCustomer cIdStr conn
-  --return $ customerEntityToDTO c as
-  undefined
--}
+  logging Debug "getCustomer"
+  let cid = customerIdFromTextUnsafe cIdStr
+  c  <- tryMaybe' (findCustomerById cid) CustomerNotFound
+  as <- findAccountsForOwner cid
+  return $ customerToDTO c as
+
+tryMaybe' :: (MonadError ex m) => m (Maybe a) -> ex -> m a
+tryMaybe' act ex = do
+  ret <- act
+  case ret of
+    Nothing  -> throwError ex
+    (Just a) -> return a
+
 {-
 getAccount :: T.Text
            -> SqlBackend
@@ -369,23 +375,23 @@ txLineToDTO (Entity _ t) = TXLineDTO
   , txLineAmount    = txLineEntityAmount t
   , txLineTime      = txLineEntityTime t
   }
-
-customerEntityToDetailsDTO :: Entity CustomerEntity -> CustomerDetailsDTO
-customerEntityToDetailsDTO (Entity _ c) = CustomerDetailsDTO
-  { customerDetailsId   = customerEntityDomainId c
-  , customerDetailsName = customerEntityName c
-  }
-
-customerEntityToDTO :: Entity CustomerEntity -> [Entity AccountEntity] -> CustomerDTO
-customerEntityToDTO c as = CustomerDTO
-  { customerDetails        = customerEntityToDetailsDTO c
-  , customerAccountDetails = map accountEntityToDetailsDTO as
-  }
-
-accountEntityToDetailsDTO :: Entity AccountEntity -> AccountDetailsDTO
-accountEntityToDetailsDTO (Entity _ a) = AccountDetailsDTO
-  { accountDetailIban    = accountEntityIban a
-  , accountDetailBalance = accountEntityBalance a
-  , accountDetailType    = T.pack $ show $ accountEntityType a
-  }
 -}
+
+customerToDetailsDTO :: Customer -> CustomerDetailsDTO
+customerToDetailsDTO (Customer cid cname) = CustomerDetailsDTO
+  { customerDetailsId   = customerIdToText cid
+  , customerDetailsName = cname
+  }
+
+customerToDTO :: Customer -> [Account] -> CustomerDTO
+customerToDTO c as = CustomerDTO
+  { customerDetails        = customerToDetailsDTO c
+  , customerAccountDetails = map accountToDetailsDTO as
+  }
+
+accountToDetailsDTO :: Account -> AccountDetailsDTO
+accountToDetailsDTO (Account (Iban aIban) aBalance aType) = AccountDetailsDTO
+  { accountDetailIban    = aIban
+  , accountDetailBalance = aBalance
+  , accountDetailType    = T.pack $ show aType
+  }

@@ -1,6 +1,8 @@
 module View.HTML.Controller where
 
 import           Application.Anemic.Banking
+import qualified Application.Eff.Banking   as EffBanking
+import           Application.Eff.Layer     as EffApp
 import qualified Application.FreeMSF.Banking   as Banking
 import           Application.FreeMSF.Layer     as App
 import           Control.Monad.Except
@@ -21,7 +23,7 @@ handleAllCustomers :: AppCache
                    -> Pool.DbPool
                    -> Handler Html
 handleAllCustomers cache p = do
-  cs <- liftIO $ App.runApplicationTX p cache Banking.getAllCustomers
+  cs <- liftIO $ EffApp.runApplicationTX p cache EffBanking.getAllCustomers
   return (allCustomersHtml cs)
 
 handleCustomer :: AppCache
@@ -29,7 +31,7 @@ handleCustomer :: AppCache
                -> T.Text
                -> Handler Html
 handleCustomer cache p customerId = do
-  ret <- liftIO $ App.runApplicationTX p cache (runExceptT $ Banking.getCustomer customerId)
+  ret <- liftIO $ EffApp.runApplicationTX p cache (runExceptT $ EffBanking.getCustomer customerId)
   case ret of
     (Left err) ->
       redirectToError $ exceptionToErrorMessage err

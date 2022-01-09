@@ -10,7 +10,7 @@ import           Domain.FreeMSF.Account.Api
 import           Domain.FreeMSF.Account.Repository
 import           Domain.FreeMSF.Customer.Customer
 import           Domain.FreeMSF.Customer.Repository
-import           Domain.FreeMSF.Types
+import           Domain.Types
 
 data TransferType = Transactional | Eventual
 

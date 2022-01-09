@@ -61,12 +61,16 @@ executable Banking
                     , Application.DTO
                     , Application.Events
                     , Application.Async
+                    , Domain.Eff.Customer
+                    , Domain.Eff.Customer.Repository
+                    , Domain.Eff.Account
+                    , Domain.Eff.Account.Repository
                     , Domain.FreeMSF.Account.Api
                     , Domain.FreeMSF.Account.Impl
                     , Domain.FreeMSF.Account.Repository
                     , Domain.FreeMSF.Customer.Customer
                     , Domain.FreeMSF.Customer.Repository
-                    , Domain.FreeMSF.Types
+                    , Domain.Types
                     , Infrastructure.Cache.AppCache
                     , Infrastructure.DB.Config
                     , Infrastructure.DB.Banking

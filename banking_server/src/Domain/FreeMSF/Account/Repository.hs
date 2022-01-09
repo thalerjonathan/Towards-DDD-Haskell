@@ -6,7 +6,7 @@ import           Data.UUID
 import           Database.Persist.Sql
 import           Domain.FreeMSF.Account.Api
 import           Domain.FreeMSF.Account.Impl
-import           Domain.FreeMSF.Types
+import           Domain.Types
 import           Infrastructure.Cache.AppCache
 import qualified Infrastructure.DB.Banking     as DB
 
