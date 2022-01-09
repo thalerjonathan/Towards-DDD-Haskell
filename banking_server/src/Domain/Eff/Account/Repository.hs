@@ -21,21 +21,21 @@ instance AccountRepo AppCtx where
     cache <- asks _cache
 
     let accountEntity = DB.AccountEntity (customerIdToText owner) balance iban (accountDomainTypeToDb at)
-    _aid <- liftIO $ DB.insertAccount accountEntity conn
+    aid <- liftIO $ DB.insertAccount accountEntity conn
 
     -- Accounts have changed => simplest solution is to evict their cache region AFTER DB TX has commited
     tell [invalidateCacheRegion cache AccountCache]
 
-    return $ Account i balance at
+    return $ Account aid owner i balance at
 
   findAccountsForOwner :: CustomerId -> AppCtx [Account]
-  findAccountsForOwner (CustomerId cDomainId) = do
+  findAccountsForOwner owner@(CustomerId cDomainId) = do
     conn  <- asks _conn
     cache <- asks _cache
 
     let act = DB.accountsOfCustomer (toText cDomainId) conn
     as <- liftIO $ performCachedAction cache AccountCache ("owner_" ++ show cDomainId) act
-    return $ map (\(Entity _ e) -> Account (Iban $ DB.accountEntityIban e) (DB.accountEntityBalance e) (accountDbTypeToDomain $ DB.accountEntityType e)) as
+    return $ map (\(Entity aid e) -> Account aid owner (Iban $ DB.accountEntityIban e) (DB.accountEntityBalance e) (accountDbTypeToDomain $ DB.accountEntityType e)) as
 
   findAccountByIban :: Iban -> AppCtx (Maybe Account)
   findAccountByIban ib@(Iban i) = do
@@ -46,7 +46,7 @@ instance AccountRepo AppCtx where
     m <- liftIO $ performCachedAction cache AccountCache ("iban_" ++ show i) act
     case m of
       Nothing  -> return Nothing
-      (Just (Entity _ e)) -> return $ Just $ Account ib (DB.accountEntityBalance e) (accountDbTypeToDomain $ DB.accountEntityType e)
+      (Just (Entity aid e)) -> return $ Just $ Account aid (customerIdFromTextUnsafe $ DB.accountEntityOwner e) ib (DB.accountEntityBalance e) (accountDbTypeToDomain $ DB.accountEntityType e)
 
 accountDbTypeToDomain :: DB.AccountEntityType -> Domain.Eff.Account.AccountType
 accountDbTypeToDomain DB.Giro    = Domain.Eff.Account.Giro

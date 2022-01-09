@@ -1,5 +1,8 @@
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
 module Application.Eff.Layer where
 
 import           Application.Events
@@ -41,6 +44,14 @@ class Monad m => ApplicationLayer m where
   logging            :: LogLevel -> T.Text -> m ()
   nextUUID           :: m UUID
 
+{-
+instance MonadError Exception AppCtx where
+  throwError :: e -> m a
+  throwError = lift . throwError
+
+  catchError :: m a -> (e -> m a) -> m a
+  catchError = liftCatch catchError
+-}
 instance ApplicationLayer AppCtx where
   persistDomainEvent :: DomainEvent -> AppCtx ()
   persistDomainEvent evt = do

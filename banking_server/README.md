@@ -2,6 +2,7 @@
 The server implementing the simple Banking Domain
 
 ## TODOs
+- write tests for Eff approach
 - restructure modules according to Defect Process structure
 - increase typesafety using Phantom Types, GADTs,...
   => MSFs getter can return anything, but we want to restrict it to a specific value

@@ -3,8 +3,8 @@ module View.HTML.Controller where
 import           Application.Anemic.Banking
 import qualified Application.Eff.Banking   as EffBanking
 import           Application.Eff.Layer     as EffApp
-import qualified Application.FreeMSF.Banking   as Banking
-import           Application.FreeMSF.Layer     as App
+--import qualified Application.FreeMSF.Banking   as Banking
+--import           Application.FreeMSF.Layer     as App
 import           Control.Monad.Except
 import           Data.Text                     as T
 import           Infrastructure.Cache.AppCache (AppCache)
@@ -45,7 +45,7 @@ handleAccount :: AppCache
               -> T.Text
               -> Handler Html
 handleAccount cache p accIban customerId customerName = do
-  ret <- liftIO $ App.runApplicationTX p cache (runExceptT $ Banking.getAccount accIban)
+  ret <- liftIO $ EffApp.runApplicationTX p cache (runExceptT $ EffBanking.getAccount accIban)
   case ret of
     (Left err) ->
       redirectToError $ exceptionToErrorMessage err
@@ -60,7 +60,7 @@ handleDeposit cache p form = do
   let iban   = accountFormIban form
       amount = accountFormAmount form
 
-  ret <- liftIO $ App.runApplicationTX p cache (runExceptT $ Banking.deposit iban amount)
+  ret <- liftIO $ EffApp.runApplicationTX p cache (runExceptT $ EffBanking.deposit iban amount)
   case ret of
     (Left err) ->
       redirectToError $ exceptionToErrorMessage err
@@ -75,7 +75,7 @@ handleWithdraw cache p form = do
   let iban   = accountFormIban form
       amount = accountFormAmount form
 
-  ret <- liftIO $ App.runApplicationTX p cache (runExceptT $ Banking.withdraw iban amount)
+  ret <- liftIO $ EffApp.runApplicationTX p cache (runExceptT $ EffBanking.withdraw iban amount)
   case ret of
     (Left err) ->
       redirectToError $ exceptionToErrorMessage err
@@ -92,7 +92,7 @@ handleTransfer cache p form = do
         amount    = transferFormAmount form
         reference = transferFormReference form
 
-    ret <- liftIO $ App.runApplicationTX p cache (runExceptT $ Banking.transferEventual fromIban toIban amount reference)
+    ret <- liftIO $ EffApp.runApplicationTX p cache (runExceptT $ EffBanking.transferEventual fromIban toIban amount reference)
     case ret of
       (Left err) ->
         redirectToError $ exceptionToErrorMessage err
