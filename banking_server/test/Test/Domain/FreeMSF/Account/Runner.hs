@@ -1,9 +1,9 @@
-module Test.Domain.Account.Runner where
+module Test.Domain.FreeMSF.Account.Runner where
 
 import           Control.Monad.Free.Church
 import           Control.Monad.State
 import           Data.Time
-import           Domain.Account.Api
+import           Domain.FreeMSF.Account.Api
 import           Domain.Types
 import           Test.Utils.Time
 

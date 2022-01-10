@@ -2,7 +2,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 module Test.BDD.Steps.Transferring where
 
-import           Application.BankingAnemic
+import           Application.Anemic.Banking
 import           Application.DTO
 import           Control.Monad
 import           Control.Monad.Except

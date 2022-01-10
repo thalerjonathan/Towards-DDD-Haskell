@@ -1,15 +1,15 @@
-module Test.Domain.Account.Tests where
+module Test.Domain.FreeMSF.Account.Tests where
 
 import           Data.Text
-import           Domain.Account.Api
+import           Domain.FreeMSF.Account.Api
 import           Domain.Types
-import           Test.Domain.Account.Data
-import           Test.Domain.Account.Runner
+import           Test.Domain.FreeMSF.Account.Data
+import           Test.Domain.FreeMSF.Account.Runner
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
-account_tests :: TestTree
-account_tests = testGroup "Account Tests"
+account_freemsf_tests :: TestTree
+account_freemsf_tests = testGroup "Account FreeMSF Tests"
                   [ deposit_tests
                   ]
 

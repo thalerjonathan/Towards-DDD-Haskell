@@ -4,12 +4,12 @@ import           Data.Maybe
 import qualified Data.Text    as T
 import           Data.UUID
 
-newtype CustomerId = CustomerId UUID deriving Eq
+newtype CustomerId = CustomerId UUID deriving (Eq, Ord)
 
 instance Show CustomerId where
   show (CustomerId cid) = show cid
 
-newtype Iban = Iban T.Text deriving Show
+newtype Iban = Iban T.Text deriving (Show, Eq, Ord)
 type Money   = Double
 
 customerIdFromTextUnsafe :: T.Text -> CustomerId

@@ -157,6 +157,8 @@ test-suite banking-test
 
   -- clean up modules... server and handlers certainly not necessary...
   other-modules:      Application.Anemic.Banking
+                    , Application.Eff.Banking
+                    , Application.Eff.Layer
                     , Application.FreeMSF.Banking
                     , Application.FreeMSF.Layer
                     , Application.Exceptions
@@ -167,7 +169,11 @@ test-suite banking-test
                     , Domain.FreeMSF.Account.Repository
                     , Domain.FreeMSF.Customer.Customer
                     , Domain.FreeMSF.Customer.Repository
-                    , Domain.FreeMSF.Types
+                    , Domain.Eff.Account
+                    , Domain.Eff.Account.Repository
+                    , Domain.Eff.Customer
+                    , Domain.Eff.Customer.Repository
+                    , Domain.Types
                     , Infrastructure.Cache.AppCache
                     , Infrastructure.DB.Config
                     , Infrastructure.DB.Banking
@@ -177,15 +183,24 @@ test-suite banking-test
                     , Test.BDD.Steps.DepositWithdraw
                     , Test.BDD.Steps.Transferring
                     , Test.Domain.Tests
-                    , Test.Domain.Account.Tests
-                    , Test.Domain.Account.Data
-                    , Test.Domain.Account.Runner
+                    , Test.Domain.Utils
+                    , Test.Domain.FreeMSF.Account.Tests
+                    , Test.Domain.FreeMSF.Account.Data
+                    , Test.Domain.FreeMSF.Account.Runner
                     , Test.Application.Tests
-                    , Test.Application.Deposit
-                    , Test.Application.Withdraw
-                    , Test.Application.Transfer
                     , Test.Application.Utils
-                    , Test.Application.Runner
+                    , Test.Application.FreeMSF.Tests
+                    , Test.Application.FreeMSF.Deposit
+                    , Test.Application.FreeMSF.Withdraw
+                    , Test.Application.FreeMSF.Transfer
+                    , Test.Application.FreeMSF.Runner
+                    , Test.Application.Eff.Tests
+                    , Test.Application.Eff.Deposit
+                    , Test.Application.Eff.Withdraw
+                    , Test.Application.Eff.Transfer
+                    , Test.Application.Eff.Runner
+                    , Test.Domain.Eff.Account.Data
+                    , Test.Domain.Eff.Account.Tests
 
   hs-source-dirs:     src/
                     , test
@@ -207,6 +222,7 @@ test-suite banking-test
                     , clock
                     , conduit
                     , configurator
+                    , containers
                     , cucumber-haskell
                     , dunai
                     , effectful

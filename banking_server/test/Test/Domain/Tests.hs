@@ -4,9 +4,11 @@ module Test.Domain.Tests
 
 import           Test.Tasty
 
-import           Test.Domain.Account.Tests
+import           Test.Domain.FreeMSF.Account.Tests
+import           Test.Domain.Eff.Account.Tests
 
 domain_tests :: TestTree
 domain_tests = testGroup "Domain Tests"
-                  [ account_tests
+                  [ account_freemsf_tests
+                  , account_eff_tests
                   ]

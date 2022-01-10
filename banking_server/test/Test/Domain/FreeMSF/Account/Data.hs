@@ -1,18 +1,10 @@
-module Test.Domain.Account.Data where
+module Test.Domain.FreeMSF.Account.Data where
 
-import           Data.Text                 as T
-import           Database.Persist.Sql
-import           Domain.Account.Api
-import           Domain.Account.Impl
-import qualified Infrastructure.DB.Banking as DB
-
-mkAccountKey :: DB.Key DB.AccountEntity
-mkAccountKey =
-    case keyFromValues v of
-      (Left err) -> error $ show err
-      (Right k)  -> k
-  where
-    v = [PersistInt64 0]
+import           Data.Text                   as T
+import           Domain.FreeMSF.Account.Api
+import           Domain.FreeMSF.Account.Impl
+import qualified Infrastructure.DB.Banking   as DB
+import           Test.Domain.Utils
 
 mkTestAccount :: AccountType -> Account
 mkTestAccount at = account e
@@ -21,7 +13,7 @@ mkTestAccount at = account e
           Giro    -> DB.Giro
           Savings -> DB.Savings
 
-    k = mkAccountKey
+    k = mkAccountKey 0
     e = DB.Entity k (DB.AccountEntity {
         DB.accountEntityOwner   = "cad6e64d-23a2-4598-8a77-17d6b8e3733b"
       , DB.accountEntityIban    = "AT12 12345 01234567890"
@@ -36,11 +28,10 @@ mkTestAccountWith at owner iban bal = account e
           Giro    -> DB.Giro
           Savings -> DB.Savings
 
-    k = mkAccountKey
+    k = mkAccountKey 0
     e = DB.Entity k (DB.AccountEntity {
         DB.accountEntityOwner   = owner
       , DB.accountEntityIban    = iban
       , DB.accountEntityBalance = bal
       , DB.accountEntityType    = t
       })
-

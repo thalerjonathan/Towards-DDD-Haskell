@@ -1,17 +1,17 @@
 {-# LANGUAGE RankNTypes #-}
-module Test.Application.Runner where
+module Test.Application.FreeMSF.Runner where
 
-import           Application.Layer
+import           Application.FreeMSF.Layer
 import           Control.Monad.Free.Church
 import           Control.Monad.Identity
 import           Data.Maybe
 import           Data.UUID
-import           Domain.Account.Api
-import           Domain.Account.Repository
-import           Domain.Customer.Customer
-import           Domain.Customer.Repository
+import           Domain.FreeMSF.Account.Api
+import           Domain.FreeMSF.Account.Repository
+import           Domain.FreeMSF.Customer.Customer
+import           Domain.FreeMSF.Customer.Repository
 import           Domain.Types
-import           Test.Domain.Account.Data
+import           Test.Domain.FreeMSF.Account.Data
 
 customerRepoStub :: CustomerRepoLang a -> Identity a
 customerRepoStub (AddCustomer cid cname f) = do

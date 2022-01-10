@@ -1,27 +1,22 @@
-{-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-} -- for more convenience defining mocks
-{-# OPTIONS_GHC -fno-warn-incomplete-patterns     #-} -- for more convenience defining mocks
-{-# LANGUAGE LambdaCase #-}
-module Test.Application.Transfer where
+module Test.Application.Eff.Transfer where
 
-import           Application.BankingDomain as Banking
 import           Application.DTO
+import           Application.Eff.Banking     as Banking
 import           Control.Monad.Except
 import           Data.UUID
-import           Data.UUID.V4              (nextRandom)
-import           Domain.Account.Api
-import           Domain.Account.Repository
-import           Domain.Customer.Customer
-import           Domain.Customer.Repository
+import           Data.UUID.V4                (nextRandom)
+import           Domain.Eff.Account
+import           Domain.Eff.Customer
 import           Domain.Types
-import           Test.Application.Runner
+import           Test.Application.Eff.Runner
 import           Test.Application.Utils
-import           Test.Domain.Account.Data
+import           Test.Domain.Eff.Account.Data
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Utils.Time
 
-transfer_tests :: TestTree
-transfer_tests = testGroup "Transfer Tests"
+transfer_eff_tests :: TestTree
+transfer_eff_tests = testGroup "Transfer Eff Tests"
                       [ given_missingfromaccount_when_transfer_then_exception
                       , given_missingtoaccount_when_transfer_then_exception
                       , given_fromgirotosavingsaccount_when_transfer_then_exception
@@ -32,7 +27,7 @@ transfer_tests = testGroup "Transfer Tests"
                       , given_accountsdifferentcustomers_when_transfer_then_returnTxLine
                       , given_accountssamecustomer_when_transfer_then_returnTxLine
                       ]
-                      
+
 given_missingfromaccount_when_transfer_then_exception :: TestTree
 given_missingfromaccount_when_transfer_then_exception = testCase "Missing from account transfer throws exception" $ do
   let fromIban = "AT12 12345 01234567890"
@@ -40,13 +35,10 @@ given_missingfromaccount_when_transfer_then_exception = testCase "Missing from a
       amount   = 123
       ref      = "Test Transfer"
 
-  let accountRepoMock = (\(FindAccountByIban _ cont) -> return $ cont Nothing)
+      now     = mkUTCTime 2021 03 01 0 0 0
+      appData = mkPureAppData now [] []
 
-  let ret = testApplication
-              (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
-              accountRepoMock
-              undefined
-              undefined
+  let ret = testApplication appData (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
 
   expectAccountNotFound ret
 
@@ -58,16 +50,10 @@ given_missingtoaccount_when_transfer_then_exception = testCase "Missing to accou
       ref      = "Test Transfer"
       fromAcc  = mkTestAccount Giro
 
-  let accountRepoMock = (\(FindAccountByIban (Iban iban) cont) ->
-                              if fromIban == iban
-                                then return $ cont $ Just fromAcc
-                                else return $ cont Nothing)
+      now     = mkUTCTime 2021 03 01 0 0 0
+      appData = mkPureAppData now [(Iban fromIban, fromAcc)] []
 
-  let ret = testApplication
-              (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
-              accountRepoMock
-              undefined
-              undefined
+  let ret = testApplication appData (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
 
   expectAccountNotFound ret
 
@@ -83,16 +69,11 @@ given_fromgirotosavingsaccount_when_transfer_then_exception = testCase "Transfer
       fromAcc  = mkTestAccountWith Giro fromCust fromIban 0
       toAcc    = mkTestAccountWith Savings toCust toIban 0
 
-  let accountRepoMock = (\(FindAccountByIban (Iban iban) cont) ->
-                              if fromIban == iban
-                                then return $ cont $ Just fromAcc
-                                else return $ cont $ Just toAcc)
+      now     = mkUTCTime 2021 03 01 0 0 0 
+      appData = mkPureAppData now [(Iban fromIban, fromAcc), (Iban toIban, toAcc)] []
 
-  let ret = testApplication
-              (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
-              accountRepoMock
-              undefined
-              undefined
+
+  let ret = testApplication appData (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
 
   expectInvalidAccountOp ret "Transfer cannot happen with Savings account of different customers!"
 
@@ -108,18 +89,13 @@ given_fromsavingstogiroaccount_when_transfer_then_exception = testCase "Transfer
       fromAcc  = mkTestAccountWith Savings fromCust fromIban 0
       toAcc    = mkTestAccountWith Giro toCust toIban 0
 
-  let accountRepoMock = (\(FindAccountByIban (Iban iban) cont) ->
-                              if fromIban == iban
-                                then return $ cont $ Just fromAcc
-                                else return $ cont $ Just toAcc)
+      now     = mkUTCTime 2021 03 01 0 0 0
+      appData = mkPureAppData now [(Iban fromIban, fromAcc), (Iban toIban, toAcc)] []
 
-  let ret = testApplication
-              (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
-              accountRepoMock
-              undefined
-              undefined
+  let ret = testApplication appData (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
 
   expectInvalidAccountOp ret "Transfer cannot happen with Savings account of different customers!"
+
 
 given_amountLT5000_when_transfer_then_exception :: TestTree
 given_amountLT5000_when_transfer_then_exception = testCase "Transfering more than 5000 between different customers throws exception" $ do
@@ -133,18 +109,13 @@ given_amountLT5000_when_transfer_then_exception = testCase "Transfering more tha
       fromAcc  = mkTestAccountWith Giro fromCust fromIban 0
       toAcc    = mkTestAccountWith Giro toCust toIban 0
 
-  let accountRepoMock = (\(FindAccountByIban (Iban iban) cont) ->
-                              if fromIban == iban
-                                then return $ cont $ Just fromAcc
-                                else return $ cont $ Just toAcc)
+      now     = mkUTCTime 2021 03 01 0 0 0
+      appData = mkPureAppData now [(Iban fromIban, fromAcc), (Iban toIban, toAcc)] []
 
-  let ret = testApplication
-              (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
-              accountRepoMock
-              undefined
-              undefined
+  let ret = testApplication appData (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
 
   expectInvalidAccountOp ret "Transfer between different customers cannot exceed 5000€!"
+
 
 given_missingfromCustomer_when_transfer_then_exception :: TestTree
 given_missingfromCustomer_when_transfer_then_exception = testCase "Missing from customer throws exception" $ do
@@ -158,25 +129,18 @@ given_missingfromCustomer_when_transfer_then_exception = testCase "Missing from 
       fromAcc  = mkTestAccountWith Giro (toText fromCustId) fromIban 0
       toAcc    = mkTestAccountWith Giro (toText toCustId) toIban 0
 
-      toCust   = customer (CustomerId toCustId) "Thomas Schwarz"
+      toCust   = Customer (CustomerId toCustId) "Thomas Schwarz"
 
-  let accountRepoMock = (\(FindAccountByIban (Iban iban) cont) ->
-                              if fromIban == iban
-                                then return $ cont $ Just fromAcc
-                                else return $ cont $ Just toAcc)
+      now      = mkUTCTime 2021 03 01 0 0 0
+      appData  = mkPureAppData
+                  now
+                  [(Iban fromIban, fromAcc), (Iban toIban, toAcc)]
+                  [(CustomerId toCustId, toCust)]
 
-  let customerRepoMock = (\(FindCustomerById (CustomerId cid) cont) ->
-                              if fromCustId == cid
-                                then return $ cont Nothing
-                                else return $ cont $ Just toCust)
-
-  let ret = testApplication
-              (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
-              accountRepoMock
-              customerRepoMock
-              undefined
+  let ret = testApplication appData (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
 
   expectCustomerNotFound ret
+
 
 given_missingtoCustomer_when_transfer_then_exception :: TestTree
 given_missingtoCustomer_when_transfer_then_exception = testCase "Missing to customer throws exception" $ do
@@ -190,25 +154,18 @@ given_missingtoCustomer_when_transfer_then_exception = testCase "Missing to cust
       fromAcc  = mkTestAccountWith Giro (toText fromCustId) fromIban 0
       toAcc    = mkTestAccountWith Giro (toText toCustId) toIban 0
 
-      fromCust = customer (CustomerId fromCustId) "Jonathan Thaler"
+      fromCust = Customer (CustomerId fromCustId) "Jonathan Thaler"
 
-  let accountRepoMock = (\(FindAccountByIban (Iban iban) cont) ->
-                              if fromIban == iban
-                                then return $ cont $ Just fromAcc
-                                else return $ cont $ Just toAcc)
+      now      = mkUTCTime 2021 03 01 0 0 0
+      appData  = mkPureAppData
+                  now
+                  [(Iban fromIban, fromAcc), (Iban toIban, toAcc)]
+                  [(CustomerId fromCustId, fromCust)]
 
-  let customerRepoMock = (\(FindCustomerById (CustomerId cid) cont) ->
-                              if fromCustId == cid
-                                then return $ cont $ Just fromCust
-                                else return $ cont Nothing)
-
-  let ret = testApplication
-              (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
-              accountRepoMock
-              customerRepoMock
-              undefined
+  let ret = testApplication appData (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
 
   expectCustomerNotFound ret
+
 
 given_accountsdifferentcustomers_when_transfer_then_returnTxLine :: TestTree
 given_accountsdifferentcustomers_when_transfer_then_returnTxLine = testCase "Transfer between accounts of different customers results in TxLine" $ do
@@ -219,35 +176,23 @@ given_accountsdifferentcustomers_when_transfer_then_returnTxLine = testCase "Tra
       toIban   = "AT23 45678 01234567890"
       amount   = 123
       ref      = "Test Transfer"
-      
+
       fromAcc  = mkTestAccountWith Giro (toText fromCustId) fromIban 0
       toAcc    = mkTestAccountWith Giro (toText toCustId) toIban 0
 
-      fromCust = customer (CustomerId fromCustId) "Jonathan Thaler"
-      toCust   = customer (CustomerId toCustId) "Thomas Schwarz"
+      fromCust = Customer (CustomerId fromCustId) "Jonathan Thaler"
+      toCust   = Customer (CustomerId toCustId) "Thomas Schwarz"
 
-      now           = mkUTCTime 2021 03 01 0 0 0
+      now      = mkUTCTime 2021 03 01 0 0 0
+      appData  = mkPureAppData
+                  now
+                  [(Iban fromIban, fromAcc), (Iban toIban, toAcc)]
+                  [(CustomerId fromCustId, fromCust), (CustomerId toCustId, toCust)]
+
+
       txDtoExpected = TXLineDTO toIban "Thomas Schwarz" ref (-amount) now
 
-  let accountRepoMock = (\(FindAccountByIban (Iban iban) cont) ->
-                              if fromIban == iban
-                                then return $ cont $ Just fromAcc
-                                else return $ cont $ Just toAcc)
-
-  let customerRepoMock = (\(FindCustomerById (CustomerId cid) cont) ->
-                              if fromCustId == cid
-                                then return $ cont $ Just fromCust
-                                else return $ cont $ Just toCust)
-
-  let accAggMock =  \case
-                      PersistTXLine _ m i name r cont -> return $ cont $ TXLine m i name r now
-                      UpdateBalance _ _ ret -> return ret
-
-  let ret = testApplication
-              (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
-              accountRepoMock
-              customerRepoMock
-              accAggMock
+  let ret = testApplication appData (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
 
   case ret of
     Left e              -> assertFailure $ "Did not expect exception " ++ show e
@@ -261,31 +206,21 @@ given_accountssamecustomer_when_transfer_then_returnTxLine = testCase "Transfer 
       toIban   = "AT23 45678 01234567890"
       amount   = 5001
       ref      = "Test Transfer"
-      
+
       fromAcc  = mkTestAccountWith Giro (toText custId) fromIban 10000
       toAcc    = mkTestAccountWith Savings (toText custId) toIban 0
 
-      cust = customer (CustomerId custId) "Jonathan Thaler"
+      cust     = Customer (CustomerId custId) "Jonathan Thaler"
 
-      now           = mkUTCTime 2021 03 01 0 0 0
+      now      = mkUTCTime 2021 03 01 0 0 0
+      appData  = mkPureAppData
+                  now
+                  [(Iban fromIban, fromAcc), (Iban toIban, toAcc)]
+                  [(CustomerId custId, cust)]
+
       txDtoExpected = TXLineDTO toIban "Jonathan Thaler" ref (-amount) now
 
-  let accountRepoMock = (\(FindAccountByIban (Iban iban) cont) ->
-                              if fromIban == iban
-                                then return $ cont $ Just fromAcc
-                                else return $ cont $ Just toAcc)
-
-  let customerRepoMock = (\(FindCustomerById _ cont) -> return $ cont $ Just cust)
-
-  let accAggMock =  \case
-                      PersistTXLine _ m i name r cont -> return $ cont $ TXLine m i name r now
-                      UpdateBalance _ _ ret -> return ret
-
-  let ret = testApplication
-              (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
-              accountRepoMock
-              customerRepoMock
-              accAggMock
+  let ret = testApplication appData (runExceptT $ Banking.transferTransactional fromIban toIban amount ref)
 
   case ret of
     Left e              -> assertFailure $ "Did not expect exception " ++ show e

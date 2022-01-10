@@ -1,23 +1,23 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-} -- for more convenience defining mocks
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns     #-} -- for more convenience defining mocks
 {-# LANGUAGE LambdaCase #-}
-module Test.Application.Deposit where
+module Test.Application.FreeMSF.Deposit where
 
-import           Application.BankingDomain as Banking
+import           Application.FreeMSF.Banking as Banking
 import           Application.DTO
 import           Control.Monad.Except
-import           Domain.Account.Api
-import           Domain.Account.Repository
+import           Domain.FreeMSF.Account.Api
+import           Domain.FreeMSF.Account.Repository
 import           Domain.Types
-import           Test.Application.Runner
+import           Test.Application.FreeMSF.Runner
 import           Test.Application.Utils
-import           Test.Domain.Account.Data
+import           Test.Domain.FreeMSF.Account.Data
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Utils.Time
 
-deposit_tests :: TestTree
-deposit_tests = testGroup "Deposit Tests"
+deposit_freemsf_tests :: TestTree
+deposit_freemsf_tests = testGroup "Deposit FreeMSF Tests"
                       [ given_noaccount_when_deposit_then_exception
                       , given_giroinrepo_when_deposit_then_return_new_tx
                       ]

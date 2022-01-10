@@ -6,7 +6,6 @@ import           Control.Monad.Reader
 import           Control.Monad.Writer
 import qualified Data.Text                     as T
 import           Data.Time.Clock
-import           Database.Persist.Sql
 import           Domain.Types
 import           Infrastructure.Cache.AppCache
 import qualified Infrastructure.DB.Banking     as DB
@@ -29,13 +28,15 @@ data TxLine = TxLine
   , _txTime   :: UTCTime
   }
 
+overdraftLimit :: Money
+overdraftLimit = -1000.0
+
 class Monad m => AccountAggregate m where
   accountTxLines     :: Account -> m [TxLine]
   accountDeposit     :: Account -> Money -> ExceptT T.Text m (TxLine, Account)
   accountWithdraw    :: Account -> Money -> ExceptT T.Text m (TxLine, Account)
   accountTransferTo  :: Account -> Iban -> Money -> T.Text -> T.Text -> ExceptT T.Text m (TxLine, Account)
   accountReceiveFrom :: Account -> Iban -> Money -> T.Text -> T.Text -> ExceptT T.Text m (TxLine, Account)
-
 
 instance AccountAggregate AppCtx where
   accountTxLines :: Account -> AppCtx [TxLine]
@@ -60,16 +61,14 @@ instance AccountAggregate AppCtx where
     return txVos
 
   accountDeposit :: Account -> Money -> ExceptT T.Text AppCtx (TxLine, Account)
-  accountDeposit (Account _ _ _ _ Savings) _ 
-    = throwError "Cannot deposit money directly into Savings Account! Use transfer of money from a Giro Account of the same customer."
-  accountDeposit a@(Account aid _owner i balance Giro) amount = do
+  accountDeposit a@(Account aid _owner (Iban i) _balance _atype) amount = do
     conn  <- asks _conn
     cache <- asks _cache
+    now   <- liftIO getCurrentTime
 
-    let newBalance = balance + amount
-        a'         = a { _aBalance = newBalance }
+    (newBalance, tx, a') <- performAccountDeposit a amount now
 
-    tx <- newTxLine aid i amount "Deposit" "Deposit" conn
+    _txKey <- liftIO $ DB.insertTXLine (DB.TxLineEntity aid i amount (_txName tx) (_txRef tx) now) conn
     liftIO $ DB.updateAccountBalance aid newBalance conn
 
     -- TXLines have changed => simplest solution is to evict their cache region AFTER DB TX has commited
@@ -79,18 +78,15 @@ instance AccountAggregate AppCtx where
 
     return (tx, a')
 
-  -- TODO: businees checks!
   accountWithdraw :: Account -> Money -> ExceptT T.Text AppCtx (TxLine, Account)
-  accountWithdraw (Account _ _ _ _ Savings) _ 
-    = throwError "Cannot withdraw money directly from Savings Account! Use transfer of money into a Giro Account of the same customer."
-  accountWithdraw a@(Account aid _owner i balance Giro) amount = do
+  accountWithdraw a@(Account aid _owner (Iban i) _balance _atype) amount = do
     conn  <- asks _conn
     cache <- asks _cache
+    now   <- liftIO getCurrentTime
 
-    let newBalance = balance - amount
-        a'         = a { _aBalance = newBalance }
+    (newBalance, tx, a') <- performAccountWithdraw a amount now
 
-    tx <- newTxLine aid i amount "Withdraw" "Withdraw" conn
+    _txKey <- liftIO $ DB.insertTXLine (DB.TxLineEntity aid i amount (_txName tx) (_txRef tx) now) conn
     liftIO $ DB.updateAccountBalance aid newBalance conn
 
     -- TXLines have changed => simplest solution is to evict their cache region AFTER DB TX has commited
@@ -100,21 +96,103 @@ instance AccountAggregate AppCtx where
 
     return (tx, a')
 
-  accountTransferTo  :: Account -> Iban -> Money -> T.Text -> T.Text -> ExceptT T.Text m (TxLine, Account)
-  accountTransferTo = undefined
+  accountTransferTo  :: Account -> Iban -> Money -> T.Text -> T.Text -> ExceptT T.Text AppCtx (TxLine, Account)
+  accountTransferTo a@(Account aid _owner _i _balance _atype) toIban@(Iban toIbanStr) amount name ref = do
+    conn  <- asks _conn
+    cache <- asks _cache
+    now   <- liftIO getCurrentTime
 
-  accountReceiveFrom :: Account -> Iban -> Money -> T.Text -> T.Text -> ExceptT T.Text m (TxLine, Account)
-  accountReceiveFrom = undefined
+    (newBalance, tx, a') <- performAccounTransferTo a toIban amount name ref now
 
-newTxLine :: MonadIO m 
-          => DB.AccountEntityId
-          -> Iban
-          -> Double
-          -> T.Text
-          -> T.Text
-          -> SqlBackend
-          -> m TxLine
-newTxLine aid i@(Iban ibanStr) amount name ref conn = do
-  now    <- liftIO getCurrentTime
-  _txKey <- liftIO $ DB.insertTXLine (DB.TxLineEntity aid ibanStr amount name ref now) conn
-  return $ TxLine i name ref amount now
+    _txKey <- liftIO $ DB.insertTXLine (DB.TxLineEntity aid toIbanStr amount name ref now) conn
+    liftIO $ DB.updateAccountBalance aid newBalance conn
+
+    -- TXLines have changed => simplest solution is to evict their cache region AFTER DB TX has commited
+    tell [invalidateCacheRegion cache TxLineCache]
+    -- Account has changed => simplest solution is to evict their cache region AFTER DB TX has commited
+    tell [invalidateCacheRegion cache AccountCache]
+
+    return (tx, a')
+
+  accountReceiveFrom :: Account -> Iban -> Money -> T.Text -> T.Text -> ExceptT T.Text AppCtx (TxLine, Account)
+  accountReceiveFrom a@(Account aid _owner _i _balance _atype) fromIban@(Iban fromIbanStr) amount name ref = do
+    conn  <- asks _conn
+    cache <- asks _cache
+    now   <- liftIO getCurrentTime
+
+    (newBalance, tx, a') <- performAccounReceiveFrom a fromIban amount name ref now
+
+    _txKey <- liftIO $ DB.insertTXLine (DB.TxLineEntity aid fromIbanStr amount name ref now) conn
+    liftIO $ DB.updateAccountBalance aid newBalance conn
+
+    -- TXLines have changed => simplest solution is to evict their cache region AFTER DB TX has commited
+    tell [invalidateCacheRegion cache TxLineCache]
+    -- Account has changed => simplest solution is to evict their cache region AFTER DB TX has commited
+    tell [invalidateCacheRegion cache AccountCache]
+
+    return (tx, a')
+
+performAccountDeposit :: Monad m 
+                      => Account 
+                      -> Money 
+                      -> UTCTime
+                      -> ExceptT T.Text m (Money, TxLine, Account)
+performAccountDeposit (Account _ _ _ _ Savings) _ _
+  = throwError "Cannot deposit money directly into Savings Account! Use transfer of money from a Giro Account of the same customer."
+performAccountDeposit a@(Account _ _ i balance Giro) amount now = do
+    let newBalance = balance + amount
+    return (newBalance, tx, a { _aBalance = newBalance })
+  where
+    tx = TxLine i "Deposit" "Deposit" amount now
+
+performAccountWithdraw :: Monad m 
+                       => Account 
+                       -> Money 
+                       -> UTCTime
+                       -> ExceptT T.Text m (Money, TxLine, Account)
+performAccountWithdraw (Account _ _ _ _ Savings) _ _
+  = throwError "Cannot withdraw money directly from Savings Account! Use transfer of money into a Giro Account of the same customer."
+performAccountWithdraw a@(Account _ _ i balance Giro) amount now = do
+    let newBalance = balance - amount
+    if newBalance < overdraftLimit
+      then throwError "Cannot overdraw Giro account by more than -1000!"
+      else return (newBalance, tx, a { _aBalance = newBalance })
+  where
+    tx = TxLine i "Withdraw" "Withdraw" (-amount) now
+
+performAccounTransferTo :: Monad m 
+                        => Account 
+                        -> Iban
+                        -> Money 
+                        -> T.Text
+                        -> T.Text
+                        -> UTCTime
+                        -> ExceptT T.Text m (Money, TxLine, Account)
+performAccounTransferTo a@(Account _ _ _ balance Savings) toIban amount name ref now = do
+    let newBalance = balance - amount
+    if newBalance < 0
+      then throwError "Cannot overdraw Savings account!"
+      else return (newBalance, tx, a { _aBalance = newBalance })
+  where
+    tx = TxLine toIban name ref (-amount) now
+performAccounTransferTo a@(Account _ _ _ balance Giro) toIban amount name ref now = do
+    let newBalance = balance - amount
+    if newBalance < overdraftLimit
+      then throwError "Cannot overdraw Giro account by more than -1000!" 
+      else return (newBalance, tx, a { _aBalance = newBalance })
+  where
+    tx = TxLine toIban name ref (-amount) now
+
+performAccounReceiveFrom :: Monad m 
+                         => Account 
+                         -> Iban
+                         -> Money 
+                         -> T.Text
+                         -> T.Text
+                         -> UTCTime
+                         -> ExceptT T.Text m (Money, TxLine, Account)
+performAccounReceiveFrom a@(Account _ _ _ balance _) fromIban amount name ref now = do
+    let newBalance = balance + amount
+    return (newBalance, tx, a { _aBalance = newBalance })
+  where
+    tx = TxLine fromIban name ref amount now
