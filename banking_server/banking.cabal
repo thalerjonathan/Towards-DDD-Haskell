@@ -106,7 +106,6 @@ executable Banking
                     , conduit
                     , configurator
                     , dunai
-                    , effectful
                     , either
                     , free
                     , hashable
