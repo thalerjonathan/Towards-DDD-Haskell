@@ -1,18 +1,18 @@
-module Test.Domain.Eff.Account.Tests where
+module Test.Domain.Tagless.Account.Tests where
 
 import           Control.Monad.Except
 import qualified Data.Text                   as T
-import           Domain.Eff.Account
+import           Domain.Tagless.Account
 import           Domain.Types
-import           Test.Application.Eff.Runner
-import           Test.Domain.Eff.Account.Data
+import           Test.Application.Tagless.Runner
+import           Test.Domain.Tagless.Account.Data
 import           Test.Domain.Utils
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Utils.Time
 
-account_eff_tests :: TestTree
-account_eff_tests = testGroup "Account Free Tests"
+account_tagless_tests :: TestTree
+account_tagless_tests = testGroup "Account Tagless Tests"
                   [ deposit_tests
                   ]
 

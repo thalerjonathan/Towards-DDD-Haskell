@@ -1,19 +1,19 @@
-module Test.Application.Eff.Deposit where
+module Test.Application.Tagless.Deposit where
 
 import           Application.DTO
-import           Application.Eff.Banking     as Banking
+import           Application.Tagless.Banking     as Banking
 import           Control.Monad.Except
-import           Domain.Eff.Account
+import           Domain.Tagless.Account
 import           Domain.Types
-import           Test.Application.Eff.Runner
+import           Test.Application.Tagless.Runner
 import           Test.Application.Utils
-import           Test.Domain.Eff.Account.Data
+import           Test.Domain.Tagless.Account.Data
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Utils.Time
 
-deposit_eff_tests :: TestTree
-deposit_eff_tests = testGroup "Deposit Eff Tests"
+deposit_tagless_tests :: TestTree
+deposit_tagless_tests = testGroup "Deposit Tagless Tests"
                       [ given_noaccount_when_deposit_then_exception
                       , given_giroinrepo_when_deposit_then_return_new_tx
                       ]

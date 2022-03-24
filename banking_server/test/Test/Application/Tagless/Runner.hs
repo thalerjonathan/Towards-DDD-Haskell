@@ -1,8 +1,8 @@
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-module Test.Application.Eff.Runner where
+module Test.Application.Tagless.Runner where
 
-import           Application.Eff.Layer
+import           Application.Tagless.Layer
 import           Application.Events
 import           Control.Monad.Except
 import           Control.Monad.Reader
@@ -10,10 +10,10 @@ import qualified Data.Map                       as Map
 import           Data.Text                      as T
 import           Data.Time.Clock
 import           Data.UUID
-import           Domain.Eff.Account
-import           Domain.Eff.Account.Repository
-import           Domain.Eff.Customer
-import           Domain.Eff.Customer.Repository
+import           Domain.Tagless.Account
+import           Domain.Tagless.Account.Repository
+import           Domain.Tagless.Customer
+import           Domain.Tagless.Customer.Repository
 import           Domain.Types
 import           Test.Domain.Utils
 

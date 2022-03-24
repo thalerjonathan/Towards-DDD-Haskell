@@ -3,7 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
-module Application.Eff.Layer where
+module Application.Tagless.Layer where
 
 import           Application.Events
 import           Control.Monad.Reader

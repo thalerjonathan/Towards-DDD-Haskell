@@ -1,4 +1,4 @@
-module Domain.Eff.Customer where
+module Domain.Tagless.Customer where
   
 import           Data.Text                               as T
 import           Domain.Types

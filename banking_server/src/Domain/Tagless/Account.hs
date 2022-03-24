@@ -1,6 +1,6 @@
-module Domain.Eff.Account where
+module Domain.Tagless.Account where
 
-import           Application.Eff.Layer
+import           Application.Tagless.Layer
 import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.Writer

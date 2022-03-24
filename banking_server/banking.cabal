@@ -53,18 +53,18 @@ executable Banking
 
   -- Modules included in this executable, other than Main.
   other-modules:      Application.Anemic.Banking
-                    , Application.Eff.Banking
-                    , Application.Eff.Layer
+                    , Application.Tagless.Banking
+                    , Application.Tagless.Layer
                     , Application.FreeMSF.Banking
                     , Application.FreeMSF.Layer
                     , Application.Exceptions
                     , Application.DTO
                     , Application.Events
                     , Application.Async
-                    , Domain.Eff.Customer
-                    , Domain.Eff.Customer.Repository
-                    , Domain.Eff.Account
-                    , Domain.Eff.Account.Repository
+                    , Domain.Tagless.Customer
+                    , Domain.Tagless.Customer.Repository
+                    , Domain.Tagless.Account
+                    , Domain.Tagless.Account.Repository
                     , Domain.FreeMSF.Account.Api
                     , Domain.FreeMSF.Account.Impl
                     , Domain.FreeMSF.Account.Repository
@@ -145,6 +145,8 @@ executable Banking
                       -Wincomplete-uni-patterns
                       -Wpartial-fields
                       -Wredundant-constraints
+                      -flate-specialise
+                      -fspecialise-aggressively
 
   -- Base language which the package is written in.
   default-language:    Haskell2010
@@ -156,8 +158,8 @@ test-suite banking-test
 
   -- clean up modules... server and handlers certainly not necessary...
   other-modules:      Application.Anemic.Banking
-                    , Application.Eff.Banking
-                    , Application.Eff.Layer
+                    , Application.Tagless.Banking
+                    , Application.Tagless.Layer
                     , Application.FreeMSF.Banking
                     , Application.FreeMSF.Layer
                     , Application.Exceptions
@@ -168,10 +170,10 @@ test-suite banking-test
                     , Domain.FreeMSF.Account.Repository
                     , Domain.FreeMSF.Customer.Customer
                     , Domain.FreeMSF.Customer.Repository
-                    , Domain.Eff.Account
-                    , Domain.Eff.Account.Repository
-                    , Domain.Eff.Customer
-                    , Domain.Eff.Customer.Repository
+                    , Domain.Tagless.Account
+                    , Domain.Tagless.Account.Repository
+                    , Domain.Tagless.Customer
+                    , Domain.Tagless.Customer.Repository
                     , Domain.Types
                     , Infrastructure.Cache.AppCache
                     , Infrastructure.DB.Config
@@ -193,13 +195,13 @@ test-suite banking-test
                     , Test.Application.FreeMSF.Withdraw
                     , Test.Application.FreeMSF.Transfer
                     , Test.Application.FreeMSF.Runner
-                    , Test.Application.Eff.Tests
-                    , Test.Application.Eff.Deposit
-                    , Test.Application.Eff.Withdraw
-                    , Test.Application.Eff.Transfer
-                    , Test.Application.Eff.Runner
-                    , Test.Domain.Eff.Account.Data
-                    , Test.Domain.Eff.Account.Tests
+                    , Test.Application.Tagless.Tests
+                    , Test.Application.Tagless.Deposit
+                    , Test.Application.Tagless.Withdraw
+                    , Test.Application.Tagless.Transfer
+                    , Test.Application.Tagless.Runner
+                    , Test.Domain.Tagless.Account.Data
+                    , Test.Domain.Tagless.Account.Tests
 
   hs-source-dirs:     src/
                     , test
@@ -213,6 +215,8 @@ test-suite banking-test
                       -Wincomplete-uni-patterns
                       -Wpartial-fields
                       -Wredundant-constraints
+                      -flate-specialise
+                      -fspecialise-aggressively
 
   build-depends:      base
                     , aeson
@@ -224,7 +228,6 @@ test-suite banking-test
                     , containers
                     , cucumber-haskell
                     , dunai
-                    , effectful
                     , either
                     , free
                     , hashable

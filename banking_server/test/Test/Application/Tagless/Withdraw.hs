@@ -1,19 +1,19 @@
-module Test.Application.Eff.Withdraw where
+module Test.Application.Tagless.Withdraw where
 
 import           Application.DTO
-import           Application.Eff.Banking     as Banking
+import           Application.Tagless.Banking     as Banking
 import           Control.Monad.Except
-import           Domain.Eff.Account
+import           Domain.Tagless.Account
 import           Domain.Types
-import           Test.Application.Eff.Runner
+import           Test.Application.Tagless.Runner
 import           Test.Application.Utils
-import           Test.Domain.Eff.Account.Data
+import           Test.Domain.Tagless.Account.Data
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Utils.Time
 
-withdraw_eff_tests :: TestTree
-withdraw_eff_tests = testGroup "Withdraw Eff Tests"
+withdraw_tagless_tests :: TestTree
+withdraw_tagless_tests = testGroup "Withdraw Tagless Tests"
                       [ given_noaccount_when_withdraw_then_exception
                       , given_giroinrepo_when_withdraw_then_return_new_tx
                       ]

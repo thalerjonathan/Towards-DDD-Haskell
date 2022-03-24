@@ -1,10 +1,10 @@
-module Domain.Eff.Account.Repository where
+module Domain.Tagless.Account.Repository where
 
-import           Application.Eff.Layer
+import           Application.Tagless.Layer
 import           Control.Monad.Reader
 import           Control.Monad.Writer
 import           Data.UUID
-import           Domain.Eff.Account
+import           Domain.Tagless.Account
 import           Domain.Types
 import           Infrastructure.Cache.AppCache
 import           Infrastructure.DB.Banking     as DB
@@ -48,10 +48,10 @@ instance AccountRepo AppCtx where
       Nothing  -> return Nothing
       (Just (Entity aid e)) -> return $ Just $ Account aid (customerIdFromTextUnsafe $ DB.accountEntityOwner e) ib (DB.accountEntityBalance e) (accountDbTypeToDomain $ DB.accountEntityType e)
 
-accountDbTypeToDomain :: DB.AccountEntityType -> Domain.Eff.Account.AccountType
-accountDbTypeToDomain DB.Giro    = Domain.Eff.Account.Giro
-accountDbTypeToDomain DB.Savings = Domain.Eff.Account.Savings
+accountDbTypeToDomain :: DB.AccountEntityType -> Domain.Tagless.Account.AccountType
+accountDbTypeToDomain DB.Giro    = Domain.Tagless.Account.Giro
+accountDbTypeToDomain DB.Savings = Domain.Tagless.Account.Savings
 
-accountDomainTypeToDb :: Domain.Eff.Account.AccountType -> DB.AccountEntityType
-accountDomainTypeToDb Domain.Eff.Account.Giro    = DB.Giro
-accountDomainTypeToDb Domain.Eff.Account.Savings = DB.Savings
+accountDomainTypeToDb :: Domain.Tagless.Account.AccountType -> DB.AccountEntityType
+accountDomainTypeToDb Domain.Tagless.Account.Giro    = DB.Giro
+accountDomainTypeToDb Domain.Tagless.Account.Savings = DB.Savings

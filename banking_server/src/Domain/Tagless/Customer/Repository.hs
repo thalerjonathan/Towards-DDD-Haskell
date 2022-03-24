@@ -1,10 +1,10 @@
-module Domain.Eff.Customer.Repository where
+module Domain.Tagless.Customer.Repository where
 
-import           Application.Eff.Layer
+import           Application.Tagless.Layer
 import           Control.Monad.Reader
 import           Control.Monad.Writer
 import qualified Data.Text                     as T
-import           Domain.Eff.Customer
+import           Domain.Tagless.Customer
 import           Domain.Types
 import           Infrastructure.Cache.AppCache
 import           Infrastructure.DB.Banking     as DB

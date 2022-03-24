@@ -1,8 +1,8 @@
 module View.HTML.Controller where
 
 import           Application.Anemic.Banking
-import qualified Application.Eff.Banking   as EffBanking
-import           Application.Eff.Layer     as EffApp
+import qualified Application.Tagless.Banking   as TaglessBanking
+import           Application.Tagless.Layer     as TaglessApp
 --import qualified Application.FreeMSF.Banking   as Banking
 --import           Application.FreeMSF.Layer     as App
 import           Control.Monad.Except
@@ -23,7 +23,7 @@ handleAllCustomers :: AppCache
                    -> Pool.DbPool
                    -> Handler Html
 handleAllCustomers cache p = do
-  cs <- liftIO $ EffApp.runApplicationTX p cache EffBanking.getAllCustomers
+  cs <- liftIO $ TaglessApp.runApplicationTX p cache TaglessBanking.getAllCustomers
   return (allCustomersHtml cs)
 
 handleCustomer :: AppCache
@@ -31,7 +31,7 @@ handleCustomer :: AppCache
                -> T.Text
                -> Handler Html
 handleCustomer cache p customerId = do
-  ret <- liftIO $ EffApp.runApplicationTX p cache (runExceptT $ EffBanking.getCustomer customerId)
+  ret <- liftIO $ TaglessApp.runApplicationTX p cache (runExceptT $ TaglessBanking.getCustomer customerId)
   case ret of
     (Left err) ->
       redirectToError $ exceptionToErrorMessage err
@@ -45,7 +45,7 @@ handleAccount :: AppCache
               -> T.Text
               -> Handler Html
 handleAccount cache p accIban customerId customerName = do
-  ret <- liftIO $ EffApp.runApplicationTX p cache (runExceptT $ EffBanking.getAccount accIban)
+  ret <- liftIO $ TaglessApp.runApplicationTX p cache (runExceptT $ TaglessBanking.getAccount accIban)
   case ret of
     (Left err) ->
       redirectToError $ exceptionToErrorMessage err
@@ -60,7 +60,7 @@ handleDeposit cache p form = do
   let iban   = accountFormIban form
       amount = accountFormAmount form
 
-  ret <- liftIO $ EffApp.runApplicationTX p cache (runExceptT $ EffBanking.deposit iban amount)
+  ret <- liftIO $ TaglessApp.runApplicationTX p cache (runExceptT $ TaglessBanking.deposit iban amount)
   case ret of
     (Left err) ->
       redirectToError $ exceptionToErrorMessage err
@@ -75,7 +75,7 @@ handleWithdraw cache p form = do
   let iban   = accountFormIban form
       amount = accountFormAmount form
 
-  ret <- liftIO $ EffApp.runApplicationTX p cache (runExceptT $ EffBanking.withdraw iban amount)
+  ret <- liftIO $ TaglessApp.runApplicationTX p cache (runExceptT $ TaglessBanking.withdraw iban amount)
   case ret of
     (Left err) ->
       redirectToError $ exceptionToErrorMessage err
@@ -92,7 +92,7 @@ handleTransfer cache p form = do
         amount    = transferFormAmount form
         reference = transferFormReference form
 
-    ret <- liftIO $ EffApp.runApplicationTX p cache (runExceptT $ EffBanking.transferEventual fromIban toIban amount reference)
+    ret <- liftIO $ TaglessApp.runApplicationTX p cache (runExceptT $ TaglessBanking.transferEventual fromIban toIban amount reference)
     case ret of
       (Left err) ->
         redirectToError $ exceptionToErrorMessage err

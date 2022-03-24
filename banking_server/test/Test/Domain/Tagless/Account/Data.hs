@@ -1,7 +1,7 @@
-module Test.Domain.Eff.Account.Data where
+module Test.Domain.Tagless.Account.Data where
 
 import           Data.Text          as T
-import           Domain.Eff.Account
+import           Domain.Tagless.Account
 import           Domain.Types
 import           Test.Domain.Utils
 

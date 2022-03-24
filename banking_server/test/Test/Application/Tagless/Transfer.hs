@@ -1,22 +1,22 @@
-module Test.Application.Eff.Transfer where
+module Test.Application.Tagless.Transfer where
 
 import           Application.DTO
-import           Application.Eff.Banking     as Banking
+import           Application.Tagless.Banking     as Banking
 import           Control.Monad.Except
 import           Data.UUID
 import           Data.UUID.V4                (nextRandom)
-import           Domain.Eff.Account
-import           Domain.Eff.Customer
+import           Domain.Tagless.Account
+import           Domain.Tagless.Customer
 import           Domain.Types
-import           Test.Application.Eff.Runner
+import           Test.Application.Tagless.Runner
 import           Test.Application.Utils
-import           Test.Domain.Eff.Account.Data
+import           Test.Domain.Tagless.Account.Data
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Utils.Time
 
-transfer_eff_tests :: TestTree
-transfer_eff_tests = testGroup "Transfer Eff Tests"
+transfer_tagless_tests :: TestTree
+transfer_tagless_tests = testGroup "Transfer Tagless Tests"
                       [ given_missingfromaccount_when_transfer_then_exception
                       , given_missingtoaccount_when_transfer_then_exception
                       , given_fromgirotosavingsaccount_when_transfer_then_exception

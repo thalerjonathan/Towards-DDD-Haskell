@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Application.Eff.Banking
+module Application.Tagless.Banking
   ( Exception (..)
 
   , createCustomer
@@ -16,15 +16,15 @@ module Application.Eff.Banking
   ) where
 
 import           Application.DTO
-import           Application.Eff.Layer
+import           Application.Tagless.Layer
 import           Application.Events             as Events
 import           Application.Exceptions
 import           Control.Monad.Except
 import qualified Data.Text                      as T
-import           Domain.Eff.Account
-import           Domain.Eff.Account.Repository
-import           Domain.Eff.Customer
-import           Domain.Eff.Customer.Repository
+import           Domain.Tagless.Account
+import           Domain.Tagless.Account.Repository
+import           Domain.Tagless.Customer
+import           Domain.Tagless.Customer.Repository
 import           Domain.Types
 
 {-
